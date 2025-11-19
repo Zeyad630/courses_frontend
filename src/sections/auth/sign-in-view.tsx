@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import Box from '@mui/material/Box';
 import Link from '@mui/material/Link';
@@ -12,6 +13,8 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import InputAdornment from '@mui/material/InputAdornment';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { useRouter } from 'src/routes/hooks';
 
@@ -24,6 +27,7 @@ import { Iconify } from 'src/components/iconify';
 export function SignInView() {
   const router = useRouter();
   const { login } = useAuth();
+  const { t, i18n } = useTranslation();
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('admin@school.com');
@@ -31,10 +35,11 @@ export function SignInView() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [language, setLanguage] = useState(i18n.language);
 
   const handleSignIn = useCallback(async () => {
     if (!email || !password) {
-      setError('Please enter both email and password');
+      setError(t('auth.pleaseEnterBoth'));
       return;
     }
 
@@ -45,11 +50,18 @@ export function SignInView() {
       await login(email, password);
       router.push('/');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid email or password');
+      setError(err instanceof Error ? err.message : t('auth.invalidCredentials'));
     } finally {
       setLoading(false);
     }
-  }, [email, password, login, router]);
+  }, [email, password, login, router, t]);
+
+  const handleLanguageChange = (event: React.MouseEvent<HTMLElement>, newLanguage: string | null) => {
+    if (newLanguage) {
+      setLanguage(newLanguage);
+      i18n.changeLanguage(newLanguage);
+    }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -68,7 +80,7 @@ export function SignInView() {
       <TextField
         fullWidth
         name="email"
-        label="Email address"
+        label={t('auth.email')}
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         onKeyPress={handleKeyPress}
@@ -99,7 +111,7 @@ export function SignInView() {
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-            Password
+            {t('auth.password')}
           </Typography>
           <Link
             href="#"
@@ -110,13 +122,13 @@ export function SignInView() {
               '&:hover': { textDecoration: 'underline' },
             }}
           >
-            Forgot password?
+            {t('auth.forgotPassword')}
           </Link>
         </Box>
         <TextField
           fullWidth
           name="password"
-          label="Enter your password"
+          label={t('auth.enterPassword')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onKeyPress={handleKeyPress}
@@ -175,7 +187,7 @@ export function SignInView() {
         }
         label={
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Remember me for 30 days
+            {t('auth.rememberMe')}
           </Typography>
         }
       />
@@ -205,13 +217,42 @@ export function SignInView() {
           },
         }}
       >
-        {loading ? 'Signing in...' : 'Sign in'}
+        {loading ? t('auth.signingIn') : t('auth.signIn')}
       </Button>
     </Box>
   );
 
   return (
     <Box sx={{ width: '100%' }}>
+      {/* Language Toggle */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+        <ToggleButtonGroup
+          value={language}
+          exclusive
+          onChange={handleLanguageChange}
+          size="small"
+          sx={{
+            '& .MuiToggleButton-root': {
+              px: 2,
+              py: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+              '&.Mui-selected': {
+                bgcolor: 'primary.main',
+                color: 'white',
+                borderColor: 'primary.main',
+                '&:hover': {
+                  bgcolor: 'primary.dark',
+                },
+              },
+            },
+          }}
+        >
+          <ToggleButton value="en">{t('common.english')}</ToggleButton>
+          <ToggleButton value="ar">{t('common.arabic')}</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+
       {/* Header Section */}
       <Box
         sx={{
@@ -234,10 +275,10 @@ export function SignInView() {
               WebkitTextFillColor: 'transparent',
             }}
           >
-            Welcome Back
+            {t('auth.welcomeBack')}
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 300 }}>
-            Sign in to your account to access courses, assignments, and more
+            {t('auth.signInDescription')}
           </Typography>
         </Box>
       </Box>
@@ -271,7 +312,7 @@ export function SignInView() {
             letterSpacing: 0.5,
           }}
         >
-          Or continue with
+          {t('auth.continueWith')}
         </Typography>
       </Divider>
 
@@ -343,7 +384,7 @@ export function SignInView() {
       {/* Sign Up Link */}
       <Box sx={{ textAlign: 'center' }}>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Don&apos;t have an account?{' '}
+          {t('auth.dontHaveAccount')}{' '}
           <Link
             href="#"
             sx={{
@@ -353,7 +394,7 @@ export function SignInView() {
               '&:hover': { textDecoration: 'underline' },
             }}
           >
-            Create one
+            {t('auth.createOne')}
           </Link>
         </Typography>
       </Box>
@@ -370,19 +411,19 @@ export function SignInView() {
         }}
       >
         <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'primary.dark' }}>
-          Demo Credentials:
+          {t('auth.demoCredentials')}
         </Typography>
         <Typography variant="caption" sx={{ display: 'block', color: 'primary.dark' }}>
-          • Admin: admin@school.com / admin123
+          • {t('auth.admin')}: admin@school.com / admin123
         </Typography>
         <Typography variant="caption" sx={{ display: 'block', color: 'primary.dark' }}>
-          • Instructor: instructor@school.com / instructor123
+          • {t('auth.instructor')}: instructor@school.com / instructor123
         </Typography>
         <Typography variant="caption" sx={{ display: 'block', color: 'primary.dark' }}>
-          • Student: student@school.com / student123
+          • {t('auth.student')}: student@school.com / student123
         </Typography>
         <Typography variant="caption" sx={{ display: 'block', color: 'primary.dark', mt: 1 }}>
-          • Demo: hello@gmail.com / @demo1234
+          • {t('auth.demo')}: hello@gmail.com / @demo1234
         </Typography>
       </Box>
     </Box>

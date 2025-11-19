@@ -1,10 +1,10 @@
 import { usePageTitle } from 'src/hooks';
 
-import { CoursesView } from 'src/sections/courses/view/courses-view';
+import { CoursesListView } from 'src/sections/courses/courses-list-view';
 
 // ----------------------------------------------------------------------
 
 export default function Page() {
   usePageTitle('Courses');
-  return <CoursesView />;
+  return <CoursesListView />;
 }
