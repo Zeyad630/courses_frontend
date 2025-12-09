@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -99,8 +99,7 @@ const mockCourses = [
 ];
 
 export function CoursesView() {
-  const navigate = useNavigate();
-  const { user, hasRole } = useAuth();
+  const { hasRole } = useAuth();
   const [courses] = useState(mockCourses);
   const [applicationDialog, setApplicationDialog] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);

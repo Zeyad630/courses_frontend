@@ -159,7 +159,6 @@ function TabPanel(props: any) {
 }
 
 export function CoursesAdvancedView() {
-  const { user } = useAuth();
   const [courses] = useState(mockCourses);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -303,6 +302,8 @@ export function CoursesAdvancedView() {
           </Tabs>
         </Card>
 
+
+
         {/* Courses Grid */}
         <TabPanel value={tabValue} index={0}>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
@@ -315,9 +316,14 @@ export function CoursesAdvancedView() {
                     flexDirection: 'column',
                     transition: 'all 0.3s ease',
                     boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(22, 28, 36, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid',
+                    borderColor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.3)',
                     '&:hover': {
                       transform: 'translateY(-8px)',
-                      boxShadow: '0 12px 32px rgba(0, 0, 0, 0.16)',
+                      boxShadow: (theme) => `0 12px 32px ${theme.palette.primary.main}40`,
+                      bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(22, 28, 36, 0.9)' : 'rgba(255, 255, 255, 0.9)',
                     },
                   }}
                 >

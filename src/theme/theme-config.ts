@@ -38,19 +38,19 @@ export const themeConfig: ThemeConfig = {
    *************************************** */
   palette: {
     primary: {
-      lighter: '#FFE9E9',
-      light: '#FF9999',
-      main: '#DC2626',
-      dark: '#B91C1C',
-      darker: '#7F1D1D',
+      lighter: '#E0E7FF', // Indigo 100
+      light: '#A5B4FC',   // Indigo 300
+      main: '#6366F1',    // Indigo 500
+      dark: '#4338CA',    // Indigo 700
+      darker: '#312E81',  // Indigo 900
       contrastText: '#FFFFFF',
     },
     secondary: {
-      lighter: '#FEF2F2',
-      light: '#FECACA',
-      main: '#EF4444',
-      dark: '#DC2626',
-      darker: '#991B1B',
+      lighter: '#F3E8FF', // Purple 100
+      light: '#D8B4FE',   // Purple 300
+      main: '#A855F7',    // Purple 500
+      dark: '#7E22CE',    // Purple 700
+      darker: '#581C87',  // Purple 900
       contrastText: '#FFFFFF',
     },
     info: {
@@ -86,16 +86,16 @@ export const themeConfig: ThemeConfig = {
       contrastText: '#FFFFFF',
     },
     grey: {
-      '50': '#FCFDFD',
-      '100': '#F9FAFB',
-      '200': '#F4F6F8',
-      '300': '#DFE3E8',
-      '400': '#C4CDD5',
-      '500': '#919EAB',
-      '600': '#637381',
-      '700': '#454F5B',
-      '800': '#1C252E',
-      '900': '#141A21',
+      '50': '#F9FAFB',
+      '100': '#F3F4F6',
+      '200': '#E5E7EB',
+      '300': '#D1D5DB',
+      '400': '#9CA3AF',
+      '500': '#6B7280',
+      '600': '#4B5563',
+      '700': '#374151',
+      '800': '#1F2937',
+      '900': '#111827',
     },
     common: { black: '#000000', white: '#FFFFFF' },
   },

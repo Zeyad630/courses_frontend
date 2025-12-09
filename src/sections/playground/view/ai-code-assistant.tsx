@@ -125,6 +125,7 @@ export function AICodeAssistant({ currentCode, language, onCodeSuggestion }: AIA
       setResponse(aiResponse);
       setSuggestions(codeSuggestions);
     } catch (error) {
+      console.error(error);
       setResponse('Error getting AI response. Please try again.');
     } finally {
       setLoading(false);

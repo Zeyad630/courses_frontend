@@ -50,9 +50,8 @@ function TabPanel(props: any) {
 export function AssignmentCodeEditor({ assignment, onSubmit }: AssignmentCodeEditorProps) {
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState(assignment.starterCode);
-  const [language, setLanguage] = useState(assignment.language);
+  const [language] = useState(assignment.language);
   const [tabValue, setTabValue] = useState(0);
-  const [showHints, setShowHints] = useState(false);
   const [currentHintIndex, setCurrentHintIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);

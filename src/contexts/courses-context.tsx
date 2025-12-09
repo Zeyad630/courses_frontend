@@ -1,6 +1,6 @@
 import type { Course, CreateCourseInput, UpdateCourseInput } from 'src/types/course';
 
-import { useMemo, useCallback, createContext, useContext, useReducer } from 'react';
+import { useMemo, useContext, useReducer, useCallback, createContext } from 'react';
 
 import { mockCourses } from 'src/_mock/courses';
 

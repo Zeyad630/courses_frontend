@@ -97,7 +97,7 @@ const getStatusLabel = (status: string) => {
 };
 
 export function MyCoursesView() {
-  const { user, hasRole } = useAuth();
+  const { hasRole } = useAuth();
   const [enrolledCourses] = useState(mockEnrolledCourses);
 
   const activeCourses = enrolledCourses.filter(course => course.status === 'active');

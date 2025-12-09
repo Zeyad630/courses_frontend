@@ -7,7 +7,7 @@ import { InstructorDashboardView } from 'src/sections/instructor/view/instructor
 // ----------------------------------------------------------------------
 
 export function RoleDashboardView() {
-  const { user, hasRole } = useAuth();
+  const { hasRole } = useAuth();
 
   if (hasRole('admin')) {
     return <AdminDashboardView />;

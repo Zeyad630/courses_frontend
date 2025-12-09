@@ -10,7 +10,7 @@ import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { useAuth } from 'src/contexts/simple-auth-context';
+
 
 import { Iconify } from 'src/components/iconify';
 
@@ -32,9 +32,8 @@ const mockPaymentData = {
 };
 
 export function PaymentView({ applicationId }: PaymentViewProps) {
-  const { user } = useAuth();
   const [paymentData] = useState(mockPaymentData);
-  const [paymentMethod, setPaymentMethod] = useState('credit_card');
+  const [paymentMethod] = useState('credit_card');
   const [cardNumber, setCardNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');

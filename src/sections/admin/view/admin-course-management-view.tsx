@@ -1,3 +1,5 @@
+import type { Course, CourseLevel, CreateCourseInput, UpdateCourseInput } from 'src/types/course';
+
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -7,32 +9,31 @@ import Card from '@mui/material/Card';
 import Tabs from '@mui/material/Tabs';
 import Table from '@mui/material/Table';
 import Paper from '@mui/material/Paper';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import Select from '@mui/material/Select';
 import TableRow from '@mui/material/TableRow';
+import MenuItem from '@mui/material/MenuItem';
 import Container from '@mui/material/Container';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import InputLabel from '@mui/material/InputLabel';
+import IconButton from '@mui/material/IconButton';
 import CardContent from '@mui/material/CardContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControl from '@mui/material/FormControl';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TableContainer from '@mui/material/TableContainer';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import IconButton from '@mui/material/IconButton';
-import Alert from '@mui/material/Alert';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useCoursesContext } from 'src/contexts/courses-context';
-import { Iconify } from 'src/components/iconify';
 
-import type { Course, CreateCourseInput, UpdateCourseInput, CourseLevel } from 'src/types/course';
+import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 

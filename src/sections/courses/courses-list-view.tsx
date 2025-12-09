@@ -1,32 +1,32 @@
-import { useState, useMemo } from 'react';
+import type { Course } from 'src/types/course';
+
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import Grid from '@mui/material/Grid';
+import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Rating from '@mui/material/Rating';
+import Select from '@mui/material/Select';
+import Dialog from '@mui/material/Dialog';
+import MenuItem from '@mui/material/MenuItem';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
-import MenuItem from '@mui/material/MenuItem';
-import Chip from '@mui/material/Chip';
-import ToggleButton from '@mui/material/ToggleButton';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import Dialog from '@mui/material/Dialog';
+import FormControl from '@mui/material/FormControl';
 import DialogTitle from '@mui/material/DialogTitle';
+import ToggleButton from '@mui/material/ToggleButton';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import Alert from '@mui/material/Alert';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useCoursesContext } from 'src/contexts/courses-context';
-import { Iconify } from 'src/components/iconify';
 
-import type { Course, CourseLevel } from 'src/types/course';
+import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
@@ -549,13 +549,13 @@ export function CoursesListView() {
             {filteredCourses.map((course) => renderCourseListCard(course))}
           </Box>
         ) : (
-          <Grid container spacing={2}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3 }}>
             {filteredCourses.map((course) => (
-              <Grid key={course.id} xs={12} sm={6} md={4}>
+              <Box key={course.id}>
                 {renderCourseGridCard(course)}
-              </Grid>
+              </Box>
             ))}
-          </Grid>
+          </Box>
         )}
 
         {/* Enrollment Dialog */}

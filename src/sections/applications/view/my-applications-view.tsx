@@ -80,7 +80,6 @@ const getStatusIcon = (status: ApplicationStatus) => {
 };
 
 export function MyApplicationsView() {
-  const { user } = useAuth();
   const [applications] = useState(mockApplications);
 
   const handlePayment = (applicationId: string, coursePrice: number) => {

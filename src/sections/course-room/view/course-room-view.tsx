@@ -138,7 +138,7 @@ const getMaterialIcon = (type: CourseMaterial['type']) => {
 };
 
 export function CourseRoomView({ courseId }: CourseRoomViewProps) {
-  const { user, hasRole } = useAuth();
+  const { hasRole } = useAuth();
   const [currentTab, setCurrentTab] = useState(0);
   const [materials] = useState(mockMaterials);
   const [assignments] = useState(mockAssignments);
