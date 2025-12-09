@@ -99,18 +99,19 @@ export function RoleSwitcher() {
             {(Object.entries(roleConfig) as [UserRole, typeof roleConfig[UserRole]][]).map(([role, config]) => (
               <Box
                 key={role}
+                onClick={() => !switching && handleSwitchRole(role)}
                 sx={{
                   p: 2,
                   border: 1,
                   borderColor: currentRole === role ? 'primary.main' : 'divider',
                   borderRadius: 1,
-                  cursor: 'pointer',
+                  cursor: switching ? 'wait' : 'pointer',
+                  opacity: switching ? 0.7 : 1,
                   bgcolor: currentRole === role ? 'primary.lighter' : 'transparent',
                   '&:hover': {
                     bgcolor: currentRole === role ? 'primary.lighter' : 'action.hover',
                   },
                 }}
-                onClick={() => handleSwitchRole(role)}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                   <Chip

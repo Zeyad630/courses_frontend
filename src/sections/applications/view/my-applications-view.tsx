@@ -12,7 +12,6 @@ import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { useAuth } from 'src/contexts/simple-auth-context';
 
 import { Iconify } from 'src/components/iconify';
 

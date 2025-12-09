@@ -20,7 +20,6 @@ import InputAdornment from '@mui/material/InputAdornment';
 import LinearProgress from '@mui/material/LinearProgress';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { useAuth } from 'src/contexts/simple-auth-context';
 
 import { Iconify } from 'src/components/iconify';
 

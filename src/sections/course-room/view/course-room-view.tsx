@@ -1,4 +1,4 @@
-import type { Assignment, CourseMaterial } from 'src/types/user';
+import type { Assignment, CourseMaterial, Submission } from 'src/types/user';
 
 import { useState, useCallback } from 'react';
 
@@ -119,6 +119,21 @@ const mockAssignments: Assignment[] = [
     createdBy: 'inst_1',
     createdAt: new Date('2024-01-20'),
     isVisible: true,
+  },
+];
+
+// Mock submissions
+const mockSubmissions: Submission[] = [
+  {
+    id: 'sub_1',
+    assignmentId: 'assign_1',
+    studentId: 'student_1',
+    content: 'print("Hello, World!")',
+    submittedAt: new Date('2024-01-28'),
+    grade: 10,
+    feedback: 'Perfect execution and good code style!',
+    gradedBy: 'inst_1',
+    gradedAt: new Date('2024-01-29'),
   },
 ];
 
@@ -679,13 +694,61 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
             <Typography variant="h5" sx={{ mb: 3 }}>
               My Grades
             </Typography>
-            <Card>
-              <CardContent>
-                <Typography variant="body1" color="text.secondary">
-                  Grades will be displayed here once assignments are graded.
-                </Typography>
-              </CardContent>
-            </Card>
+            
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {assignments.map((assignment) => {
+                const submission = mockSubmissions.find(s => s.assignmentId === assignment.id);
+                const isGraded = submission?.grade !== undefined;
+                
+                return (
+                  <Card key={assignment.id}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Box>
+                          <Typography variant="h6" gutterBottom>
+                            {assignment.title}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Due: {assignment.dueDate.toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                        
+                        {isGraded ? (
+                          <Box sx={{ textAlign: 'right' }}>
+                            <Typography variant="h4" color="success.main">
+                              {submission.grade}/{assignment.maxPoints}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Points
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Chip 
+                            label={submission ? "Submitted" : "Not Submitted"} 
+                            color={submission ? "info" : "default"}
+                            variant="outlined"
+                          />
+                        )}
+                      </Box>
+
+                      {isGraded && submission.feedback && (
+                        <Box sx={{ p: 2, bgcolor: 'background.neutral', borderRadius: 1 }}>
+                          <Typography variant="subtitle2" gutterBottom>
+                            Feedback
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {submission.feedback}
+                          </Typography>
+                          <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
+                            Graded on {submission.gradedAt?.toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </Box>
           </Box>
         )}
 

@@ -151,8 +151,8 @@ export function DashboardLayout({
       cssVars={{ ...dashboardLayoutVars(theme, isNavCollapsed), ...cssVars }}
       sx={[
         {
-          background: (theme) => 
-            `radial-gradient(circle at 50% 0%, ${theme.palette.primary.lighter} 0%, transparent 50%)`,
+          background: (t) => 
+            `radial-gradient(circle at 50% 0%, ${t.palette.primary.lighter} 0%, transparent 50%)`,
           [`& .${layoutClasses.sidebarContainer}`]: {
             [theme.breakpoints.up(layoutQuery)]: {
               pl: 'var(--layout-nav-vertical-width)',
