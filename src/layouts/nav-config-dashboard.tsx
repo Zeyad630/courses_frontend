@@ -1,10 +1,10 @@
 import type { UserRole } from 'src/types/user';
 
-import { SvgColor } from 'src/components/svg-color';
+import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
-const icon = (name: string) => <SvgColor src={`/assets/icons/navbar/${name}.svg`} />;
+const icon = (name: string) => <Iconify icon={name} width={24} />;
 
 export type NavItem = {
   title: string;
@@ -19,65 +19,49 @@ const commonNavItems: NavItem[] = [
   {
     title: 'Dashboard',
     path: '/',
-    icon: icon('ic-analytics'),
+    icon: icon('solar:home-2-bold-duotone'),
   },
   {
     title: 'Courses',
     path: '/courses',
-    icon: icon('ic-cart'),
+    icon: icon('solar:book-bookmark-bold-duotone'),
   },
-  // {
-  //   title: 'Notifications',
-  //   path: '/notifications',
-  //   icon: icon('ic-blog'),
-  // },
-  // {
-  //   title: 'Profile',
-  //   path: '/profile',
-  //   icon: icon('ic-user'),
-  // },
   {
     title: 'Code Playground',
     path: '/playground',
-    icon: icon('ic-blog'),
+    icon: icon('solar:code-bold-duotone'),
   },
   {
     title: 'Assignments',
     path: '/assignments',
-    icon: icon('ic-cart'),
+    icon: icon('solar:clipboard-list-bold-duotone'),
   },
 ];
 
 // Admin-specific navigation items
 const adminNavItems: NavItem[] = [
-  // {
-  //   title: 'Admin Dashboard',
-  //   path: '/admin/dashboard',
-  //   icon: icon('ic-analytics'),
-  //   roles: ['admin'],
-  // },
   {
     title: 'Review Applications',
     path: '/admin/applications',
-    icon: icon('ic-cart'),
+    icon: icon('solar:file-check-bold-duotone'),
     roles: ['admin'],
   },
   {
     title: 'Users Management',
     path: '/admin/users',
-    icon: icon('ic-user'),
+    icon: icon('solar:users-group-rounded-bold-duotone'),
     roles: ['admin'],
   },
   {
     title: 'Course Management',
     path: '/admin/courses',
-    icon: icon('ic-blog'),
+    icon: icon('solar:notebook-bold-duotone'),
     roles: ['admin'],
   },
   {
     title: 'Reports',
     path: '/admin/reports',
-    icon: icon('ic-analytics'),
+    icon: icon('solar:chart-square-bold-duotone'),
     roles: ['admin'],
   },
 ];
@@ -87,19 +71,19 @@ const instructorNavItems: NavItem[] = [
   {
     title: 'My Courses',
     path: '/instructor/courses',
-    icon: icon('ic-blog'),
+    icon: icon('solar:presentation-graph-bold-duotone'),
     roles: ['instructor'],
   },
   {
     title: 'Students',
     path: '/instructor/students',
-    icon: icon('ic-user'),
+    icon: icon('solar:users-group-two-rounded-bold-duotone'),
     roles: ['instructor'],
   },
   {
     title: 'Assignments',
     path: '/instructor/assignments',
-    icon: icon('ic-cart'),
+    icon: icon('solar:clipboard-check-bold-duotone'),
     roles: ['instructor'],
   },
 ];
@@ -109,27 +93,15 @@ const studentNavItems: NavItem[] = [
   {
     title: 'My Courses',
     path: '/my-courses',
-    icon: icon('ic-cart'),
+    icon: icon('solar:book-2-bold-duotone'),
     roles: ['student'],
   },
   {
     title: 'My Applications',
     path: '/my-applications',
-    icon: icon('ic-blog'),
+    icon: icon('solar:folder-with-files-bold-duotone'),
     roles: ['student'],
   },
-  // {
-  //   title: 'Assignments',
-  //   path: '/student/assignments',
-  //   icon: icon('ic-cart'),
-  //   roles: ['student'],
-  // },
-  // {
-  //   title: 'Grades',
-  //   path: '/student/grades',
-  //   icon: icon('ic-analytics'),
-  //   roles: ['student'],
-  // },
 ];
 
 export const getNavData = (userRole?: UserRole): NavItem[] => {

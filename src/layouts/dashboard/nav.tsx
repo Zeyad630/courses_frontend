@@ -59,6 +59,8 @@ export function NavDesktop({
         zIndex: 'var(--layout-nav-zIndex)',
         width: 'var(--layout-nav-vertical-width)',
         borderRight: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.12)}`,
+        bgcolor: varAlpha(theme.vars.palette.background.defaultChannel, 0.8),
+        backdropFilter: 'blur(12px)',
         transition: theme.transitions.create(['width', 'padding'], {
           easing: 'var(--layout-transition-easing)',
           duration: 'var(--layout-transition-duration)',
@@ -171,10 +173,14 @@ export function NavContent({ data, slots, sx, isCollapsed }: NavContentProps) {
                         color: theme.vars.palette.text.secondary,
                         minHeight: 44,
                         justifyContent: isCollapsed ? 'center' : 'flex-start',
+                        transition: theme.transitions.create(['background-color', 'color', 'padding-left']),
+                        '&:hover': {
+                          bgcolor: varAlpha(theme.vars.palette.primary.mainChannel, 0.08),
+                        },
                         ...(isActived && {
                           fontWeight: 'fontWeightSemiBold',
                           color: theme.vars.palette.primary.main,
-                          bgcolor: varAlpha(theme.vars.palette.primary.mainChannel, 0.08),
+                          bgcolor: varAlpha(theme.vars.palette.primary.mainChannel, 0.12),
                           '&:hover': {
                             bgcolor: varAlpha(theme.vars.palette.primary.mainChannel, 0.16),
                           },

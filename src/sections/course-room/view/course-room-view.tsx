@@ -1,4 +1,4 @@
-import type { Assignment, CourseMaterial, Submission } from 'src/types/user';
+import type { Assignment, Submission, CourseMaterial } from 'src/types/user';
 
 import { useState, useCallback } from 'react';
 
@@ -140,15 +140,15 @@ const mockSubmissions: Submission[] = [
 const getMaterialIcon = (type: CourseMaterial['type']) => {
   switch (type) {
     case 'video':
-      return 'solar:pen-bold';
+      return 'solar:videocamera-record-bold-duotone';
     case 'pdf':
-      return 'solar:pen-bold';
+      return 'solar:document-text-bold-duotone';
     case 'zoom':
-      return 'solar:pen-bold';
+      return 'solar:videocamera-bold-duotone';
     case 'link':
-      return 'solar:share-bold';
+      return 'solar:link-bold-duotone';
     default:
-      return 'solar:pen-bold';
+      return 'solar:file-bold-duotone';
   }
 };
 
@@ -306,7 +306,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                     </Typography>
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                      <Iconify icon="solar:share-bold" color="primary.main" width={24} />
+                      <Iconify icon="solar:videocamera-bold-duotone" color="primary.main" width={24} />
                       <Box>
                         <Typography variant="subtitle2">
                           {mockCourse.nextClass.toLocaleDateString()}
@@ -320,7 +320,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                     <Button
                       variant="contained"
                       fullWidth
-                      startIcon={<Iconify icon="solar:share-bold" />}
+                      startIcon={<Iconify icon="solar:videocamera-bold-duotone" />}
                       href={mockCourse.zoomLink}
                       target="_blank"
                       sx={{ mb: 1 }}
@@ -345,7 +345,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                       <Button
                         variant="outlined"
                         fullWidth
-                        startIcon={<Iconify icon="solar:pen-bold" />}
+                        startIcon={<Iconify icon="solar:document-text-bold-duotone" />}
                         onClick={() => setCurrentTab(1)}
                       >
                         View Materials
@@ -353,7 +353,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                       <Button
                         variant="outlined"
                         fullWidth
-                        startIcon={<Iconify icon="solar:eye-bold" />}
+                        startIcon={<Iconify icon="solar:clipboard-list-bold-duotone" />}
                         onClick={() => setCurrentTab(2)}
                       >
                         Check Assignments
@@ -361,7 +361,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                       <Button
                         variant="outlined"
                         fullWidth
-                        startIcon={<Iconify icon="solar:share-bold" />}
+                        startIcon={<Iconify icon="solar:chart-square-bold-duotone" />}
                         onClick={() => setCurrentTab(4)}
                       >
                         View Grades
@@ -382,7 +382,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
               {hasRole('instructor') && (
                 <Button
                   variant="contained"
-                  startIcon={<Iconify icon="solar:pen-bold" />}
+                  startIcon={<Iconify icon="solar:upload-square-bold-duotone" />}
                 >
                   Upload Material
                 </Button>
@@ -432,7 +432,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                   <CardActions>
                     <Button
                       variant="contained"
-                      startIcon={<Iconify icon="solar:eye-bold" />}
+                      startIcon={<Iconify icon="solar:eye-bold-duotone" />}
                       href={material.url}
                       target="_blank"
                     >
@@ -453,7 +453,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
               {hasRole('instructor') && (
                 <Button
                   variant="contained"
-                  startIcon={<Iconify icon="solar:pen-bold" />}
+                  startIcon={<Iconify icon="solar:add-circle-bold-duotone" />}
                 >
                   Create Assignment
                 </Button>
@@ -494,7 +494,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                     {hasRole('student') && (
                       <Button
                         variant="contained"
-                        startIcon={<Iconify icon="solar:pen-bold" />}
+                        startIcon={<Iconify icon="solar:upload-bold-duotone" />}
                         onClick={() => handleSubmitAssignment(assignment)}
                       >
                         Submit Assignment
@@ -503,7 +503,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                     {hasRole('instructor') && (
                       <Button
                         variant="outlined"
-                        startIcon={<Iconify icon="solar:eye-bold" />}
+                        startIcon={<Iconify icon="solar:eye-bold-duotone" />}
                       >
                         View Submissions
                       </Button>
@@ -527,7 +527,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
               <Card sx={{ border: 2, borderColor: 'primary.main' }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Iconify icon="solar:share-bold" color="primary.main" width={32} />
+                    <Iconify icon="solar:videocamera-bold-duotone" color="primary.main" width={32} />
                     <Box>
                       <Typography variant="h6" color="primary.main">
                         Live Session - Functions and Methods
@@ -562,7 +562,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                   <Button
                     variant="contained"
                     size="large"
-                    startIcon={<Iconify icon="solar:share-bold" />}
+                    startIcon={<Iconify icon="solar:videocamera-bold-duotone" />}
                     href={mockCourse.zoomLink}
                     target="_blank"
                   >
@@ -570,7 +570,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                   </Button>
                   <Button
                     variant="outlined"
-                    startIcon={<Iconify icon="solar:pen-bold" />}
+                    startIcon={<Iconify icon="solar:calendar-add-bold-duotone" />}
                   >
                     Add to Calendar
                   </Button>
@@ -673,7 +673,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                         <Button
                           variant="outlined"
                           size="small"
-                          startIcon={<Iconify icon="solar:eye-bold" />}
+                          startIcon={<Iconify icon="solar:play-circle-bold-duotone" />}
                           href={session.recording}
                           target="_blank"
                         >

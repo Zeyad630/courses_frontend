@@ -1,6 +1,7 @@
 import type { Breakpoint } from '@mui/material/styles';
 
 import { merge } from 'es-toolkit';
+import { varAlpha } from 'minimal-shared/utils';
 import { useBoolean } from 'minimal-shared/hooks';
 
 import Box from '@mui/material/Box';
@@ -115,7 +116,11 @@ export function DashboardLayout({
         {...slotProps?.header}
         slots={{ ...headerSlots, ...slotProps?.header?.slots }}
         slotProps={merge(headerSlotProps, slotProps?.header?.slotProps ?? {})}
-        sx={slotProps?.header?.sx}
+        sx={{
+          bgcolor: varAlpha(theme.vars.palette.background.defaultChannel, 0.8),
+          backdropFilter: 'blur(12px)',
+          ...slotProps?.header?.sx,
+        }}
       />
     );
   };

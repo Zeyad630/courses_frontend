@@ -1,5 +1,7 @@
+import type { ApexOptions } from 'apexcharts';
 import type { CourseApplication, ApplicationStatus } from 'src/types/user';
 
+import Chart from 'react-apexcharts';
 import { useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
@@ -7,6 +9,7 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import { useTheme } from '@mui/material/styles';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
@@ -96,6 +99,7 @@ const getStatusColor = (status: ApplicationStatus) => {
 
 export function AdminApplicationsView() {
   const { user } = useAuth();
+  const theme = useTheme();
   const [applications, setApplications] = useState(mockApplications);
   const [selectedApplication, setSelectedApplication] = useState<typeof mockApplications[0] | null>(null);
   const [reviewDialog, setReviewDialog] = useState(false);
@@ -149,6 +153,52 @@ export function AdminApplicationsView() {
 
   const pendingApplications = applications.filter(app => app.status === 'pending');
   const reviewedApplications = applications.filter(app => app.status !== 'pending');
+  const acceptedApplications = applications.filter(app => app.status === 'accepted');
+  const rejectedApplications = applications.filter(app => app.status === 'rejected');
+
+  const chartOptions: ApexOptions = {
+    chart: {
+      fontFamily: theme.typography.fontFamily,
+    },
+    colors: [
+      theme.palette.warning.main,
+      theme.palette.success.main,
+      theme.palette.error.main,
+    ],
+    labels: ['Pending', 'Accepted', 'Rejected'],
+    stroke: { colors: [theme.palette.background.paper] },
+    legend: {
+      position: 'bottom',
+      horizontalAlign: 'center',
+    },
+    dataLabels: { enabled: true, dropShadow: { enabled: false } },
+    tooltip: {
+      theme: theme.palette.mode,
+      fillSeriesColor: false,
+    },
+    plotOptions: {
+      pie: {
+        donut: {
+          labels: {
+            show: true,
+            total: {
+              show: true,
+              label: 'Total',
+              color: theme.palette.text.secondary,
+              fontSize: theme.typography.h6.fontSize as string,
+              fontWeight: theme.typography.h6.fontWeight,
+            }
+          }
+        }
+      }
+    }
+  };
+
+  const chartSeries = [
+    pendingApplications.length,
+    acceptedApplications.length,
+    rejectedApplications.length,
+  ];
 
   return (
     <DashboardContent>
@@ -158,6 +208,59 @@ export function AdminApplicationsView() {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Review and manage student course applications.
           </Typography>
+        </Box>
+
+        {/* Summary Section */}
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' }, mb: 5 }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ mb: 3 }}>Application Status</Typography>
+              <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Chart
+                  options={chartOptions}
+                  series={chartSeries}
+                  type="donut"
+                  height={280}
+                  width="100%"
+                />
+              </Box>
+            </CardContent>
+          </Card>
+
+          <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+            <Card sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary">Pending Review</Typography>
+                <Typography variant="h3">{pendingApplications.length}</Typography>
+              </Box>
+              <Iconify icon="solar:clock-circle-bold-duotone" width={48} color="warning.main" />
+            </Card>
+            <Card sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary">Total Processed</Typography>
+                <Typography variant="h3">{reviewedApplications.length}</Typography>
+              </Box>
+              <Iconify icon="solar:check-circle-bold-duotone" width={48} color="success.main" />
+            </Card>
+            <Card sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary">Acceptance Rate</Typography>
+                <Typography variant="h3">
+                  {reviewedApplications.length > 0 
+                    ? Math.round((acceptedApplications.length / reviewedApplications.length) * 100) 
+                    : 0}%
+                </Typography>
+              </Box>
+              <Iconify icon="solar:graph-up-bold-duotone" width={48} color="info.main" />
+            </Card>
+            <Card sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary">Avg. Review Time</Typography>
+                <Typography variant="h3">1.2d</Typography>
+              </Box>
+              <Iconify icon="solar:hourglass-bold-duotone" width={48} color="primary.main" />
+            </Card>
+          </Box>
         </Box>
 
         {/* Pending Applications */}
@@ -202,7 +305,7 @@ export function AdminApplicationsView() {
                   <Button
                     variant="contained"
                     color="primary"
-                    startIcon={<Iconify icon="solar:eye-bold" />}
+                    startIcon={<Iconify icon="solar:eye-bold-duotone" />}
                     onClick={() => handleReviewApplication(application)}
                   >
                     Review Application

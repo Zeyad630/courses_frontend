@@ -169,6 +169,37 @@ export function AdminCourseManagementView() {
   const activeCourses = courses.filter((c) => c.status === 'active');
   const inactiveCourses = courses.filter((c) => c.status !== 'active');
 
+  const stats = [
+    {
+      title: t('admin.totalCourses'),
+      value: courses.length,
+      icon: 'solar:notebook-bold-duotone',
+      color: 'primary.main',
+      bgcolor: 'primary.lighter',
+    },
+    {
+      title: t('admin.activeCourses'),
+      value: activeCourses.length,
+      icon: 'solar:check-circle-bold-duotone',
+      color: 'success.main',
+      bgcolor: 'success.lighter',
+    },
+    {
+      title: t('admin.draftCourses'),
+      value: inactiveCourses.length,
+      icon: 'solar:file-text-bold-duotone',
+      color: 'warning.main',
+      bgcolor: 'warning.lighter',
+    },
+    {
+      title: t('admin.totalRevenue'),
+      value: `$${courses.reduce((acc, c) => acc + (c.price * (c.students || 0)), 0).toLocaleString()}`,
+      icon: 'solar:dollar-minimalistic-bold-duotone',
+      color: 'info.main',
+      bgcolor: 'info.lighter',
+    },
+  ];
+
   const renderCourseForm = (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {error && (
@@ -356,6 +387,36 @@ export function AdminCourseManagementView() {
           >
             {t('courses.addCourse')}
           </Button>
+        </Box>
+
+        {/* Stats Cards */}
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, mb: 4 }}>
+          {stats.map((stat, index) => (
+            <Card key={index} sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  {stat.title}
+                </Typography>
+                <Typography variant="h3">
+                  {stat.value}
+                </Typography>
+              </Box>
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 1.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: stat.bgcolor,
+                  color: stat.color,
+                }}
+              >
+                <Iconify icon={stat.icon} width={24} />
+              </Box>
+            </Card>
+          ))}
         </Box>
 
         {/* Success Alert */}

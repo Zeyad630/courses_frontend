@@ -204,9 +204,9 @@ export function CoursesAdvancedView() {
           {/* Stats */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 3, mb: 4 }}>
             {[
-              { label: 'Total Courses', value: stats.totalCourses, icon: 'solar:eye-bold' as any, color: 'primary' },
-              { label: 'Active Students', value: stats.totalStudents, icon: 'solar:pen-bold' as any, color: 'success' },
-              { label: 'Avg Rating', value: `${stats.avgRating}⭐`, icon: 'solar:share-bold' as any, color: 'warning' },
+              { label: 'Total Courses', value: stats.totalCourses, icon: 'solar:eye-bold-duotone' as any, color: 'primary' },
+              { label: 'Active Students', value: stats.totalStudents, icon: 'solar:pen-bold-duotone' as any, color: 'success' },
+              { label: 'Avg Rating', value: `${stats.avgRating}⭐`, icon: 'solar:share-bold-duotone' as any, color: 'warning' },
             ].map((stat, index) => (
               <Card
                 key={index}
@@ -243,7 +243,7 @@ export function CoursesAdvancedView() {
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Iconify icon="solar:pen-bold" width={20} sx={{ color: 'text.secondary' }} />
+                      <Iconify icon="solar:magnifer-bold-duotone" width={20} sx={{ color: 'text.secondary' }} />
                     </InputAdornment>
                   ),
                 },

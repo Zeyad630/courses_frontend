@@ -1,10 +1,14 @@
+import type { ApexOptions } from 'apexcharts';
+
 import { useState } from 'react';
+import Chart from 'react-apexcharts';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
+import { useTheme } from '@mui/material/styles';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
@@ -99,30 +103,116 @@ const mockStudentData = {
 const getNotificationIcon = (type: string) => {
   switch (type) {
     case 'assignment':
-      return 'solar:pen-bold';
+      return 'solar:pen-bold-duotone';
     case 'grade':
-      return 'solar:eye-bold';
+      return 'solar:eye-bold-duotone';
     case 'meeting':
-      return 'solar:share-bold';
+      return 'solar:videocamera-bold-duotone';
     default:
-      return 'solar:pen-bold';
+      return 'solar:bell-bold-duotone';
   }
 };
 
 const getEventIcon = (type: string) => {
   switch (type) {
     case 'zoom':
-      return 'solar:share-bold';
+      return 'solar:videocamera-bold-duotone';
     case 'assignment':
-      return 'solar:pen-bold';
+      return 'solar:pen-bold-duotone';
     default:
-      return 'solar:pen-bold';
+      return 'solar:calendar-bold-duotone';
   }
 };
 
 export function StudentDashboardView() {
   const { user } = useAuth();
+  const theme = useTheme();
   const [studentData] = useState(mockStudentData);
+
+  const statsCards = [
+    {
+      title: 'Enrolled Courses',
+      value: studentData.stats.totalCourses,
+      icon: 'solar:notebook-bold-duotone',
+      color: 'primary',
+      bgGradient: 'linear-gradient(135deg, #DC2626 0%, #FF6B6B 100%)',
+      trend: 'Active',
+    },
+    {
+      title: 'Completed Tasks',
+      value: studentData.stats.completedAssignments,
+      icon: 'solar:check-circle-bold-duotone',
+      color: 'success',
+      bgGradient: 'linear-gradient(135deg, #10B981 0%, #34D399 100%)',
+      trend: '+3 this week',
+    },
+    {
+      title: 'Average Grade',
+      value: studentData.stats.averageGrade,
+      icon: 'solar:diploma-bold-duotone',
+      color: 'warning',
+      bgGradient: 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)',
+      trend: 'Top 10%',
+    },
+    {
+      title: 'Study Hours',
+      value: `${studentData.stats.studyHours}h`,
+      icon: 'solar:clock-circle-bold-duotone',
+      color: 'info',
+      bgGradient: 'linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%)',
+      trend: '+5h vs last week',
+    },
+  ];
+
+  const chartOptions: ApexOptions = {
+    chart: {
+      toolbar: { show: false },
+      zoom: { enabled: false },
+      fontFamily: theme.typography.fontFamily,
+    },
+    colors: [theme.palette.primary.main],
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.7,
+        opacityTo: 0.9,
+        stops: [0, 90, 100],
+      },
+    },
+    dataLabels: { enabled: false },
+    stroke: {
+      curve: 'smooth',
+      width: 3,
+    },
+    xaxis: {
+      categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      labels: {
+        style: { colors: theme.palette.text.secondary },
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+    },
+    yaxis: {
+      labels: {
+        style: { colors: theme.palette.text.secondary },
+      },
+    },
+    grid: {
+      strokeDashArray: 3,
+      borderColor: theme.palette.divider,
+    },
+    tooltip: {
+      theme: theme.palette.mode,
+    },
+  };
+
+  const chartSeries = [
+    {
+      name: 'Study Hours',
+      data: [2, 4, 3, 5, 4, 6, 3],
+    },
+  ];
 
   return (
     <DashboardContent>
@@ -132,17 +222,20 @@ export function StudentDashboardView() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 2 }}>
             <Avatar
               sx={{
-                width: 64,
-                height: 64,
-                bgcolor: 'primary.main',
-                fontSize: '1.5rem',
+                width: 72,
+                height: 72,
+                background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                fontSize: '2rem',
                 fontWeight: 'bold',
+                boxShadow: '0 8px 24px rgba(59, 130, 246, 0.3)',
               }}
             >
               {user?.name?.charAt(0) || 'S'}
             </Avatar>
             <Box>
-              <Typography variant="h4">Welcome back, {user?.name}!</Typography>
+              <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+                Welcome back, {user?.name}!
+              </Typography>
               <Typography variant="body1" color="text.secondary">
                 Ready to continue your learning journey?
               </Typography>
@@ -151,66 +244,95 @@ export function StudentDashboardView() {
         </Box>
 
         {/* Stats Cards */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 3, mb: 5 }}>
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Iconify icon="solar:pen-bold" width={32} color="primary.main" sx={{ mb: 1 }} />
-              <Typography variant="h4" color="primary.main">
-                {studentData.stats.totalCourses}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Enrolled Courses
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Iconify icon="solar:eye-bold" width={32} color="success.main" sx={{ mb: 1 }} />
-              <Typography variant="h4" color="success.main">
-                {studentData.stats.completedAssignments}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Completed Tasks
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Iconify icon="solar:share-bold" width={32} color="warning.main" sx={{ mb: 1 }} />
-              <Typography variant="h4" color="warning.main">
-                {studentData.stats.averageGrade}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Average Grade
-              </Typography>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Iconify icon="solar:clock-circle-outline" width={32} color="info.main" sx={{ mb: 1 }} />
-              <Typography variant="h4" color="info.main">
-                {studentData.stats.studyHours}h
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Study Hours
-              </Typography>
-            </CardContent>
-          </Card>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 3, mb: 5 }}>
+          {statsCards.map((card, index) => (
+            <Box key={index}>
+              <Card
+                sx={{
+                  height: '100%',
+                  background: card.bgGradient,
+                  color: 'white',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    transform: 'translateY(-8px)',
+                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.16)',
+                  },
+                }}
+              >
+                <CardContent sx={{ position: 'relative', zIndex: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
+                        {card.title}
+                      </Typography>
+                      <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                        {card.value}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={card.trend}
+                      size="small"
+                      sx={{
+                        background: 'rgba(255, 255, 255, 0.2)',
+                        color: 'white',
+                        fontWeight: 600,
+                      }}
+                    />
+                  </Box>
+                  <Iconify
+                    icon={card.icon}
+                    width={40}
+                    sx={{
+                      position: 'absolute',
+                      right: 24,
+                      bottom: 24,
+                      opacity: 0.4,
+                    }}
+                  />
+                </CardContent>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: -40,
+                    right: -40,
+                    width: 120,
+                    height: 120,
+                    borderRadius: '50%',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                  }}
+                />
+              </Card>
+            </Box>
+          ))}
         </Box>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 3 }}>
-          {/* My Courses */}
+          {/* Main Content Area */}
           <Box>
+            {/* Activity Chart */}
+            <Card sx={{ mb: 3, p: 3 }}>
+              <Typography variant="h6" sx={{ mb: 3 }}>Learning Activity</Typography>
+              <Box sx={{ height: 350, width: '100%' }}>
+                <Chart
+                  options={chartOptions}
+                  series={chartSeries}
+                  type="area"
+                  height={350}
+                />
+              </Box>
+            </Card>
+
+            {/* My Courses */}
             <Typography variant="h5" sx={{ mb: 3 }}>
               My Courses
             </Typography>
             
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {studentData.enrolledCourses.map((course) => (
-                <Card key={course.id}>
+                <Card key={course.id} sx={{ transition: 'all 0.3s ease', '&:hover': { boxShadow: '0 8px 24px rgba(0,0,0,0.1)' } }}>
                   <CardContent>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                       <Box>
@@ -236,16 +358,26 @@ export function StudentDashboardView() {
                       <LinearProgress
                         variant="determinate"
                         value={course.progress}
-                        sx={{ height: 8, borderRadius: 4 }}
+                        sx={{
+                          height: 8,
+                          borderRadius: 4,
+                          bgcolor: 'background.neutral',
+                          '& .MuiLinearProgress-bar': {
+                            borderRadius: 4,
+                            background: 'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)',
+                          },
+                        }}
                       />
                     </Box>
 
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                       <Box>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Iconify icon="solar:book-bookmark-bold-duotone" width={16} />
                           Next: {course.nextLesson}
                         </Typography>
-                        <Typography variant="body2" color="warning.main">
+                        <Typography variant="body2" color="warning.main" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                          <Iconify icon="solar:alarm-bold-duotone" width={16} />
                           Due: {course.dueAssignment} ({course.dueDate.toLocaleDateString()})
                         </Typography>
                       </Box>
@@ -255,14 +387,14 @@ export function StudentDashboardView() {
                   <CardActions>
                     <Button
                       variant="contained"
-                      startIcon={<Iconify icon="solar:eye-bold" />}
+                      startIcon={<Iconify icon="solar:play-circle-bold-duotone" />}
                       href={`/course-room/${course.id}`}
                     >
                       Continue Learning
                     </Button>
                     <Button
                       variant="outlined"
-                      startIcon={<Iconify icon="solar:pen-bold" />}
+                      startIcon={<Iconify icon="solar:upload-bold-duotone" />}
                     >
                       Submit Assignment
                     </Button>

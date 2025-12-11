@@ -21,6 +21,8 @@ export const MyApplicationsPage = lazy(() => import('src/pages/my-applications')
 export const AdminDashboardPage = lazy(() => import('src/pages/admin/dashboard'));
 export const AdminApplicationsPage = lazy(() => import('src/pages/admin/applications'));
 export const AdminCoursesPage = lazy(() => import('src/pages/admin/courses'));
+export const AdminUsersPage = lazy(() => import('src/pages/admin/users'));
+export const AdminReportsPage = lazy(() => import('src/pages/admin/reports'));
 export const CourseRoomPage = lazy(() => import('src/pages/course-room/course-room'));
 export const PaymentPage = lazy(() => import('src/pages/payment/payment'));
 export const NotificationsPage = lazy(() => import('src/pages/notifications'));
@@ -68,6 +70,8 @@ export const routesSection: RouteObject[] = [
       { path: 'admin/dashboard', element: <AdminDashboardPage /> },
       { path: 'admin/applications', element: <AdminApplicationsPage /> },
       { path: 'admin/courses', element: <AdminCoursesPage /> },
+      { path: 'admin/users', element: <AdminUsersPage /> },
+      { path: 'admin/reports', element: <AdminReportsPage /> },
       { path: 'course-room/:id', element: <CourseRoomPage /> },
       { path: 'payment/:applicationId', element: <PaymentPage /> },
       { path: 'notifications', element: <NotificationsPage /> },

@@ -1,4 +1,7 @@
+import type { ApexOptions } from 'apexcharts';
+
 import { useState } from 'react';
+import Chart from 'react-apexcharts';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -10,6 +13,7 @@ import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import TableRow from '@mui/material/TableRow';
+import { useTheme } from '@mui/material/styles';
 import Container from '@mui/material/Container';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -126,6 +130,7 @@ function TabPanel(props: any) {
 
 export function AdminDashboardAdvanced() {
   const { user } = useAuth();
+  const theme = useTheme();
   const [tabValue, setTabValue] = useState(0);
   const [analytics] = useState(mockAnalytics);
   const [recentApplications] = useState(mockRecentApplications);
@@ -168,6 +173,60 @@ export function AdminDashboardAdvanced() {
       subtitle: `$${(analytics.monthlyRevenue / 1000).toFixed(0)}K this month`,
       trend: '+25%',
       bgGradient: 'linear-gradient(135deg, #10B981 0%, #34D399 100%)',
+    },
+  ];
+
+  const chartOptions: ApexOptions = {
+    chart: {
+      toolbar: { show: false },
+      zoom: { enabled: false },
+      fontFamily: theme.typography.fontFamily,
+    },
+    colors: [theme.palette.primary.main, theme.palette.success.main],
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.7,
+        opacityTo: 0.9,
+        stops: [0, 90, 100],
+      },
+    },
+    dataLabels: { enabled: false },
+    stroke: {
+      curve: 'smooth',
+      width: 3,
+    },
+    xaxis: {
+      categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      labels: {
+        style: { colors: theme.palette.text.secondary },
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+    },
+    yaxis: {
+      labels: {
+        style: { colors: theme.palette.text.secondary },
+      },
+    },
+    grid: {
+      strokeDashArray: 3,
+      borderColor: theme.palette.divider,
+    },
+    tooltip: {
+      theme: theme.palette.mode,
+    },
+  };
+
+  const chartSeries = [
+    {
+      name: 'Active Users',
+      data: [320, 450, 420, 550, 600, 480, 523],
+    },
+    {
+      name: 'New Registrations',
+      data: [15, 25, 20, 35, 40, 28, 32],
     },
   ];
 
@@ -258,6 +317,19 @@ export function AdminDashboardAdvanced() {
             </Box>
           ))}
         </Box>
+
+        {/* Activity Chart */}
+        <Card sx={{ mb: 6, p: 3 }}>
+          <Typography variant="h6" sx={{ mb: 3 }}>Platform Activity (Last 7 Days)</Typography>
+          <Box sx={{ height: 350, width: '100%' }}>
+            <Chart
+              options={chartOptions}
+              series={chartSeries}
+              type="area"
+              height={350}
+            />
+          </Box>
+        </Card>
 
         {/* Main Content Tabs */}
         <Card sx={{ mb: 6, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)' }}>
