@@ -90,7 +90,7 @@ export function DashboardLayout({
               [theme.breakpoints.down(layoutQuery)]: { display: 'none' } 
             }}
           >
-            <Iconify icon="solar:settings-bold-duotone" />
+            <Iconify icon={isNavCollapsed ? "uim:align" : "uim:left-indent"} sx={{ width: 24, height: 24 }}/>
           </IconButton>
         </>
       ),
