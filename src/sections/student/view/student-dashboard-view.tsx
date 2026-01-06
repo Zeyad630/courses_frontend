@@ -6,18 +6,21 @@ import Chart from 'react-apexcharts';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Grid from '@mui/material/Grid';
+import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
-import { useTheme } from '@mui/material/styles';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
+import IconButton from '@mui/material/IconButton';
 import CardContent from '@mui/material/CardContent';
-import CardActions from '@mui/material/CardActions';
+import { alpha, useTheme } from '@mui/material/styles';
 import LinearProgress from '@mui/material/LinearProgress';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
 
+import { Iconly } from 'src/components/iconly';
 import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
@@ -36,6 +39,7 @@ const mockStudentData = {
       dueAssignment: 'Variables Assignment',
       dueDate: new Date('2024-02-01'),
       grade: 'A-',
+      coverUrl: '/assets/images/courses/course-1.webp', // Assuming assets exist or using placeholders
     },
     {
       id: '2',
@@ -48,29 +52,30 @@ const mockStudentData = {
       dueAssignment: 'HTML/CSS Project',
       dueDate: new Date('2024-01-28'),
       grade: 'B+',
+      coverUrl: '/assets/images/courses/course-2.webp',
     },
   ],
   recentNotifications: [
     {
       id: '1',
-      title: 'New Assignment Posted',
-      message: 'Functions Assignment has been posted for Introduction to Programming',
+      title: 'New assignment',
+      message: 'Functions assignment is now available.',
       time: '2 hours ago',
       type: 'assignment',
       read: false,
     },
     {
       id: '2',
-      title: 'Grade Updated',
-      message: 'Your Variables Assignment has been graded: A-',
+      title: 'Grade updated',
+      message: 'Variables assignment graded: A-.',
       time: '1 day ago',
       type: 'grade',
       read: false,
     },
     {
       id: '3',
-      title: 'Upcoming Zoom Session',
-      message: 'Live coding session starts in 30 minutes',
+      title: 'Live session soon',
+      message: 'Live session starts in 30 minutes.',
       time: '30 minutes',
       type: 'meeting',
       read: true,
@@ -79,14 +84,14 @@ const mockStudentData = {
   upcomingEvents: [
     {
       id: '1',
-      title: 'Programming Live Session',
+      title: 'Live session',
       course: 'Introduction to Programming',
       date: new Date('2024-01-25T14:00:00'),
       type: 'zoom',
     },
     {
       id: '2',
-      title: 'Assignment Due',
+      title: 'Assignment due',
       course: 'Web Development Bootcamp',
       date: new Date('2024-01-28T23:59:00'),
       type: 'assignment',
@@ -134,32 +139,36 @@ export function StudentDashboardView() {
       title: 'Enrolled Courses',
       value: studentData.stats.totalCourses,
       icon: 'solar:notebook-bold-duotone',
-      color: 'primary',
-      bgGradient: 'linear-gradient(135deg, #DC2626 0%, #FF6B6B 100%)',
+      color: theme.palette.primary.main,
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.primary.lighter, 0.8)} 0%, ${alpha(theme.palette.primary.light, 0.9)} 100%)`,
+      textColor: theme.palette.primary.darker,
       trend: 'Active',
     },
     {
       title: 'Completed Tasks',
       value: studentData.stats.completedAssignments,
       icon: 'solar:check-circle-bold-duotone',
-      color: 'success',
-      bgGradient: 'linear-gradient(135deg, #10B981 0%, #34D399 100%)',
+      color: theme.palette.success.main,
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.success.lighter, 0.8)} 0%, ${alpha(theme.palette.success.light, 0.9)} 100%)`,
+      textColor: theme.palette.success.darker,
       trend: '+3 this week',
     },
     {
       title: 'Average Grade',
       value: studentData.stats.averageGrade,
       icon: 'solar:diploma-bold-duotone',
-      color: 'warning',
-      bgGradient: 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)',
+      color: theme.palette.warning.main,
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.warning.lighter, 0.8)} 0%, ${alpha(theme.palette.warning.light, 0.9)} 100%)`,
+      textColor: theme.palette.warning.darker,
       trend: 'Top 10%',
     },
     {
       title: 'Study Hours',
       value: `${studentData.stats.studyHours}h`,
       icon: 'solar:clock-circle-bold-duotone',
-      color: 'info',
-      bgGradient: 'linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%)',
+      color: theme.palette.info.main,
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.info.lighter, 0.8)} 0%, ${alpha(theme.palette.info.light, 0.9)} 100%)`,
+      textColor: theme.palette.info.darker,
       trend: '+5h vs last week',
     },
   ];
@@ -169,14 +178,15 @@ export function StudentDashboardView() {
       toolbar: { show: false },
       zoom: { enabled: false },
       fontFamily: theme.typography.fontFamily,
+      background: 'transparent',
     },
-    colors: [theme.palette.primary.main],
+    colors: [theme.palette.primary.main, theme.palette.secondary.main],
     fill: {
       type: 'gradient',
       gradient: {
         shadeIntensity: 1,
         opacityFrom: 0.7,
-        opacityTo: 0.9,
+        opacityTo: 0.2,
         stops: [0, 90, 100],
       },
     },
@@ -201,9 +211,11 @@ export function StudentDashboardView() {
     grid: {
       strokeDashArray: 3,
       borderColor: theme.palette.divider,
+      xaxis: { lines: { show: false } },
     },
     tooltip: {
       theme: theme.palette.mode,
+      x: { show: false },
     },
   };
 
@@ -214,107 +226,154 @@ export function StudentDashboardView() {
     },
   ];
 
+  const enrolledCourses = studentData.enrolledCourses;
+  const overallProgress = enrolledCourses.length
+    ? Math.round(enrolledCourses.reduce((sum, course) => sum + course.progress, 0) / enrolledCourses.length)
+    : 0;
+  const activeCoursesCount = enrolledCourses.filter((course) => course.progress > 0 && course.progress < 100).length;
+  const nextUpCourse = enrolledCourses.reduce(
+    (best, course) => {
+      if (!best) return course;
+      if (course.progress === best.progress) return course.dueDate < best.dueDate ? course : best;
+      return course.progress > best.progress ? course : best;
+    },
+    enrolledCourses[0]
+  );
+  const nearestDueCourse = enrolledCourses.reduce(
+    (best, course) => {
+      if (!best) return course;
+      return course.dueDate < best.dueDate ? course : best;
+    },
+    enrolledCourses[0]
+  );
+
   return (
     <DashboardContent>
       <Container maxWidth="xl">
-        {/* Welcome Section */}
-        <Box sx={{ mb: 5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 2 }}>
+        {/* Advanced Welcome Section */}
+        <Box
+          sx={{
+            mb: 5,
+            p: 4,
+            borderRadius: 3,
+            position: 'relative',
+            overflow: 'hidden',
+            background: `linear-gradient(135deg, ${theme.palette.primary.dark} 0%, ${theme.palette.primary.main} 100%)`,
+            color: 'white',
+            boxShadow: theme.shadows[8],
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 3 }}>
             <Avatar
+              alt={user?.name}
               sx={{
-                width: 72,
-                height: 72,
-                background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
-                fontSize: '2rem',
-                fontWeight: 'bold',
-                boxShadow: '0 8px 24px rgba(59, 130, 246, 0.3)',
+                width: 88,
+                height: 88,
+                border: '4px solid rgba(255,255,255,0.2)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                fontSize: '2.5rem',
+                bgcolor: 'white',
+                color: 'primary.main',
               }}
             >
               {user?.name?.charAt(0) || 'S'}
             </Avatar>
             <Box>
-              <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
-                Welcome back, {user?.name}!
+              <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
+                Welcome back, {user?.name}
               </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Ready to continue your learning journey?
+              <Typography variant="h6" sx={{ opacity: 0.9, fontWeight: 400 }}>
+                Completed{' '}
+                <Box component="span" sx={{ fontWeight: 'bold' }}>
+                  {studentData.stats.completedAssignments} tasks
+                </Box>{' '}
+                this week.
               </Typography>
             </Box>
           </Box>
+          
+          {/* Decorative Circles */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -40,
+              right: -40,
+              width: 300,
+              height: 300,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%)',
+            }}
+          />
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: -60,
+              right: 180,
+              width: 200,
+              height: 200,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 70%)',
+            }}
+          />
         </Box>
 
-        {/* Stats Cards */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 3, mb: 5 }}>
+        {/* Stats Grid */}
+        <Grid container spacing={3} sx={{ mb: 5 }}>
           {statsCards.map((card, index) => (
-            <Box key={index}>
+            <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
               <Card
                 sx={{
                   height: '100%',
                   background: card.bgGradient,
-                  color: 'white',
+                  color: card.textColor,
+                  boxShadow: 'none',
+                  p: 3,
                   position: 'relative',
                   overflow: 'hidden',
-                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-                  transition: 'all 0.3s ease',
+                  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
                   '&:hover': {
-                    transform: 'translateY(-8px)',
-                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.16)',
+                    transform: 'translateY(-5px)',
+                    boxShadow: theme.shadows[10],
                   },
                 }}
               >
-                <CardContent sx={{ position: 'relative', zIndex: 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                        {card.title}
-                      </Typography>
-                      <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-                        {card.value}
-                      </Typography>
+                    <Box component="span" sx={{ p: 1, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.3)' }}>
+                      <Iconify icon={card.icon} width={24} />
                     </Box>
                     <Chip
                       label={card.trend}
                       size="small"
                       sx={{
-                        background: 'rgba(255, 255, 255, 0.2)',
-                        color: 'white',
-                        fontWeight: 600,
+                        bgcolor: 'rgba(255,255,255,0.3)',
+                        color: 'inherit',
+                        fontWeight: 'bold',
                       }}
                     />
                   </Box>
-                  <Iconify
-                    icon={card.icon}
-                    width={40}
-                    sx={{
-                      position: 'absolute',
-                      right: 24,
-                      bottom: 24,
-                      opacity: 0.4,
-                    }}
-                  />
-                </CardContent>
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: -40,
-                    right: -40,
-                    width: 120,
-                    height: 120,
-                    borderRadius: '50%',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                  }}
-                />
+                  <Typography variant="h3" sx={{ fontWeight: 800, mb: 0.5 }}>
+                    {card.value}
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ opacity: 0.8 }}>
+                    {card.title}
+                  </Typography>
               </Card>
-            </Box>
+            </Grid>
           ))}
-        </Box>
+        </Grid>
 
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '2fr 1fr' }, gap: 3 }}>
-          {/* Main Content Area */}
-          <Box>
-            {/* Activity Chart */}
-            <Card sx={{ mb: 3, p: 3 }}>
-              <Typography variant="h6" sx={{ mb: 3 }}>Learning Activity</Typography>
+        <Grid container spacing={3}>
+          {/* Main Content: Courses & Chart */}
+          <Grid size={{ xs: 12, lg: 8 }}>
+            
+             {/* Activity Chart */}
+             <Card sx={{ mb: 3, p: 3, boxShadow: theme.shadows[2] }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>Learning Activity</Typography>
+                <Button endIcon={<Iconify icon="solar:alt-arrow-right-line-duotone" />} size="small">
+                  View Full Report
+                </Button>
+              </Stack>
               <Box sx={{ height: 350, width: '100%' }}>
                 <Chart
                   options={chartOptions}
@@ -325,194 +384,344 @@ export function StudentDashboardView() {
               </Box>
             </Card>
 
-            {/* My Courses */}
-            <Typography variant="h5" sx={{ mb: 3 }}>
-              My Courses
-            </Typography>
-            
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {studentData.enrolledCourses.map((course) => (
-                <Card key={course.id} sx={{ transition: 'all 0.3s ease', '&:hover': { boxShadow: '0 8px 24px rgba(0,0,0,0.1)' } }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Box>
-                        <Typography variant="h6" gutterBottom>
-                          {course.title}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Instructor: {course.instructor}
-                        </Typography>
-                      </Box>
-                      <Chip label={`Grade: ${course.grade}`} color="primary" variant="outlined" />
-                    </Box>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              justifyContent="space-between"
+              sx={{ mb: 2, gap: 1.5 }}
+            >
+              <Typography variant="h5" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Iconly name="Bookmark" size={22} sx={{ color: 'primary.main' }} />
+                My Learning Path
+              </Typography>
+              <Button
+                href="/my-courses"
+                endIcon={<Iconly name="Arrow - Right" size={18} sx={{ color: 'inherit' }} />}
+                sx={{ fontWeight: 600 }}
+              >
+                View All
+              </Button>
+            </Stack>
 
-                    <Box sx={{ mb: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="body2">
-                          Progress: {course.completedLessons}/{course.totalLessons} lessons
-                        </Typography>
-                        <Typography variant="body2" color="primary">
-                          {course.progress}%
-                        </Typography>
-                      </Box>
-                      <LinearProgress
-                        variant="determinate"
-                        value={course.progress}
+            <Card
+              sx={{
+                mb: 3,
+                p: 2.5,
+                borderRadius: 3,
+                boxShadow: 'none',
+                border: '1px solid',
+                borderColor: alpha(theme.palette.primary.main, 0.16),
+                bgcolor: alpha(theme.palette.primary.main, 0.06),
+              }}
+            >
+              <Grid container spacing={2} alignItems="center">
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Stack spacing={1}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Iconly name="Chart" size={20} sx={{ color: 'primary.main' }} />
+                      <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                        Overall progress
+                      </Typography>
+                      <Chip
+                        label={`${overallProgress}%`}
+                        size="small"
+                        color="primary"
+                        sx={{ fontWeight: 700, ml: 'auto' }}
+                      />
+                    </Stack>
+                    <LinearProgress
+                      variant="determinate"
+                      value={overallProgress}
+                      sx={{
+                        height: 10,
+                        borderRadius: 6,
+                        bgcolor: alpha(theme.palette.grey[500], 0.16),
+                        '& .MuiLinearProgress-bar': {
+                          borderRadius: 6,
+                          backgroundImage: `linear-gradient(45deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
+                        },
+                      }}
+                    />
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      {activeCoursesCount} active course{activeCoursesCount === 1 ? '' : 's'} • Keep going!
+                    </Typography>
+                  </Stack>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1.5}
+                    alignItems={{ xs: 'stretch', sm: 'center' }}
+                    justifyContent="flex-end"
+                  >
+                    {nearestDueCourse ? (
+                      <Chip
+                        icon={<Iconly name="Time Circle" size={16} sx={{ color: 'inherit' }} />}
+                        label={`Next due: ${nearestDueCourse.dueDate.toLocaleDateString()}`}
+                        variant="outlined"
                         sx={{
-                          height: 8,
-                          borderRadius: 4,
-                          bgcolor: 'background.neutral',
-                          '& .MuiLinearProgress-bar': {
-                            borderRadius: 4,
-                            background: 'linear-gradient(90deg, #3B82F6 0%, #2563EB 100%)',
-                          },
+                          fontWeight: 600,
+                          borderColor: alpha(theme.palette.warning.main, 0.35),
+                          color: theme.palette.warning.darker,
+                          bgcolor: alpha(theme.palette.warning.main, 0.08),
                         }}
                       />
-                    </Box>
+                    ) : null}
 
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                      <Box>
-                        <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Iconify icon="solar:book-bookmark-bold-duotone" width={16} />
-                          Next: {course.nextLesson}
-                        </Typography>
-                        <Typography variant="body2" color="warning.main" sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                          <Iconify icon="solar:alarm-bold-duotone" width={16} />
-                          Due: {course.dueAssignment} ({course.dueDate.toLocaleDateString()})
-                        </Typography>
-                      </Box>
-                    </Box>
+                    {nextUpCourse ? (
+                      <Button
+                        href={`/course-room/${nextUpCourse.id}`}
+                        variant="contained"
+                        startIcon={<Iconly name="Play" size={18} sx={{ color: 'inherit' }} />}
+                        sx={{
+                          px: 2,
+                          borderRadius: 2,
+                          boxShadow: '0 10px 22px rgba(37, 99, 235, 0.24)',
+                          fontWeight: 700,
+                        }}
+                      >
+                        Continue learning
+                      </Button>
+                    ) : null}
+                  </Stack>
+                </Grid>
+              </Grid>
+            </Card>
+
+            <Stack spacing={2.5}>
+              {enrolledCourses.map((course) => (
+                <Card
+                  key={course.id}
+                  sx={{
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      borderColor: alpha(theme.palette.primary.main, 0.35),
+                      boxShadow: theme.shadows[10],
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 2.25 }}>
+                    <Grid container spacing={2} alignItems="center">
+                      <Grid size={{ xs: 12, sm: 'auto' }}>
+                        <Box
+                          sx={{
+                            width: 96,
+                            height: 96,
+                            borderRadius: 2.5,
+                            overflow: 'hidden',
+                            position: 'relative',
+                            bgcolor: alpha(theme.palette.primary.main, 0.08),
+                            backgroundImage: course.coverUrl ? `url(${course.coverUrl})` : undefined,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              inset: 0,
+                              bgcolor: alpha(theme.palette.common.black, 0.25),
+                            }}
+                          />
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              inset: 0,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'common.white',
+                            }}
+                          >
+                            <Iconly name="Document" size={34} sx={{ color: 'common.white' }} />
+                          </Box>
+                        </Box>
+                      </Grid>
+
+                      <Grid size={{ xs: 12, md: 5 }}>
+                        <Stack spacing={0.75}>
+                          <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+                            {course.title}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                            {course.instructor}
+                          </Typography>
+
+                          <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                            <Chip
+                              label={`Next: ${course.nextLesson}`}
+                              size="small"
+                              color="info"
+                              sx={{ fontWeight: 700 }}
+                            />
+                            <Chip
+                              label={`Grade: ${course.grade}`}
+                              size="small"
+                              variant="outlined"
+                              color="success"
+                              sx={{ fontWeight: 700 }}
+                            />
+                          </Stack>
+
+                          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mt: 0.25 }}>
+                            <Stack direction="row" spacing={0.75} alignItems="center">
+                              <Iconly name="Tick Square" size={16} sx={{ color: 'text.secondary' }} />
+                              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                                {course.completedLessons}/{course.totalLessons} lessons
+                              </Typography>
+                            </Stack>
+                            <Stack direction="row" spacing={0.75} alignItems="center">
+                              <Iconly name="Time Circle" size={16} sx={{ color: 'warning.main' }} />
+                              <Typography variant="caption" sx={{ color: 'warning.darker', fontWeight: 700 }}>
+                                {course.dueDate.toLocaleDateString()}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                                • {course.dueAssignment}
+                              </Typography>
+                            </Stack>
+                          </Stack>
+                        </Stack>
+                      </Grid>
+
+                      <Grid size={{ xs: 12, md: 4 }}>
+                        <Box sx={{ mb: 1, display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                            Progress
+                          </Typography>
+                          <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                            {course.progress}%
+                          </Typography>
+                        </Box>
+                        <LinearProgress
+                          variant="determinate"
+                          value={course.progress}
+                          sx={{
+                            height: 10,
+                            borderRadius: 6,
+                            bgcolor: alpha(theme.palette.grey[500], 0.16),
+                            '& .MuiLinearProgress-bar': {
+                              borderRadius: 6,
+                              backgroundImage: `linear-gradient(45deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`,
+                            },
+                          }}
+                        />
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.25 }}>
+                          <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                            {[0, 1, 2].map((i) => {
+                              const active = course.progress >= (i + 1) * 33;
+                              return (
+                                <Box
+                                  key={i}
+                                  sx={{
+                                    width: 10,
+                                    height: 10,
+                                    borderRadius: '50%',
+                                    bgcolor: active ? 'primary.main' : alpha(theme.palette.text.disabled, 0.35),
+                                  }}
+                                />
+                              );
+                            })}
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+                              Milestones
+                            </Typography>
+                          </Box>
+
+                          <IconButton
+                            href={`/course-room/${course.id}`}
+                            color="primary"
+                            sx={{
+                              width: 52,
+                              height: 52,
+                              bgcolor: 'primary.main',
+                              color: 'common.white',
+                              '&:hover': { bgcolor: 'primary.dark', transform: 'scale(1.06)' },
+                              transition: 'all 0.2s',
+                              boxShadow: '0 10px 18px rgba(37, 99, 235, 0.24)',
+                            }}
+                          >
+                            <Iconly name="Play" size={24} sx={{ color: 'common.white' }} />
+                          </IconButton>
+                        </Box>
+                      </Grid>
+                    </Grid>
                   </CardContent>
-
-                  <CardActions>
-                    <Button
-                      variant="contained"
-                      startIcon={<Iconify icon="solar:play-circle-bold-duotone" />}
-                      href={`/course-room/${course.id}`}
-                    >
-                      Continue Learning
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      startIcon={<Iconify icon="solar:upload-bold-duotone" />}
-                    >
-                      Submit Assignment
-                    </Button>
-                  </CardActions>
                 </Card>
               ))}
-            </Box>
-          </Box>
+            </Stack>
+          </Grid>
 
-          {/* Sidebar */}
-          <Box>
-            {/* Notifications */}
-            <Card sx={{ mb: 3 }}>
+          {/* Sidebar: Notifications & Events */}
+          <Grid size={{ xs: 12, lg: 4 }}>
+            <Card sx={{ height: '100%', boxShadow: theme.shadows[4] }}>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Recent Notifications
+                <Typography variant="h6" sx={{ mb: 3, fontWeight: 700 }}>
+                  Updates & Events
                 </Typography>
-                
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {studentData.recentNotifications.slice(0, 4).map((notification) => (
-                    <Box
-                      key={notification.id}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 2,
-                        p: 2,
-                        bgcolor: notification.read ? 'background.neutral' : 'primary.lighter',
-                        borderRadius: 1,
-                        border: notification.read ? 'none' : 1,
-                        borderColor: 'primary.main',
-                      }}
-                    >
-                      <Iconify
-                        icon={getNotificationIcon(notification.type)}
-                        color={notification.read ? 'text.secondary' : 'primary.main'}
-                        width={20}
-                      />
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                          {notification.title}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" paragraph>
-                          {notification.message}
-                        </Typography>
-                        <Typography variant="caption" color="text.disabled">
-                          {notification.time}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
 
-                <Button
-                  variant="text"
-                  size="small"
-                  sx={{ mt: 2 }}
-                  href="/notifications"
-                >
-                  View All Notifications
-                </Button>
+                <Stack spacing={3}>
+                   <Box>
+                      <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 2, textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 1 }}>
+                        Notifications
+                      </Typography>
+                      <Stack spacing={2}>
+                        {studentData.recentNotifications.map((notification) => (
+                          <Box 
+                            key={notification.id} 
+                            sx={{ 
+                              p: 2, 
+                              borderRadius: 2, 
+                              bgcolor: notification.read ? 'transparent' : alpha(theme.palette.primary.main, 0.08),
+                              border: '1px solid',
+                              borderColor: notification.read ? theme.palette.divider : 'transparent',
+                              display: 'flex',
+                              gap: 2
+                            }}
+                          >
+                             <Box sx={{ mt: 0.5 }}>
+                                <Iconify icon={getNotificationIcon(notification.type)} color={notification.read ? 'text.disabled' : 'primary.main'} width={24} />
+                             </Box>
+                             <Box>
+                                <Typography variant="subtitle2">{notification.title}</Typography>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>{notification.message}</Typography>
+                                <Typography variant="caption" sx={{ color: 'text.disabled' }}>{notification.time}</Typography>
+                             </Box>
+                          </Box>
+                        ))}
+                      </Stack>
+                   </Box>
+                   
+                   <Box>
+                      <Typography variant="subtitle2" sx={{ color: 'text.secondary', mb: 2, textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: 1 }}>
+                        Upcoming
+                      </Typography>
+                      <Stack spacing={2}>
+                        {studentData.upcomingEvents.map((event) => (
+                           <Card key={event.id} sx={{ bgcolor: alpha(theme.palette.secondary.lighter, 0.4), p: 2, boxShadow: 'none' }}>
+                              <Stack direction="row" spacing={2} alignItems="center">
+                                 <Box sx={{ p: 1, bgcolor: 'secondary.main', borderRadius: 1.5, color: 'white' }}>
+                                    <Iconify icon={getEventIcon(event.type)} width={20} />
+                                 </Box>
+                                 <Box>
+                                    <Typography variant="subtitle2">{event.title}</Typography>
+                                    <Typography variant="caption" color="text.secondary">{event.date.toLocaleDateString()} • {event.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Typography>
+                                 </Box>
+                              </Stack>
+                           </Card>
+                        ))}
+                      </Stack>
+                   </Box>
+                </Stack>
               </CardContent>
             </Card>
-
-            {/* Upcoming Events */}
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Upcoming Events
-                </Typography>
-                
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {studentData.upcomingEvents.map((event) => (
-                    <Box
-                      key={event.id}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 2,
-                        p: 2,
-                        border: 1,
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                      }}
-                    >
-                      <Iconify
-                        icon={getEventIcon(event.type)}
-                        color="primary.main"
-                        width={24}
-                      />
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="subtitle2" gutterBottom>
-                          {event.title}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {event.course}
-                        </Typography>
-                        <Typography variant="caption" color="primary.main">
-                          {event.date.toLocaleDateString()} at {event.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-
-                <Button
-                  variant="outlined"
-                  size="small"
-                  fullWidth
-                  sx={{ mt: 2 }}
-                  href="/calendar"
-                >
-                  View Calendar
-                </Button>
-              </CardContent>
-            </Card>
-          </Box>
-        </Box>
+          </Grid>
+        </Grid>
       </Container>
     </DashboardContent>
   );

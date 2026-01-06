@@ -8,18 +8,19 @@ import Tab from '@mui/material/Tab';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Tabs from '@mui/material/Tabs';
+import Grid from '@mui/material/Grid';
 import Table from '@mui/material/Table';
 import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import TableRow from '@mui/material/TableRow';
-import { useTheme } from '@mui/material/styles';
 import Container from '@mui/material/Container';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import Typography from '@mui/material/Typography';
-import CardContent from '@mui/material/CardContent';
+import { alpha, useTheme } from '@mui/material/styles';
 import LinearProgress from '@mui/material/LinearProgress';
 import TableContainer from '@mui/material/TableContainer';
 
@@ -141,38 +142,42 @@ export function AdminDashboardAdvanced() {
     {
       title: 'Total Students',
       value: analytics.totalStudents,
-      icon: 'solar:pen-bold',
-      color: 'primary',
+      icon: 'solar:users-group-rounded-bold',
+      color: theme.palette.primary.main,
+      textColor: theme.palette.primary.darker,
       subtitle: `+${analytics.newRegistrations} new this month`,
       trend: '+18%',
-      bgGradient: 'linear-gradient(135deg, #DC2626 0%, #FF6B6B 100%)',
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.primary.lighter, 0.8)} 0%, ${alpha(theme.palette.primary.light, 0.9)} 100%)`,
     },
     {
       title: 'Active Courses',
       value: analytics.activeCourses,
-      icon: 'solar:eye-bold',
-      color: 'info',
+      icon: 'solar:notebook-bold',
+      color: theme.palette.info.main,
+      textColor: theme.palette.info.darker,
       subtitle: `${analytics.totalCourses} total available`,
       trend: '+12%',
-      bgGradient: 'linear-gradient(135deg, #3B82F6 0%, #60A5FA 100%)',
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.info.lighter, 0.8)} 0%, ${alpha(theme.palette.info.light, 0.9)} 100%)`,
     },
     {
       title: 'Pending Reviews',
       value: analytics.pendingApplications,
-      icon: 'solar:clock-circle-outline',
-      color: 'warning',
+      icon: 'solar:clock-circle-bold',
+      color: theme.palette.warning.main,
+      textColor: theme.palette.warning.darker,
       subtitle: 'Awaiting approval',
       trend: '+8%',
-      bgGradient: 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)',
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.warning.lighter, 0.8)} 0%, ${alpha(theme.palette.warning.light, 0.9)} 100%)`,
     },
     {
       title: 'Total Revenue',
       value: `$${(analytics.totalRevenue / 1000).toFixed(0)}K`,
-      icon: 'solar:cart-3-bold',
-      color: 'success',
+      icon: 'solar:wad-of-money-bold',
+      color: theme.palette.success.main,
+      textColor: theme.palette.success.darker,
       subtitle: `$${(analytics.monthlyRevenue / 1000).toFixed(0)}K this month`,
       trend: '+25%',
-      bgGradient: 'linear-gradient(135deg, #10B981 0%, #34D399 100%)',
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.success.lighter, 0.8)} 0%, ${alpha(theme.palette.success.light, 0.9)} 100%)`,
     },
   ];
 
@@ -181,14 +186,15 @@ export function AdminDashboardAdvanced() {
       toolbar: { show: false },
       zoom: { enabled: false },
       fontFamily: theme.typography.fontFamily,
+      background: 'transparent',
     },
-    colors: [theme.palette.primary.main, theme.palette.success.main],
+    colors: [theme.palette.primary.main, theme.palette.secondary.main],
     fill: {
       type: 'gradient',
       gradient: {
         shadeIntensity: 1,
         opacityFrom: 0.7,
-        opacityTo: 0.9,
+        opacityTo: 0.2,
         stops: [0, 90, 100],
       },
     },
@@ -213,9 +219,11 @@ export function AdminDashboardAdvanced() {
     grid: {
       strokeDashArray: 3,
       borderColor: theme.palette.divider,
+      xaxis: { lines: { show: false } }, 
     },
     tooltip: {
       theme: theme.palette.mode,
+      x: { show: false }, 
     },
   };
 
@@ -234,93 +242,110 @@ export function AdminDashboardAdvanced() {
     <DashboardContent>
       <Container maxWidth="xl">
         {/* Header Section */}
-        <Box sx={{ mb: 6 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
+        <Box
+          sx={{
+            mb: 6,
+            p: 4,
+            borderRadius: 3,
+            position: 'relative',
+            overflow: 'hidden',
+            background: `linear-gradient(135deg, ${theme.palette.secondary.dark} 0%, ${theme.palette.primary.main} 100%)`,
+            color: 'white',
+            boxShadow: theme.shadows[8],
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 3 }}>
             <Avatar
+              alt={user?.name}
               sx={{
                 width: 72,
                 height: 72,
-                background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+                bgcolor: 'white',
+                color: 'primary.main',
                 fontSize: '2rem',
                 fontWeight: 'bold',
-                boxShadow: '0 8px 24px rgba(220, 38, 38, 0.3)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
               }}
             >
               {user?.name?.charAt(0) || 'A'}
             </Avatar>
             <Box>
-              <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+              <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
                 Admin Dashboard
               </Typography>
-              <Typography variant="body1" color="text.secondary">
+              <Typography variant="body1" sx={{ opacity: 0.9 }}>
                 Welcome back, {user?.name}! Here&apos;s your platform overview
               </Typography>
             </Box>
           </Box>
+          {/* Decorative Circles */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -60,
+              right: -60,
+              width: 300,
+              height: 300,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)',
+            }}
+          />
         </Box>
 
         {/* Key Metrics Grid */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 3, mb: 6 }}>
+        <Grid container spacing={3} sx={{ mb: 6 }}>
           {statsCards.map((card, index) => (
-            <Box key={index}>
+            <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
               <Card
                 sx={{
                   height: '100%',
                   background: card.bgGradient,
-                  color: 'white',
+                  color: card.textColor,
                   position: 'relative',
-                  overflow: 'hidden',
-                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-                  transition: 'all 0.3s ease',
+                  overflow: 'visible',
+                  boxShadow: 'none',
+                  p: 3,
+                  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
                   '&:hover': {
-                    transform: 'translateY(-8px)',
-                    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.16)',
+                    transform: 'translateY(-5px)',
+                    boxShadow: theme.shadows[10],
                   },
                 }}
               >
-                <CardContent sx={{ position: 'relative', zIndex: 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                        {card.title}
-                      </Typography>
-                      <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-                        {card.value}
-                      </Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.85 }}>
-                        {card.subtitle}
-                      </Typography>
+                    <Box component="span" sx={{ p: 1, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.3)' }}>
+                      <Iconify icon={card.icon} width={24} />
                     </Box>
                     <Chip
                       label={card.trend}
                       size="small"
                       sx={{
-                        background: 'rgba(255, 255, 255, 0.2)',
-                        color: 'white',
-                        fontWeight: 600,
+                        bgcolor: 'rgba(255, 255, 255, 0.3)',
+                        color: 'inherit',
+                        fontWeight: 'bold',
                       }}
                     />
                   </Box>
-                </CardContent>
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    top: -40,
-                    right: -40,
-                    width: 120,
-                    height: 120,
-                    borderRadius: '50%',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                  }}
-                />
+                  <Typography variant="h3" sx={{ fontWeight: 800, mb: 0.5 }}>
+                    {card.value}
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ opacity: 0.8 }}>
+                    {card.title}
+                  </Typography>
+                  <Typography variant="caption" sx={{ display: 'block', mt: 1, opacity: 0.7 }}>
+                    {card.subtitle}
+                  </Typography>
               </Card>
-            </Box>
+            </Grid>
           ))}
-        </Box>
+        </Grid>
 
         {/* Activity Chart */}
-        <Card sx={{ mb: 6, p: 3 }}>
-          <Typography variant="h6" sx={{ mb: 3 }}>Platform Activity (Last 7 Days)</Typography>
+        <Card sx={{ mb: 6, p: 3, boxShadow: theme.shadows[2] }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+             <Typography variant="h6" sx={{ fontWeight: 700 }}>Platform Activity (Last 7 Days)</Typography>
+             <Button variant="outlined" size="small">Download Report</Button>
+          </Stack>
           <Box sx={{ height: 350, width: '100%' }}>
             <Chart
               options={chartOptions}
@@ -332,7 +357,7 @@ export function AdminDashboardAdvanced() {
         </Card>
 
         {/* Main Content Tabs */}
-        <Card sx={{ mb: 6, boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)' }}>
+        <Card sx={{ mb: 6, boxShadow: theme.shadows[3] }}>
           <Tabs
             value={tabValue}
             onChange={(e, newValue) => setTabValue(newValue)}
@@ -343,13 +368,17 @@ export function AdminDashboardAdvanced() {
               '& .MuiTab-root': {
                 textTransform: 'none',
                 fontSize: '1rem',
-                fontWeight: 500,
+                fontWeight: 600,
+                color: 'text.secondary',
+                '&.Mui-selected': {
+                  color: 'primary.main',
+                },
               },
             }}
           >
-            <Tab label="Recent Applications" icon={<Iconify icon="solar:pen-bold" />} iconPosition="start" />
-            <Tab label="Top Courses" icon={<Iconify icon="solar:eye-bold" />} iconPosition="start" />
-            <Tab label="System Health" icon={<Iconify icon="solar:restart-bold" />} iconPosition="start" />
+            <Tab label="Recent Applications" icon={<Iconify icon="solar:pen-bold-duotone" />} iconPosition="start" />
+            <Tab label="Top Courses" icon={<Iconify icon="solar:star-bold-duotone" />} iconPosition="start" />
+            <Tab label="System Health" icon={<Iconify icon="solar:server-square-bold-duotone" />} iconPosition="start" />
           </Tabs>
 
           {/* Applications Tab */}
@@ -358,25 +387,25 @@ export function AdminDashboardAdvanced() {
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: 'background.neutral' }}>
-                    <TableCell sx={{ fontWeight: 600 }}>Student</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Course</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Price</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Applied Date</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }} align="right">
+                    <TableCell sx={{ fontWeight: 700 }}>Student</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Course</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Price</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Applied Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} align="right">
                       Actions
                     </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {recentApplications.map((app) => (
-                    <TableRow key={app.id} sx={{ '&:hover': { bgcolor: 'background.neutral' } }}>
+                    <TableRow key={app.id} sx={{ '&:hover': { bgcolor: alpha(theme.palette.primary.lighter, 0.2) } }}>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
+                          <Avatar sx={{ bgcolor: 'primary.lighter', color: 'primary.dark', width: 40, height: 40, fontWeight: 'bold' }}>
                             {app.avatar}
                           </Avatar>
                           <Box>
-                            <Typography variant="subtitle2">{app.studentName}</Typography>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{app.studentName}</Typography>
                             <Typography variant="caption" color="text.secondary">
                               {app.studentEmail}
                             </Typography>
@@ -385,27 +414,30 @@ export function AdminDashboardAdvanced() {
                       </TableCell>
                       <TableCell>{app.courseName}</TableCell>
                       <TableCell>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'success.main' }}>
                           ${app.coursePrice}
                         </Typography>
                       </TableCell>
                       <TableCell>{app.appliedAt.toLocaleDateString()}</TableCell>
                       <TableCell align="right">
-                        <Button
-                          variant="contained"
-                          size="small"
-                          sx={{ mr: 1 }}
-                          startIcon={<Iconify icon="solar:eye-bold" width={16} />}
-                        >
-                          Review
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<Iconify icon="solar:share-bold" width={16} />}
-                        >
-                          Reject
-                        </Button>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button
+                            variant="outlined"
+                            color="primary"
+                            size="small"
+                            startIcon={<Iconify icon="solar:eye-bold" width={16} />}
+                          >
+                            Review
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            startIcon={<Iconify icon="solar:trash-bin-trash-bold" width={16} />}
+                          >
+                            Reject
+                          </Button>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -416,28 +448,31 @@ export function AdminDashboardAdvanced() {
 
           {/* Top Courses Tab */}
           <TabPanel value={tabValue} index={1}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+            <Grid container spacing={3}>
               {topCourses.map((course) => (
-                <Box key={course.id}>
+                <Grid key={course.id} size={{ xs: 12, md: 4}}>
                   <Paper
                     sx={{
                       p: 3,
-                      background: 'linear-gradient(135deg, #F5F7FA 0%, #FFFFFF 100%)',
+                      background: alpha(theme.palette.background.neutral, 0.5),
                       border: '1px solid',
                       borderColor: 'divider',
+                      borderRadius: 2,
                       transition: 'all 0.3s ease',
                       '&:hover': {
-                        boxShadow: '0 12px 32px rgba(0, 0, 0, 0.12)',
+                        boxShadow: theme.shadows[10],
                         transform: 'translateY(-4px)',
+                        bgcolor: 'background.paper',
                       },
                     }}
                   >
-                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
                       {course.title}
                     </Typography>
 
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-                      Instructor: {course.instructor}
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 3 }}>
+                      <Iconify icon="solar:user-circle-bold" width={14} />
+                       {course.instructor}
                     </Typography>
 
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 3 }}>
@@ -459,7 +494,7 @@ export function AdminDashboardAdvanced() {
                       </Box>
                       <Box>
                         <Typography variant="h6" color="warning.main" sx={{ fontWeight: 700 }}>
-                          {course.rating}⭐
+                          {course.rating}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           Rating
@@ -490,9 +525,10 @@ export function AdminDashboardAdvanced() {
                         sx={{
                           height: 8,
                           borderRadius: 4,
-                          background: 'rgba(220, 38, 38, 0.1)',
+                          bgcolor: alpha(theme.palette.error.main, 0.1),
                           '& .MuiLinearProgress-bar': {
-                            background: 'linear-gradient(90deg, #DC2626 0%, #EF4444 100%)',
+                            borderRadius: 4,
+                             backgroundImage: `linear-gradient(90deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.light} 100%)`
                           },
                         }}
                       />
@@ -502,101 +538,115 @@ export function AdminDashboardAdvanced() {
                       variant="contained"
                       fullWidth
                       startIcon={<Iconify icon="solar:eye-bold" width={16} />}
+                      sx={{ borderRadius: 30 }}
                     >
                       View Details
                     </Button>
                   </Paper>
-                </Box>
+                </Grid>
               ))}
-            </Box>
+            </Grid>
           </TabPanel>
 
           {/* System Health Tab */}
           <TabPanel value={tabValue} index={2}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 3 }}>
+            <Grid container spacing={3}>
               {systemMetrics.map((metric, index) => (
-                <Box key={index}>
+                <Grid key={index} size={{ xs: 12, sm: 6, md: 3}}>
                   <Paper
                     sx={{
                       p: 3,
                       textAlign: 'center',
                       background: metric.status === 'excellent' 
-                        ? 'linear-gradient(135deg, #ECFDF5 0%, #F0FDF4 100%)'
-                        : 'linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%)',
+                        ? alpha(theme.palette.success.lighter, 0.3)
+                        : alpha(theme.palette.warning.lighter, 0.3),
                       border: '1px solid',
-                      borderColor: metric.status === 'excellent' ? 'success.light' : 'warning.light',
+                      borderColor: metric.status === 'excellent' ? 'success.main' : 'warning.main',
+                      borderRadius: 2
                     }}
                   >
                     <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
                       <Iconify
-                        icon={metric.status === 'excellent' ? 'solar:eye-bold' : 'solar:clock-circle-outline'}
-                        width={32}
+                        icon={metric.status === 'excellent' ? 'solar:server-square-bold-duotone' : 'solar:danger-circle-bold-duotone'}
+                        width={40}
                         color={metric.status === 'excellent' ? 'success.main' : 'warning.main'}
                       />
                     </Box>
-                    <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
+                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
                       {metric.value}
                       <Typography component="span" variant="body2" color="text.secondary">
                         {' '}
                         {metric.unit}
                       </Typography>
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
                       {metric.label}
                     </Typography>
                     <Chip
-                      label={metric.status}
+                      label={metric.status.toUpperCase()}
                       size="small"
                       color={metric.status === 'excellent' ? 'success' : 'warning'}
                       variant="outlined"
-                      sx={{ mt: 2 }}
+                      sx={{ mt: 2, fontWeight: 'bold' }}
                     />
                   </Paper>
-                </Box>
+                </Grid>
               ))}
-            </Box>
+            </Grid>
           </TabPanel>
         </Card>
 
         {/* Quick Actions */}
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, gap: 2 }}>
-          <Button
-            variant="contained"
-            fullWidth
-            size="large"
-            startIcon={<Iconify icon="solar:pen-bold" />}
-            sx={{ py: 2 }}
-          >
-            Review Applications
-          </Button>
-          <Button
-            variant="outlined"
-            fullWidth
-            size="large"
-            startIcon={<Iconify icon="solar:eye-bold" />}
-            sx={{ py: 2 }}
-          >
-            Manage Users
-          </Button>
-          <Button
-            variant="outlined"
-            fullWidth
-            size="large"
-            startIcon={<Iconify icon="solar:share-bold" />}
-            sx={{ py: 2 }}
-          >
-            Course Management
-          </Button>
-          <Button
-            variant="outlined"
-            fullWidth
-            size="large"
-            startIcon={<Iconify icon="solar:restart-bold" />}
-            sx={{ py: 2 }}
-          >
-            System Settings
-          </Button>
-        </Box>
+        <Grid container spacing={2}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Button
+              variant="contained"
+              fullWidth
+              size="large"
+              startIcon={<Iconify icon="solar:pen-bold" />}
+              sx={{ py: 2, borderRadius: 2, boxShadow: theme.shadows[8] }}
+              href="/admin/applications"
+            >
+              Review Applications
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="large"
+              startIcon={<Iconify icon="solar:users-group-rounded-bold" />}
+              sx={{ py: 2, borderRadius: 2, borderWidth: 2 }}
+              href="/admin/users"
+            >
+              Manage Users
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="large"
+              startIcon={<Iconify icon="solar:notebook-bold" />}
+              sx={{ py: 2, borderRadius: 2, borderWidth: 2 }}
+              href="/admin/courses"
+            >
+              Course Management
+            </Button>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Button
+              variant="outlined"
+              fullWidth
+              size="large"
+              startIcon={<Iconify icon="solar:settings-bold" />}
+              sx={{ py: 2, borderRadius: 2, borderWidth: 2 }}
+              href="/admin/reports"
+            >
+              System Settings
+            </Button>
+          </Grid>
+        </Grid>
       </Container>
     </DashboardContent>
   );

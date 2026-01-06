@@ -1,4 +1,4 @@
-import { Iconify } from 'src/components/iconify';
+import { Iconly } from 'src/components/iconly';
 
 import type { AccountPopoverProps } from './components/account-popover';
 
@@ -8,16 +8,16 @@ export const _account: AccountPopoverProps['data'] = [
   {
     label: 'Home',
     href: '/',
-    icon: <Iconify width={22} icon="solar:home-angle-bold-duotone" />,
+    icon: <Iconly name="Home" size={22} />,
   },
   {
     label: 'Profile',
     href: '/profile',
-    icon: <Iconify width={22} icon="solar:shield-keyhole-bold-duotone" />,
+    icon: <Iconly name="Profile" size={22} />,
   },
   {
     label: 'Settings',
     href: '#',
-    icon: <Iconify width={22} icon="solar:settings-bold-duotone" />,
+    icon: <Iconly name="Setting" size={22} />,
   },
 ];

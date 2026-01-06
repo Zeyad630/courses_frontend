@@ -12,7 +12,7 @@ import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import ClickAwayListener from '@mui/material/ClickAwayListener';
 
-import { Iconify } from 'src/components/iconify';
+import { Iconly } from 'src/components/iconly';
 
 // ----------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ export function Searchbar({ sx, ...other }: BoxProps) {
       <div>
         {!open && (
           <IconButton onClick={handleOpen}>
-            <Iconify icon="eva:search-fill" />
+            <Iconly name="Search" size={22} />
           </IconButton>
         )}
 
@@ -68,7 +68,7 @@ export function Searchbar({ sx, ...other }: BoxProps) {
               placeholder="Search…"
               startAdornment={
                 <InputAdornment position="start">
-                  <Iconify width={20} icon="eva:search-fill" sx={{ color: 'text.disabled' }} />
+                  <Iconly name="Search" size={20} sx={{ color: 'text.disabled' }} />
                 </InputAdornment>
               }
               sx={{ fontWeight: 'fontWeightBold' }}

@@ -4,10 +4,10 @@ import Chart from 'react-apexcharts';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
-import { useTheme } from '@mui/material/styles';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
+import { alpha, useTheme } from '@mui/material/styles';
 import LinearProgress from '@mui/material/LinearProgress';
 
 import { DashboardContent } from 'src/layouts/dashboard';
@@ -151,16 +151,61 @@ export function AdminReportsView() {
   return (
     <DashboardContent>
       <Container maxWidth="xl">
-        <Box sx={{ mb: 5 }}>
-          <Typography variant="h4">System Reports</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Overview of platform performance, revenue, and student statistics.
-          </Typography>
+        <Box
+          sx={{
+            mb: 5,
+            p: 3,
+            borderRadius: 3,
+            position: 'relative',
+            overflow: 'hidden',
+            bgcolor: alpha(theme.palette.primary.main, 0.06),
+            border: '1px solid',
+            borderColor: alpha(theme.palette.primary.main, 0.12),
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: alpha(theme.palette.primary.main, 0.14),
+                color: 'primary.main',
+              }}
+            >
+              <Iconify icon="solar:chart-2-bold-duotone" width={22} />
+            </Box>
+            <Box>
+              <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                System Reports
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Platform performance, revenue, and student statistics.
+              </Typography>
+            </Box>
+          </Box>
         </Box>
 
-        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, mb: 5 }}>
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, mb: 5 }}>
           {mockStats.map((stat) => (
-            <Card key={stat.title}>
+            <Card
+              key={stat.title}
+              sx={{
+                borderRadius: 3,
+                overflow: 'hidden',
+                border: '1px solid',
+                borderColor: 'divider',
+                transition: (t) => t.transitions.create(['transform', 'box-shadow', 'border-color'], { duration: 200 }),
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  borderColor: alpha(theme.palette.primary.main, 0.25),
+                  boxShadow: theme.shadows[10],
+                },
+              }}
+            >
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                   <Box>

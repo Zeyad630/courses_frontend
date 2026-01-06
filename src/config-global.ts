@@ -8,6 +8,6 @@ export type ConfigValue = {
 };
 
 export const CONFIG: ConfigValue = {
-  appName: 'School Cources',
+  appName: 'ZenCoders',
   appVersion: packageJson.version,
 };

@@ -12,7 +12,6 @@ import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import Avatar from '@mui/material/Avatar';
 import TableRow from '@mui/material/TableRow';
-import { useTheme } from '@mui/material/styles';
 import TextField from '@mui/material/TextField';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -20,6 +19,7 @@ import TableHead from '@mui/material/TableHead';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
+import { alpha, useTheme } from '@mui/material/styles';
 import TableContainer from '@mui/material/TableContainer';
 
 import { DashboardContent } from 'src/layouts/dashboard';
@@ -189,13 +189,45 @@ export function AdminUsersView() {
   return (
     <DashboardContent>
       <Container maxWidth="xl">
-        <Box sx={{ mb: 5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box>
-            <Typography variant="h4">Users Management</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Manage system users, roles, and permissions.
-            </Typography>
+        <Box
+          sx={{
+            mb: 5,
+            p: 3,
+            borderRadius: 3,
+            display: 'flex',
+            alignItems: { xs: 'flex-start', md: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            bgcolor: alpha(theme.palette.info.main, 0.06),
+            border: '1px solid',
+            borderColor: alpha(theme.palette.info.main, 0.12),
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                bgcolor: alpha(theme.palette.info.main, 0.14),
+                color: 'info.main',
+              }}
+            >
+              <Iconify icon="solar:users-group-rounded-bold-duotone" width={22} />
+            </Box>
+            <Box>
+              <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                Users Management
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Manage users, roles, and access.
+              </Typography>
+            </Box>
           </Box>
+
           <Button
             variant="contained"
             startIcon={<Iconify icon="solar:user-plus-bold-duotone" />}
@@ -274,7 +306,7 @@ export function AdminUsersView() {
           </Card>
         </Box>
 
-        <Card>
+        <Card sx={{ borderRadius: 3, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
           <TableContainer>
             <Table>
               <TableHead>

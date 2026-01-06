@@ -1,11 +1,13 @@
 import type { Course, CourseLevel, CreateCourseInput, UpdateCourseInput } from 'src/types/course';
 
-import { useState, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { useTranslation } from 'react-i18next';
+import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Card from '@mui/material/Card';
+import Chip from '@mui/material/Chip';
 import Tabs from '@mui/material/Tabs';
 import Table from '@mui/material/Table';
 import Paper from '@mui/material/Paper';
@@ -13,6 +15,8 @@ import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import Select from '@mui/material/Select';
+import Drawer from '@mui/material/Drawer';
+import Divider from '@mui/material/Divider';
 import TableRow from '@mui/material/TableRow';
 import MenuItem from '@mui/material/MenuItem';
 import Container from '@mui/material/Container';
@@ -26,12 +30,15 @@ import IconButton from '@mui/material/IconButton';
 import CardContent from '@mui/material/CardContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
+import { alpha, useTheme } from '@mui/material/styles';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TableContainer from '@mui/material/TableContainer';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import { useAuth } from 'src/contexts/simple-auth-context';
 import { useCoursesContext } from 'src/contexts/courses-context';
+import { useApplicationsContext } from 'src/contexts/applications-context';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -61,7 +68,11 @@ const initialFormData: CourseFormData = {
 
 export function AdminCourseManagementView() {
   const { t } = useTranslation();
+  const theme = useTheme();
   const { courses, createCourse, updateCourse, deleteCourse } = useCoursesContext();
+  const { user } = useAuth();
+  const { getApplicationsByCourse, updateApplicationStatus, deleteApplication, updateApplicationMetadata } =
+    useApplicationsContext();
 
   const [tabValue, setTabValue] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
@@ -70,6 +81,13 @@ export function AdminCourseManagementView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [editAppDialog, setEditAppDialog] = useState<{
+    open: boolean;
+    appId?: string;
+    values: { fullName: string; email: string; phone: string };
+  }>({ open: false, values: { fullName: '', email: '', phone: '' } });
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -166,6 +184,118 @@ export function AdminCourseManagementView() {
     [deleteCourse, t]
   );
 
+  const handleOpenDetails = (course: Course) => {
+    setSelectedCourse(course);
+    setDetailsOpen(true);
+  };
+
+  const handleCloseDetails = () => {
+    setDetailsOpen(false);
+    setSelectedCourse(null);
+  };
+
+  const courseApplications = useMemo(
+    () => (selectedCourse ? getApplicationsByCourse(selectedCourse.id) : []),
+    [selectedCourse, getApplicationsByCourse]
+  );
+
+  const pendingCount = courseApplications.filter((a) => a.status === 'pending').length;
+  const acceptedCount = courseApplications.filter((a) => a.status === 'accepted').length;
+  const rejectedCount = courseApplications.filter((a) => a.status === 'rejected').length;
+
+  const approveApp = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      await updateApplicationStatus(id, 'accepted', user.id);
+    },
+    [updateApplicationStatus, user]
+  );
+
+  const rejectApp = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      await updateApplicationStatus(id, 'rejected', user.id);
+    },
+    [updateApplicationStatus, user]
+  );
+
+  const removeApp = useCallback(
+    async (id: string) => {
+      if (!window.confirm('Delete this application?')) return;
+      await deleteApplication(id);
+    },
+    [deleteApplication]
+  );
+
+  const onEditApp = useCallback(
+    (id: string) => {
+      const app = courseApplications.find((a) => a.id === id);
+      setEditAppDialog({
+        open: true,
+        appId: id,
+        values: {
+          fullName: app?.metadata?.fullName || '',
+          email: app?.metadata?.email || '',
+          phone: app?.metadata?.phone || '',
+        },
+      });
+    },
+    [courseApplications]
+  );
+
+  const saveEditApp = useCallback(async () => {
+    if (!editAppDialog.appId) return;
+    await updateApplicationMetadata(editAppDialog.appId, editAppDialog.values);
+    setEditAppDialog({ open: false, values: { fullName: '', email: '', phone: '' } });
+  }, [editAppDialog, updateApplicationMetadata]);
+
+  const exportCourseCsv = useCallback(() => {
+    if (!selectedCourse) return;
+    const rows = [
+      ['Course', 'Student ID', 'Name', 'Email', 'Phone', 'Applied At', 'Status'],
+      ...courseApplications.map((a) => [
+        selectedCourse.name,
+        a.studentId,
+        a.metadata?.fullName ?? '',
+        a.metadata?.email ?? '',
+        a.metadata?.phone ?? '',
+        a.appliedAt.toISOString(),
+        a.status,
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `${selectedCourse.code || selectedCourse.name}_applications.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [selectedCourse, courseApplications]);
+
+  const exportCourseXlsx = useCallback(() => {
+    if (!selectedCourse) return;
+    const wb = XLSX.utils.book_new();
+    const rows = [
+      ['Course', 'Student ID', 'Name', 'Email', 'Phone', 'Applied At', 'Reviewed At', 'Status'],
+      ...courseApplications.map((a) => [
+        selectedCourse.name,
+        a.studentId,
+        a.metadata?.fullName ?? '',
+        a.metadata?.email ?? '',
+        a.metadata?.phone ?? '',
+        a.appliedAt.toISOString(),
+        a.reviewedAt ? a.reviewedAt.toISOString() : '',
+        a.status,
+      ]),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Applications');
+    XLSX.writeFile(wb, `${selectedCourse.code || selectedCourse.name}_applications.xlsx`);
+  }, [selectedCourse, courseApplications]);
+
   const activeCourses = courses.filter((c) => c.status === 'active');
   const inactiveCourses = courses.filter((c) => c.status !== 'active');
 
@@ -174,34 +304,34 @@ export function AdminCourseManagementView() {
       title: t('admin.totalCourses'),
       value: courses.length,
       icon: 'solar:notebook-bold-duotone',
-      color: 'primary.main',
-      bgcolor: 'primary.lighter',
+      color: 'primary',
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.2)} 0%, ${alpha(theme.palette.primary.main, 0.2)} 100%)`,
     },
     {
       title: t('admin.activeCourses'),
       value: activeCourses.length,
       icon: 'solar:check-circle-bold-duotone',
-      color: 'success.main',
-      bgcolor: 'success.lighter',
+      color: 'success',
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.success.light, 0.2)} 0%, ${alpha(theme.palette.success.main, 0.2)} 100%)`,
     },
     {
       title: t('admin.draftCourses'),
       value: inactiveCourses.length,
       icon: 'solar:file-text-bold-duotone',
-      color: 'warning.main',
-      bgcolor: 'warning.lighter',
+      color: 'warning',
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.warning.light, 0.2)} 0%, ${alpha(theme.palette.warning.main, 0.2)} 100%)`,
     },
     {
       title: t('admin.totalRevenue'),
       value: `$${courses.reduce((acc, c) => acc + (c.price * (c.students || 0)), 0).toLocaleString()}`,
       icon: 'solar:dollar-minimalistic-bold-duotone',
-      color: 'info.main',
-      bgcolor: 'info.lighter',
+      color: 'info',
+      bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.info.light, 0.2)} 0%, ${alpha(theme.palette.info.main, 0.2)} 100%)`,
     },
   ];
 
   const renderCourseForm = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
       {error && (
         <Alert severity="error" onClose={() => setError(null)}>
           {error}
@@ -227,137 +357,172 @@ export function AdminCourseManagementView() {
       <TextField
         fullWidth
         multiline
-        rows={3}
+        rows={4}
         label={t('courses.courseDescription')}
         value={formData.description}
         onChange={(e) => handleFormChange('description', e.target.value)}
         placeholder={t('courses.courseDescription')}
       />
 
-      <TextField
-        fullWidth
-        label={t('courses.category')}
-        value={formData.category}
-        onChange={(e) => handleFormChange('category', e.target.value)}
-        placeholder="e.g., Web Development"
-      />
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+        <TextField
+          fullWidth
+          label={t('courses.category')}
+          value={formData.category}
+          onChange={(e) => handleFormChange('category', e.target.value)}
+          placeholder="e.g., Web Development"
+        />
 
-      <FormControl fullWidth>
-        <InputLabel>{t('courses.level')}</InputLabel>
-        <Select
-          value={formData.level}
-          label={t('courses.level')}
-          onChange={(e) => handleFormChange('level', e.target.value)}
-        >
-          <MenuItem value="beginner">{t('courses.beginner')}</MenuItem>
-          <MenuItem value="intermediate">{t('courses.intermediate')}</MenuItem>
-          <MenuItem value="advanced">{t('courses.advanced')}</MenuItem>
-        </Select>
-      </FormControl>
+        <FormControl fullWidth>
+          <InputLabel>{t('courses.level')}</InputLabel>
+          <Select
+            value={formData.level}
+            label={t('courses.level')}
+            onChange={(e) => handleFormChange('level', e.target.value)}
+          >
+            <MenuItem value="beginner">{t('courses.beginner')}</MenuItem>
+            <MenuItem value="intermediate">{t('courses.intermediate')}</MenuItem>
+            <MenuItem value="advanced">{t('courses.advanced')}</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
 
-      <TextField
-        fullWidth
-        type="number"
-        label={t('courses.price')}
-        value={formData.price}
-        onChange={(e) => handleFormChange('price', parseFloat(e.target.value))}
-        placeholder="0"
-      />
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
+        <TextField
+            fullWidth
+            type="number"
+            label={t('courses.price')}
+            value={formData.price}
+            onChange={(e) => handleFormChange('price', parseFloat(e.target.value))}
+            placeholder="0"
+            InputProps={{
+               startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>$</Typography>
+            }}
+        />
 
-      <TextField
-        fullWidth
-        label={t('courses.instructor')}
-        value={formData.instructorId}
-        onChange={(e) => handleFormChange('instructorId', e.target.value)}
-        placeholder="Instructor ID"
-      />
-
-      <TextField
-        fullWidth
-        type="number"
-        label={t('courses.duration')}
-        value={formData.duration}
-        onChange={(e) => handleFormChange('duration', parseInt(e.target.value, 10))}
-        placeholder="Hours"
-      />
+        <TextField
+            fullWidth
+            type="number"
+            label={t('courses.duration')}
+            value={formData.duration}
+            onChange={(e) => handleFormChange('duration', parseInt(e.target.value, 10))}
+            placeholder="Hours"
+            InputProps={{
+              endAdornment: <Typography variant="caption" sx={{ color: 'text.secondary' }}>hrs</Typography>
+            }}
+        />
+         <TextField
+            fullWidth
+            label={t('courses.instructor')}
+            value={formData.instructorId}
+            onChange={(e) => handleFormChange('instructorId', e.target.value)}
+            placeholder="ID"
+        />
+      </Box>
     </Box>
   );
 
+  const getLevelColor = (level: string) => {
+    switch (level) {
+      case 'beginner': return { bgcolor: 'success.lighter', color: 'success.dark' };
+      case 'intermediate': return { bgcolor: 'warning.lighter', color: 'warning.dark' };
+      case 'advanced': return { bgcolor: 'error.lighter', color: 'error.dark' };
+      default: return { bgcolor: 'primary.lighter', color: 'primary.dark' };
+    }
+  };
+
   const renderCoursesTable = (courseList: Course[]) => (
-    <TableContainer component={Paper}>
+    <TableContainer component={Paper} sx={{ bgcolor: 'transparent', boxShadow: 'none' }}>
       <Table>
         <TableHead>
-          <TableRow sx={{ bgcolor: 'primary.lighter' }}>
-            <TableCell>{t('courses.courseName')}</TableCell>
+          <TableRow sx={{ bgcolor: alpha(theme.palette.grey[500], 0.08) }}>
+            <TableCell sx={{ borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }}>{t('courses.courseName')}</TableCell>
             <TableCell>{t('courses.courseCode')}</TableCell>
             <TableCell>{t('courses.category')}</TableCell>
             <TableCell>{t('courses.level')}</TableCell>
-            <TableCell align="right">{t('courses.price')}</TableCell>
+            {/* <TableCell align="right">{t('courses.price')}</TableCell> */}
             <TableCell align="right">{t('courses.students')}</TableCell>
-            <TableCell align="center">{t('common.action')}</TableCell>
+            <TableCell align="center" sx={{ borderTopRightRadius: 8, borderBottomRightRadius: 8 }}>{t('common.action')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {courseList.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  {t('courses.noCourses')}
-                </Typography>
+              <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                   <Iconify icon="solar:folder-with-files-bold-duotone" width={48} sx={{ color: 'text.disabled', mb: 1 }} />
+                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                    {t('courses.noCourses')}
+                    </Typography>
+                </Box>
               </TableCell>
             </TableRow>
           ) : (
             courseList.map((course) => (
-              <TableRow key={course.id} hover>
+              <TableRow 
+                  key={course.id} 
+                  hover 
+                  onClick={() => handleOpenDetails(course)}
+                  sx={{ 
+                      transition: 'background-color 0.2s',
+                      cursor: 'pointer',
+                      '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.04) } 
+                  }}
+              >
                 <TableCell>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {course.name}
                   </Typography>
                 </TableCell>
                 <TableCell>{course.code}</TableCell>
-                <TableCell>{course.category}</TableCell>
                 <TableCell>
-                  <Typography
-                    variant="caption"
+                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                       <Iconify icon="solar:folder-bold-duotone" width={16} sx={{ color: 'primary.main', opacity: 0.7 }} />
+                       {course.category}
+                   </Box>
+                </TableCell>
+                <TableCell>
+                  <Box
                     sx={{
                       px: 1.5,
                       py: 0.5,
                       borderRadius: 0.75,
-                      bgcolor:
-                        course.level === 'beginner'
-                          ? 'success.lighter'
-                          : course.level === 'intermediate'
-                            ? 'warning.lighter'
-                            : 'error.lighter',
-                      color:
-                        course.level === 'beginner'
-                          ? 'success.dark'
-                          : course.level === 'intermediate'
-                            ? 'warning.dark'
-                            : 'error.dark',
+                      display: 'inline-block',
+                      ...getLevelColor(course.level),
                       textTransform: 'capitalize',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
                     }}
                   >
                     {t(`courses.${course.level}`)}
-                  </Typography>
+                  </Box>
                 </TableCell>
-                <TableCell align="right">${course.price}</TableCell>
-                <TableCell align="right">{course.students}</TableCell>
+                {/* <TableCell align="right">
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>${course.price}</Typography>
+                </TableCell> */}
+                <TableCell align="right">
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+                        <Iconify icon="solar:users-group-rounded-bold" width={16} sx={{ color: 'text.secondary' }} />
+                        {course.students}
+                    </Box>
+                </TableCell>
                 <TableCell align="center">
-                  <IconButton
-                    size="small"
-                    onClick={() => handleOpenDialog(course)}
-                    sx={{ color: 'primary.main' }}
-                  >
-                    <Iconify icon="solar:pen-bold" width={18} />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDeleteCourse(course.id)}
-                    sx={{ color: 'error.main' }}
-                  >
-                    <Iconify icon="solar:trash-bin-trash-bold" width={18} />
-                  </IconButton>
+                  <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => { e.stopPropagation(); handleOpenDialog(course); }}
+                        sx={{ color: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.08), '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.16) } }}
+                      >
+                        <Iconify icon="solar:pen-bold" width={18} />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteCourse(course.id); }}
+                        sx={{ color: 'error.main', bgcolor: alpha(theme.palette.error.main, 0.08), '&:hover': { bgcolor: alpha(theme.palette.error.main, 0.16) } }}
+                      >
+                        <Iconify icon="solar:trash-bin-trash-bold" width={18} />
+                      </IconButton>
+                  </Box>
                 </TableCell>
               </TableRow>
             ))
@@ -369,51 +534,84 @@ export function AdminCourseManagementView() {
 
   return (
     <DashboardContent>
-      <Container maxWidth="lg">
-        {/* Header */}
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-              {t('courses.courseManagement')}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              {t('admin.management')} {t('courses.courses').toLowerCase()}
-            </Typography>
+      <Container maxWidth="xl">
+        {/* Glassmorphism Header */}
+        <Box
+          sx={{
+            mb: 5,
+            p: 4,
+            borderRadius: 3,
+            position: 'relative',
+            overflow: 'hidden',
+            background: `linear-gradient(135deg, ${theme.palette.secondary.dark} 0%, ${theme.palette.primary.main} 100%)`,
+            color: 'white',
+            boxShadow: theme.shadows[8],
+          }}
+        >
+          <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: 'space-between', gap: 3 }}>
+             <Box>
+                <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
+                  {t('courses.courseManagement')}
+                </Typography>
+                <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                  Create, edit, and manage all your courses in one place.
+                </Typography>
+             </Box>
+             
+             <Button
+                variant="contained"
+                size="large"
+                startIcon={<Iconify icon="solar:add-circle-bold" />}
+                onClick={() => handleOpenDialog()}
+                sx={{ 
+                    bgcolor: 'white', 
+                    color: 'primary.dark', 
+                    fontWeight: 700,
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' } 
+                }}
+              >
+                {t('courses.addCourse')}
+              </Button>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<Iconify icon="solar:check-circle-bold" width={20} />}
-            onClick={() => handleOpenDialog()}
-          >
-            {t('courses.addCourse')}
-          </Button>
+          <Box sx={{ position: 'absolute', top: -50, right: -50, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)' }} />
         </Box>
 
         {/* Stats Cards */}
-        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, mb: 4 }}>
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(4, 1fr)' }, mb: 5 }}>
           {stats.map((stat, index) => (
-            <Card key={index} sx={{ display: 'flex', alignItems: 'center', p: 3 }}>
+            <Card 
+                key={index} 
+                sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    p: 3,
+                    background: stat.bgGradient,
+                    transition: 'transform 0.3s',
+                    '&:hover': { transform: 'translateY(-4px)', boxShadow: theme.shadows[8] }
+                }}
+            >
               <Box sx={{ flexGrow: 1 }}>
-                <Typography variant="subtitle2" color="text.secondary">
+                <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600, mb: 0.5 }}>
                   {stat.title}
                 </Typography>
-                <Typography variant="h3">
+                <Typography variant="h3" sx={{ fontWeight: 800 }}>
                   {stat.value}
                 </Typography>
               </Box>
               <Box
                 sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 1.5,
+                  width: 56,
+                  height: 56,
+                  borderRadius: 2,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  bgcolor: stat.bgcolor,
-                  color: stat.color,
+                  bgcolor: 'white',
+                  color: `${stat.color}.main`,
+                  boxShadow: theme.shadows[2],
                 }}
               >
-                <Iconify icon={stat.icon} width={24} />
+                <Iconify icon={stat.icon} width={32} />
               </Box>
             </Card>
           ))}
@@ -426,39 +624,152 @@ export function AdminCourseManagementView() {
           </Alert>
         )}
 
-        {/* Tabs */}
-        <Card sx={{ mb: 3 }}>
-          <Tabs value={tabValue} onChange={handleTabChange} sx={{ px: 2 }}>
-            <Tab label={`${t('admin.activeCourses')} (${activeCourses.length})`} />
-            <Tab label={`${t('messages.noData')} (${inactiveCourses.length})`} />
+        {/* Main Content Area */}
+        <Card sx={{ boxShadow: theme.shadows[4] }}>
+          <Tabs 
+              value={tabValue} 
+              onChange={handleTabChange} 
+              sx={{ 
+                  px: 2, 
+                  pt: 2,
+                  borderBottom: `1px solid ${theme.palette.divider}`,
+                  '& .MuiTabs-indicator': { height: 3, borderRadius: 1.5 }
+              }}
+          >
+            <Tab 
+                label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {t('admin.activeCourses')}
+                        <Chip label={activeCourses.length} size="small" color="success" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                    </Box>
+                } 
+            />
+            <Tab 
+                label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        Drafts / Inactive
+                        <Chip label={inactiveCourses.length} size="small" color="default" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                    </Box>
+                } 
+            />
           </Tabs>
-        </Card>
 
-        {/* Courses Table */}
-        <Card>
-          <CardContent>
+          <CardContent sx={{ p: 0 }}>
             {tabValue === 0 && renderCoursesTable(activeCourses)}
             {tabValue === 1 && renderCoursesTable(inactiveCourses)}
           </CardContent>
         </Card>
 
         {/* Course Form Dialog */}
-        <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>
+        <Dialog 
+            open={openDialog} 
+            onClose={handleCloseDialog} 
+            maxWidth="md" 
+            fullWidth
+            PaperProps={{ sx: { borderRadius: 2 } }}
+        >
+          <DialogTitle sx={{ fontWeight: 700, pb: 2 }}>
             {editingCourse ? t('courses.editCourse') : t('courses.addCourse')}
           </DialogTitle>
           <DialogContent sx={{ pt: 2 }}>
             {renderCourseForm}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>{t('common.cancel')}</Button>
+          <DialogActions sx={{ p: 3 }}>
+            <Button onClick={handleCloseDialog} variant="outlined">{t('common.cancel')}</Button>
             <Button
               variant="contained"
               onClick={handleSaveCourse}
               disabled={loading}
+              startIcon={<Iconify icon="solar:disk-bold" />}
             >
               {loading ? t('common.loading') : t('common.save')}
             </Button>
+          </DialogActions>
+        </Dialog>
+        <Drawer anchor="right" open={detailsOpen} onClose={handleCloseDetails} PaperProps={{ sx: { width: 460 } }}>
+          <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+            {selectedCourse && (
+              <>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>{selectedCourse.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">{selectedCourse.code}</Typography>
+                  </Box>
+                  <Chip label={t(`courses.${selectedCourse.level}`)} size="small" color="primary" variant="outlined" />
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Category</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedCourse.category}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Instructor</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedCourse.instructor}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Price</Typography>
+                    <Typography variant="body2" fontWeight={700}>${selectedCourse.price}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Duration</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedCourse.duration}h</Typography>
+                  </Box>
+                </Box>
+                <Divider />
+                <Box sx={{ display: 'flex', gap: 1.5 }}>
+                  <Chip label={`Pending: ${pendingCount}`} color="warning" variant="outlined" />
+                  <Chip label={`Accepted: ${acceptedCount}`} color="success" variant="outlined" />
+                  <Chip label={`Rejected: ${rejectedCount}`} color="error" variant="outlined" />
+                </Box>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button variant="outlined" size="small" onClick={exportCourseCsv} startIcon={<Iconify icon="solar:download-bold-duotone" />}>CSV</Button>
+                  <Button variant="contained" size="small" onClick={exportCourseXlsx} startIcon={<Iconify icon="mdi:file-excel" />}>Excel</Button>
+                </Box>
+                <Divider />
+                <Typography variant="subtitle2">Applicants</Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, overflow: 'auto' }}>
+                  {courseApplications.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">No applications yet.</Typography>
+                  ) : (
+                    courseApplications.map((app) => (
+                      <Box key={app.id} sx={{ p: 1.5, border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <Box>
+                            <Typography variant="subtitle2">{app.metadata?.fullName || app.studentId}</Typography>
+                            <Typography variant="caption" color="text.secondary">{app.metadata?.email}</Typography>
+                          </Box>
+                          <Chip label={app.status.toUpperCase()} size="small" color={app.status === 'accepted' ? 'success' : app.status === 'rejected' ? 'error' : 'warning'} />
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1, justifyContent: 'flex-end' }}>
+                          {app.status === 'pending' && (
+                            <>
+                              <Button size="small" variant="outlined" color="success" onClick={() => approveApp(app.id)}>Approve</Button>
+                              <Button size="small" variant="outlined" color="error" onClick={() => rejectApp(app.id)}>Reject</Button>
+                            </>
+                          )}
+                          <Button size="small" variant="text" onClick={() => onEditApp(app.id)}>Edit</Button>
+                          <Button size="small" variant="text" color="error" onClick={() => removeApp(app.id)}>Delete</Button>
+                        </Box>
+                      </Box>
+                    ))
+                  )}
+                </Box>
+              </>
+            )}
+          </Box>
+        </Drawer>
+        <Dialog open={editAppDialog.open} onClose={() => setEditAppDialog({ open: false, values: { fullName: '', email: '', phone: '' } })} maxWidth="xs" fullWidth>
+          <DialogTitle>Edit Applicant</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <TextField label="Full Name" value={editAppDialog.values.fullName} onChange={(e) => setEditAppDialog((d) => ({ ...d, values: { ...d.values, fullName: e.target.value } }))} fullWidth />
+              <TextField label="Email" value={editAppDialog.values.email} onChange={(e) => setEditAppDialog((d) => ({ ...d, values: { ...d.values, email: e.target.value } }))} fullWidth />
+              <TextField label="Phone" value={editAppDialog.values.phone} onChange={(e) => setEditAppDialog((d) => ({ ...d, values: { ...d.values, phone: e.target.value } }))} fullWidth />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditAppDialog({ open: false, values: { fullName: '', email: '', phone: '' } })}>Cancel</Button>
+            <Button variant="contained" onClick={saveEditApp}>Save</Button>
           </DialogActions>
         </Dialog>
       </Container>

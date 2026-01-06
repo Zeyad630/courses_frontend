@@ -9,13 +9,15 @@ import type { SvgColorProps } from './types';
 // ----------------------------------------------------------------------
 
 export function SvgColor({ src, className, sx, ...other }: SvgColorProps) {
+  const safeSrc = encodeURI(src);
+
   return (
     <SvgRoot
       className={mergeClasses([svgColorClasses.root, className])}
       sx={[
         {
-          mask: `url(${src}) no-repeat center / contain`,
-          WebkitMask: `url(${src}) no-repeat center / contain`,
+          mask: `url(${safeSrc}) no-repeat center / contain`,
+          WebkitMask: `url(${safeSrc}) no-repeat center / contain`,
         },
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}

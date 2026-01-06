@@ -20,6 +20,7 @@ import { useRouter } from 'src/routes/hooks';
 
 import { useAuth } from 'src/contexts/simple-auth-context';
 
+import { Iconly } from 'src/components/iconly';
 import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
@@ -48,7 +49,7 @@ export function SignInView() {
 
     try {
       await login(email, password);
-      router.push('/');
+      router.push('/courses');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.invalidCredentials'));
     } finally {
@@ -90,7 +91,7 @@ export function SignInView() {
           input: {
             startAdornment: (
               <InputAdornment position="start">
-                <Iconify icon="solar:pen-bold" width={20} sx={{ mr: 1, color: 'text.secondary' }} />
+                <Iconly name="Message" size={20} sx={{ mr: 1, color: 'text.secondary' }} />
               </InputAdornment>
             ),
           },
@@ -139,7 +140,7 @@ export function SignInView() {
             input: {
               startAdornment: (
                 <InputAdornment position="start">
-                  <Iconify icon="solar:eye-bold" width={20} sx={{ mr: 1, color: 'text.secondary' }} />
+                  <Iconly name="Password" size={20} sx={{ mr: 1, color: 'text.secondary' }} />
                 </InputAdornment>
               ),
               endAdornment: (
@@ -152,7 +153,7 @@ export function SignInView() {
                       '&:hover': { color: 'primary.main' },
                     }}
                   >
-                    <Iconify icon={showPassword ? 'solar:eye-bold' : 'solar:eye-closed-bold'} width={20} />
+                    <Iconly name={showPassword ? 'Show' : 'Hide'} size={20} />
                   </IconButton>
                 </InputAdornment>
               ),

@@ -7,8 +7,7 @@ import { usePathname } from 'src/routes/hooks';
 import { ThemeProvider } from 'src/theme/theme-provider';
 import { CoursesProvider } from 'src/contexts/courses-context';
 import { AuthProvider } from 'src/contexts/simple-auth-context';
-
-// ----------------------------------------------------------------------
+import { ApplicationsProvider } from 'src/contexts/applications-context';
 
 type AppProps = {
   children: React.ReactNode;
@@ -20,9 +19,11 @@ export default function App({ children }: AppProps) {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <CoursesProvider>
-          {children}
-        </CoursesProvider>
+        <ApplicationsProvider>
+          <CoursesProvider>
+            {children}
+          </CoursesProvider>
+        </ApplicationsProvider>
       </AuthProvider>
     </ThemeProvider>
   );

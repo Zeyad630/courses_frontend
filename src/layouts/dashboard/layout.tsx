@@ -101,10 +101,10 @@ export function DashboardLayout({
 
 
           {/** @slot Notifications popover */}
-          <NotificationsPopover />
+          <NotificationsPopover sx={{ width: 36, height: 36 }} />
 
           {/** @slot Account drawer */}
-          <AccountPopover data={_account} />
+          <AccountPopover data={_account} sx={{ width: 36, height: 36 }} />
         </Box>
       ),
     };
@@ -117,8 +117,14 @@ export function DashboardLayout({
         slots={{ ...headerSlots, ...slotProps?.header?.slots }}
         slotProps={merge(headerSlotProps, slotProps?.header?.slotProps ?? {})}
         sx={{
-          bgcolor: varAlpha(theme.vars.palette.background.defaultChannel, 0.8),
-          backdropFilter: 'blur(12px)',
+          bgcolor: varAlpha(theme.vars.palette.background.defaultChannel, 0.7),
+          backdropFilter: 'blur(20px)',
+          borderBottom: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.08)}`,
+          backgroundImage: `linear-gradient(to bottom, ${varAlpha(theme.vars.palette.background.defaultChannel, 0.4)}, ${varAlpha(theme.vars.palette.background.defaultChannel, 0.2)})`,
+          transition: theme.transitions.create(['height', 'background-color'], {
+            easing: theme.transitions.easing.easeInOut,
+            duration: theme.transitions.duration.shorter,
+          }),
           ...slotProps?.header?.sx,
         }}
       />

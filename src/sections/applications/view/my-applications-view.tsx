@@ -1,6 +1,6 @@
-import type { CourseApplication, ApplicationStatus } from 'src/types/user';
+import type { ApplicationStatus } from 'src/types/user';
 
-import { useState } from 'react';
+import { useMemo } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -12,47 +12,14 @@ import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import { useAuth } from 'src/contexts/simple-auth-context';
+import { useApplicationsContext } from 'src/contexts/applications-context';
 
 import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
 
-// Mock applications data
-const mockApplications: (CourseApplication & { courseName: string; coursePrice: number })[] = [
-  {
-    id: 'app_1',
-    studentId: 'student_1',
-    courseId: '1',
-    courseName: 'Introduction to Programming',
-    coursePrice: 299,
-    status: 'accepted',
-    appliedAt: new Date('2024-01-15'),
-    reviewedAt: new Date('2024-01-18'),
-    reviewedBy: 'admin_1',
-    notes: 'Great application! Welcome to the course.',
-  },
-  {
-    id: 'app_2',
-    studentId: 'student_1',
-    courseId: '2',
-    courseName: 'Web Development Bootcamp',
-    coursePrice: 499,
-    status: 'pending',
-    appliedAt: new Date('2024-01-20'),
-  },
-  {
-    id: 'app_3',
-    studentId: 'student_1',
-    courseId: '3',
-    courseName: 'Data Science Fundamentals',
-    coursePrice: 399,
-    status: 'rejected',
-    appliedAt: new Date('2024-01-10'),
-    reviewedAt: new Date('2024-01-12'),
-    reviewedBy: 'admin_1',
-    notes: 'Prerequisites not met. Please complete basic programming course first.',
-  },
-];
+// Applications are sourced from ApplicationsContext
 
 const getStatusColor = (status: ApplicationStatus) => {
   switch (status) {
@@ -79,7 +46,12 @@ const getStatusIcon = (status: ApplicationStatus) => {
 };
 
 export function MyApplicationsView() {
-  const [applications] = useState(mockApplications);
+  const { user } = useAuth();
+  const { applications } = useApplicationsContext();
+  const myApplications = useMemo(
+    () => applications.filter((a) => a.studentId === user?.id),
+    [applications, user?.id]
+  );
 
   const handlePayment = (applicationId: string, coursePrice: number) => {
     console.log('Processing payment for application:', applicationId, 'Amount:', coursePrice);
@@ -98,13 +70,13 @@ export function MyApplicationsView() {
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {applications.map((application) => (
+          {myApplications.map((application) => (
             <Card key={application.id}>
               <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                   <Box>
                     <Typography variant="h6" gutterBottom>
-                      {application.courseName}
+                      {application.metadata?.courseName || application.courseId}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Applied on: {application.appliedAt.toLocaleDateString()}
@@ -121,7 +93,7 @@ export function MyApplicationsView() {
 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" color="primary">
-                    Course Fee: ${application.coursePrice}
+                    Course Fee: ${application.metadata?.coursePrice ?? ''}
                   </Typography>
                   
                   {application.reviewedAt && (
@@ -146,9 +118,9 @@ export function MyApplicationsView() {
                     variant="contained"
                     color="primary"
                     startIcon={<Iconify icon="solar:cart-3-bold" />}
-                    onClick={() => handlePayment(application.id, application.coursePrice)}
+                    onClick={() => handlePayment(application.id, application.metadata?.coursePrice || 0)}
                   >
-                    Pay ${application.coursePrice} & Access Course
+                    Pay ${application.metadata?.coursePrice ?? ''} & Access Course
                   </Button>
                 )}
                 
@@ -177,7 +149,7 @@ export function MyApplicationsView() {
           ))}
         </Box>
 
-        {applications.length === 0 && (
+        {myApplications.length === 0 && (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             <Typography variant="h6" color="text.secondary">
               No Applications Yet
