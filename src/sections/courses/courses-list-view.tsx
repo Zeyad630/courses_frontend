@@ -22,15 +22,15 @@ import CardContent from '@mui/material/CardContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
 import ToggleButton from '@mui/material/ToggleButton';
+import { alpha, useTheme } from '@mui/material/styles';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import InputAdornment from '@mui/material/InputAdornment';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
-import { alpha, useTheme } from '@mui/material/styles';
 
 import { DashboardContent } from 'src/layouts/dashboard';
-import { useCoursesContext } from 'src/contexts/courses-context';
 import { useAuth } from 'src/contexts/simple-auth-context';
+import { useCoursesContext } from 'src/contexts/courses-context';
 import { useApplicationsContext } from 'src/contexts/applications-context';
 
 import { Iconly } from 'src/components/iconly';
