@@ -1,6 +1,7 @@
 import 'src/global.css';
 
 import { useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 
 import { usePathname } from 'src/routes/hooks';
 
@@ -25,6 +26,7 @@ export default function App({ children }: AppProps) {
           </CoursesProvider>
         </ApplicationsProvider>
       </AuthProvider>
+      <Analytics />
     </ThemeProvider>
   );
 }
