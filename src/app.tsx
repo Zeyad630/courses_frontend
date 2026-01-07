@@ -9,7 +9,6 @@ import { CoursesProvider } from 'src/contexts/courses-context';
 import { AuthProvider } from 'src/contexts/simple-auth-context';
 import { ApplicationsProvider } from 'src/contexts/applications-context';
 
-import { Analytics } from "@vercel/analytics/next"
 
 type AppProps = {
   children: React.ReactNode;
@@ -24,7 +23,6 @@ export default function App({ children }: AppProps) {
         <ApplicationsProvider>
           <CoursesProvider>
             {children}
-            <Analytics />
           </CoursesProvider>
         </ApplicationsProvider>
       </AuthProvider>

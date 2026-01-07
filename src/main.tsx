@@ -2,11 +2,13 @@ import 'src/locales/i18n';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Analytics } from "@vercel/analytics/react"
 import { Outlet, RouterProvider, createBrowserRouter } from 'react-router';
 
 import App from './app';
 import { routesSection } from './routes/sections';
 import { ErrorBoundary } from './routes/components';
+
 
 // ----------------------------------------------------------------------
 
@@ -27,5 +29,6 @@ const root = createRoot(document.getElementById('root')!);
 root.render(
   <StrictMode>
     <RouterProvider router={router} />
+    <Analytics />
   </StrictMode>
 );
