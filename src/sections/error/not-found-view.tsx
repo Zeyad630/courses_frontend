@@ -11,7 +11,7 @@ import { RouterLink } from 'src/routes/components';
 export function NotFoundView() {
   return (
     <>
-      <img style={{ position: 'fixed', top: 20, left: 20, width: 160, height: 65 }} src="/assets/school/logo.png" />
+      <img style={{ position: 'fixed', top: 20, left: 20, width: 140, height: 30 }} src="/assets/school/logo.png" />
 
       <Container
         sx={{
