@@ -12,6 +12,7 @@ type AuthAction =
 
 type AuthContextValue = AuthState & {
   login: (email: string, password: string) => Promise<void>;
+  register: (params: { email: string; name: string; password: string }) => Promise<void>;
   logout: () => void;
   updateUser: (updates: Partial<User>) => void;
   hasRole: (role: UserRole) => boolean;
@@ -42,6 +43,46 @@ const getInitialState = (): AuthState => {
     isLoading: false,
   };
 };
+
+type StoredUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  password: string;
+  isActive: boolean;
+  isVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+const USERS_STORAGE_KEY = 'auth_users';
+
+const getStoredUsers = (): StoredUser[] => {
+  try {
+    const raw = localStorage.getItem(USERS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as StoredUser[];
+  } catch {
+    return [];
+  }
+};
+
+const setStoredUsers = (users: StoredUser[]) => {
+  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+};
+
+const buildUserFromStored = (stored: StoredUser): User => ({
+  id: stored.id,
+  name: stored.name,
+  email: stored.email,
+  role: stored.role,
+  isActive: stored.isActive,
+  createdAt: new Date(stored.createdAt),
+  updatedAt: new Date(stored.updatedAt),
+});
 
 function authReducer(state: AuthState, action: AuthAction): AuthState {
   switch (action.type) {
@@ -110,6 +151,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
+      const storedUsers = getStoredUsers();
+      const stored = storedUsers.find((u) => u.email === email);
+
+      if (stored) {
+        if (!stored.isVerified) {
+          throw new Error('Email is not verified');
+        }
+
+        if (stored.password !== password) {
+          throw new Error('Invalid credentials');
+        }
+
+        dispatch({ type: 'LOGIN', payload: buildUserFromStored(stored) });
+        return;
+      }
+
       const validCredentials = [
         { email: 'admin@school.com', password: 'admin123', role: 'admin' as UserRole, name: 'Admin User' },
         { email: 'instructor@school.com', password: 'instructor123', role: 'instructor' as UserRole, name: 'Instructor User' },
@@ -140,6 +197,55 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, []);
 
+  const register = useCallback(async (params: { email: string; name: string; password: string }) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const { email, name, password } = params;
+
+      const storedUsers = getStoredUsers();
+      const existingStored = storedUsers.find((u) => u.email === email);
+
+      if (existingStored) {
+        throw new Error('Email is already registered');
+      }
+
+      const existingDemo = [
+        'admin@school.com',
+        'instructor@school.com',
+        'student@school.com',
+        'hello@gmail.com',
+      ].includes(email);
+
+      if (existingDemo) {
+        throw new Error('Email is already registered');
+      }
+
+      const now = new Date().toISOString();
+      const id = globalThis.crypto?.randomUUID?.() ?? String(Date.now());
+
+      const newStoredUser: StoredUser = {
+        id,
+        name,
+        email,
+        role: 'student',
+        password,
+        isActive: true,
+        isVerified: true,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      setStoredUsers([...storedUsers, newStoredUser]);
+      dispatch({ type: 'LOGIN', payload: buildUserFromStored(newStoredUser) });
+    } catch (error) {
+      dispatch({ type: 'SET_LOADING', payload: false });
+      throw error;
+    }
+  }, []);
+
   const logout = useCallback(() => {
     dispatch({ type: 'LOGOUT' });
   }, []);
@@ -154,12 +260,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     () => ({
       ...state,
       login,
+      register,
       logout,
       updateUser,
       hasRole,
       hasAnyRole,
     }),
-    [state, login, logout, updateUser, hasRole, hasAnyRole]
+    [state, login, register, logout, updateUser, hasRole, hasAnyRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

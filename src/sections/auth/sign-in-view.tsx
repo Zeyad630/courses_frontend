@@ -2,21 +2,20 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import Box from '@mui/material/Box';
-import Link from '@mui/material/Link';
 import Card from '@mui/material/Card';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import Link from '@mui/material/Link';
 import Divider from '@mui/material/Divider';
 import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
-import ToggleButton from '@mui/material/ToggleButton';
 import InputAdornment from '@mui/material/InputAdornment';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
 import { useRouter } from 'src/routes/hooks';
+import { RouterLink } from 'src/routes/components';
 
 import { useAuth } from 'src/contexts/simple-auth-context';
 
@@ -28,7 +27,7 @@ import { Iconify } from 'src/components/iconify';
 export function SignInView() {
   const router = useRouter();
   const { login } = useAuth();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('admin@school.com');
@@ -36,7 +35,6 @@ export function SignInView() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [language, setLanguage] = useState(i18n.language);
 
   const handleSignIn = useCallback(async () => {
     if (!email || !password) {
@@ -51,18 +49,19 @@ export function SignInView() {
       await login(email, password);
       router.push('/courses');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.invalidCredentials'));
+      if (err instanceof Error) {
+        if (err.message === 'Email is not verified') {
+          setError(t('auth.emailNotVerified'));
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError(t('auth.invalidCredentials'));
+      }
     } finally {
       setLoading(false);
     }
   }, [email, password, login, router, t]);
-
-  const handleLanguageChange = (event: React.MouseEvent<HTMLElement>, newLanguage: string | null) => {
-    if (newLanguage) {
-      setLanguage(newLanguage);
-      i18n.changeLanguage(newLanguage);
-    }
-  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -226,33 +225,7 @@ export function SignInView() {
   return (
     <Box sx={{ width: '100%' }}>
       {/* Language Toggle */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-        <ToggleButtonGroup
-          value={language}
-          exclusive
-          onChange={handleLanguageChange}
-          size="small"
-          sx={{
-            '& .MuiToggleButton-root': {
-              px: 2,
-              py: 1,
-              border: '1px solid',
-              borderColor: 'divider',
-              '&.Mui-selected': {
-                bgcolor: 'primary.main',
-                color: 'white',
-                borderColor: 'primary.main',
-                '&:hover': {
-                  bgcolor: 'primary.dark',
-                },
-              },
-            },
-          }}
-        >
-          <ToggleButton value="en">{t('common.english')}</ToggleButton>
-          <ToggleButton value="ar">{t('common.arabic')}</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
+      <Box sx={{ display: 'none' }} />
 
       {/* Header Section */}
       <Box
@@ -387,7 +360,8 @@ export function SignInView() {
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           {t('auth.dontHaveAccount')}{' '}
           <Link
-            href="#"
+            component={RouterLink}
+            href="/sign-up"
             sx={{
               color: 'primary.main',
               fontWeight: 600,

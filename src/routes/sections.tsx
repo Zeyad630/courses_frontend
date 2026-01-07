@@ -16,6 +16,7 @@ import { AuthGuard } from 'src/components/auth-guard';
 
 export const DashboardPage = lazy(() => import('src/pages/dashboard'));
 export const SignInPage = lazy(() => import('src/pages/sign-in'));
+export const SignUpPage = lazy(() => import('src/pages/sign-up'));
 export const CoursesPage = lazy(() => import('src/pages/courses'));
 export const MyApplicationsPage = lazy(() => import('src/pages/my-applications'));
 export const AdminDashboardPage = lazy(() => import('src/pages/admin/dashboard'));
@@ -86,6 +87,14 @@ export const routesSection: RouteObject[] = [
     element: (
       <AuthLayout>
         <SignInPage />
+      </AuthLayout>
+    ),
+  },
+  {
+    path: 'sign-up',
+    element: (
+      <AuthLayout>
+        <SignUpPage />
       </AuthLayout>
     ),
   },
