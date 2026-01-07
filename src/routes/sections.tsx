@@ -15,6 +15,7 @@ import { AuthGuard } from 'src/components/auth-guard';
 // ----------------------------------------------------------------------
 
 export const DashboardPage = lazy(() => import('src/pages/dashboard'));
+export const LandingPage = lazy(() => import('src/pages/landing'));
 export const SignInPage = lazy(() => import('src/pages/sign-in'));
 export const SignUpPage = lazy(() => import('src/pages/sign-up'));
 export const CoursesPage = lazy(() => import('src/pages/courses'));
@@ -55,6 +56,14 @@ const renderFallback = () => (
 
 export const routesSection: RouteObject[] = [
   {
+    index: true,
+    element: (
+      <Suspense fallback={renderFallback()}>
+        <LandingPage />
+      </Suspense>
+    ),
+  },
+  {
     element: (
       <AuthGuard>
         <DashboardLayout>
@@ -65,7 +74,7 @@ export const routesSection: RouteObject[] = [
       </AuthGuard>
     ),
     children: [
-      { index: true, element: <DashboardPage /> },
+      { path: 'dashboard', element: <DashboardPage /> },
       { path: 'courses', element: <CoursesPage /> },
       { path: 'my-applications', element: <MyApplicationsPage /> },
       { path: 'admin/dashboard', element: <AdminDashboardPage /> },
@@ -86,7 +95,9 @@ export const routesSection: RouteObject[] = [
     path: 'sign-in',
     element: (
       <AuthLayout>
-        <SignInPage />
+        <Suspense fallback={renderFallback()}>
+          <SignInPage />
+        </Suspense>
       </AuthLayout>
     ),
   },
@@ -94,13 +105,26 @@ export const routesSection: RouteObject[] = [
     path: 'sign-up',
     element: (
       <AuthLayout>
-        <SignUpPage />
+        <Suspense fallback={renderFallback()}>
+          <SignUpPage />
+        </Suspense>
       </AuthLayout>
     ),
   },
   {
     path: '404',
-    element: <Page404 />,
+    element: (
+      <Suspense fallback={renderFallback()}>
+        <Page404 />
+      </Suspense>
+    ),
   },
-  { path: '*', element: <Page404 /> },
+  {
+    path: '*',
+    element: (
+      <Suspense fallback={renderFallback()}>
+        <Page404 />
+      </Suspense>
+    ),
+  },
 ];

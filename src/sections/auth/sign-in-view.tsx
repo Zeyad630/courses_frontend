@@ -11,6 +11,7 @@ import Checkbox from '@mui/material/Checkbox';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import { alpha, useTheme } from '@mui/material/styles';
 import InputAdornment from '@mui/material/InputAdornment';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
@@ -26,8 +27,11 @@ import { Iconify } from 'src/components/iconify';
 
 export function SignInView() {
   const router = useRouter();
+  const theme = useTheme();
   const { login } = useAuth();
   const { t } = useTranslation();
+
+  const brandGradient = `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('admin@school.com');
@@ -47,7 +51,7 @@ export function SignInView() {
 
     try {
       await login(email, password);
-      router.push('/courses');
+      router.push('/dashboard');
     } catch (err) {
       if (err instanceof Error) {
         if (err.message === 'Email is not verified') {
@@ -204,15 +208,15 @@ export function SignInView() {
           fontSize: '1rem',
           fontWeight: 600,
           textTransform: 'none',
-          background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
-          boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+          background: brandGradient,
+          boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.28)}`,
           transition: 'all 0.3s ease',
           '&:hover': {
-            boxShadow: '0 8px 24px rgba(220, 38, 38, 0.4)',
+            boxShadow: `0 14px 34px ${alpha(theme.palette.primary.main, 0.35)}`,
             transform: 'translateY(-2px)',
           },
           '&:disabled': {
-            background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+            background: brandGradient,
             opacity: 0.7,
           },
         }}
@@ -243,7 +247,7 @@ export function SignInView() {
             sx={{
               fontWeight: 700,
               mb: 1,
-              background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+              background: brandGradient,
               backgroundClip: 'text',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
@@ -261,9 +265,11 @@ export function SignInView() {
       <Card
         sx={{
           p: 3,
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-          border: '1px solid',
-          borderColor: 'divider',
+          borderRadius: 2,
+          border: `1px solid ${alpha(theme.palette.divider, 0.14)}`,
+          bgcolor: alpha(theme.palette.background.paper, 0.7),
+          backdropFilter: 'blur(10px)',
+          boxShadow: theme.shadows[6],
           mb: 3,
         }}
       >
@@ -309,9 +315,9 @@ export function SignInView() {
             borderColor: 'divider',
             '&:hover': {
               borderColor: 'primary.main',
-              bgcolor: 'primary.lighter',
+              bgcolor: alpha(theme.palette.primary.main, 0.06),
               transform: 'translateY(-2px)',
-              boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)',
+              boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
             },
           }}
         >
@@ -327,9 +333,9 @@ export function SignInView() {
             borderColor: 'divider',
             '&:hover': {
               borderColor: 'primary.main',
-              bgcolor: 'primary.lighter',
+              bgcolor: alpha(theme.palette.primary.main, 0.06),
               transform: 'translateY(-2px)',
-              boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)',
+              boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
             },
           }}
         >
@@ -345,9 +351,9 @@ export function SignInView() {
             borderColor: 'divider',
             '&:hover': {
               borderColor: 'primary.main',
-              bgcolor: 'primary.lighter',
+              bgcolor: alpha(theme.palette.primary.main, 0.06),
               transform: 'translateY(-2px)',
-              boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)',
+              boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
             },
           }}
         >
@@ -379,25 +385,27 @@ export function SignInView() {
         sx={{
           mt: 4,
           p: 2,
-          bgcolor: 'primary.lighter',
           borderRadius: 1.5,
-          border: '1px solid',
-          borderColor: 'primary.light',
+          border: `1px solid ${alpha(theme.palette.primary.main, 0.16)}`,
+          bgcolor: alpha(theme.palette.primary.main, 0.06),
         }}
       >
-        <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'primary.dark' }}>
+        <Typography
+          variant="caption"
+          sx={{ display: 'block', mb: 1, fontWeight: 700, color: 'text.secondary' }}
+        >
           {t('auth.demoCredentials')}
         </Typography>
-        <Typography variant="caption" sx={{ display: 'block', color: 'primary.dark' }}>
+        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
           • {t('auth.admin')}: admin@school.com / admin123
         </Typography>
-        <Typography variant="caption" sx={{ display: 'block', color: 'primary.dark' }}>
+        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
           • {t('auth.instructor')}: instructor@school.com / instructor123
         </Typography>
-        <Typography variant="caption" sx={{ display: 'block', color: 'primary.dark' }}>
+        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
           • {t('auth.student')}: student@school.com / student123
         </Typography>
-        <Typography variant="caption" sx={{ display: 'block', color: 'primary.dark', mt: 1 }}>
+        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mt: 1 }}>
           • {t('auth.demo')}: hello@gmail.com / @demo1234
         </Typography>
       </Box>

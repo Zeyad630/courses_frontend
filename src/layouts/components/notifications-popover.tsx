@@ -13,6 +13,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Popover from '@mui/material/Popover';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
+import { alpha, useTheme } from '@mui/material/styles';
 
 import { useAuth } from 'src/contexts/simple-auth-context';
 
@@ -194,6 +195,7 @@ const getPriorityColor = (priority: string) => {
 
 export function NotificationsPopover({ sx, ...other }: NotificationsPopoverProps) {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { user } = useAuth();
   const [notifications, setNotifications] = useState(() => 
     getNotificationsForRole(user?.role || 'student')
@@ -256,6 +258,11 @@ export function NotificationsPopover({ sx, ...other }: NotificationsPopoverProps
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
+              borderRadius: 2,
+              border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+              bgcolor: alpha(theme.palette.background.paper, 0.92),
+              backdropFilter: 'blur(10px)',
+              boxShadow: theme.shadows[24],
             },
           },
         }}
@@ -270,7 +277,9 @@ export function NotificationsPopover({ sx, ...other }: NotificationsPopoverProps
           }}
         >
           <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="subtitle1">Notifications</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+              Notifications
+            </Typography>
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               You have {totalUnRead} unread messages
             </Typography>
@@ -289,93 +298,135 @@ export function NotificationsPopover({ sx, ...other }: NotificationsPopoverProps
 
         <Scrollbar fillContent sx={{ minHeight: 240, maxHeight: { xs: 360, sm: 'none' } }}>
           <Box sx={{ p: 1 }}>
-            {notifications.slice(0, 3).map((notification) => (
-              <Box
-                key={notification.id}
-                sx={{
-                  p: 1.5,
-                  mb: 1,
-                  borderRadius: 1,
-                  border: notification.read ? 'none' : 1,
-                  borderColor: notification.read ? 'divider' : 'primary.main',
-                  bgcolor: notification.read ? 'background.paper' : 'primary.lighter',
-                  cursor: 'pointer',
-                  '&:hover': {
-                    bgcolor: 'action.hover',
-                  },
-                }}
-                onClick={() => {
-                  if (!notification.read) {
-                    handleMarkAsRead(notification.id);
-                  }
-                  if (notification.actionUrl) {
-                    navigate(notification.actionUrl);
-                    handleClosePopover();
-                  }
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                  {/* Icon */}
-                  <Avatar
-                    sx={{
-                      bgcolor: `${getNotificationColor(notification.type)}.main`,
-                      width: 32,
-                      height: 32,
-                    }}
-                  >
-                    <Iconify 
-                      icon={getNotificationIcon(notification.type)} 
-                      width={16}
-                      color="white"
+            {notifications.length === 0 ? (
+              <Box sx={{ px: 1.5, py: 6, textAlign: 'center' }}>
+                <Iconify icon="solar:bell-off-bold-duotone" width={44} sx={{ color: 'text.disabled', mb: 1 }} />
+                <Typography variant="subtitle2" sx={{ color: 'text.secondary' }}>
+                  No notifications
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                  You&apos;re all caught up.
+                </Typography>
+              </Box>
+            ) : (
+              notifications.slice(0, 5).map((notification) => (
+                <Box
+                  key={notification.id}
+                  sx={{
+                    p: 1.5,
+                    mb: 1,
+                    borderRadius: 1.5,
+                    border: `1px solid ${notification.read ? alpha(theme.palette.divider, 0.12) : alpha(theme.palette.primary.main, 0.28)}`,
+                    bgcolor: notification.read
+                      ? alpha(theme.palette.background.paper, 0.6)
+                      : alpha(theme.palette.primary.main, 0.06),
+                    cursor: 'pointer',
+                    transition: theme.transitions.create(['transform', 'box-shadow', 'background-color'], {
+                      duration: theme.transitions.duration.shorter,
+                    }),
+                    '&:hover': {
+                      transform: 'translateY(-1px)',
+                      boxShadow: theme.shadows[4],
+                      bgcolor: notification.read
+                        ? alpha(theme.palette.action.hover, 0.6)
+                        : alpha(theme.palette.primary.main, 0.1),
+                    },
+                  }}
+                  onClick={() => {
+                    if (!notification.read) {
+                      handleMarkAsRead(notification.id);
+                    }
+                    if (notification.actionUrl) {
+                      navigate(notification.actionUrl);
+                      handleClosePopover();
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        mt: 1.1,
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                        bgcolor: notification.read ? 'transparent' : 'primary.main',
+                        boxShadow: notification.read ? 'none' : `0 0 0 4px ${alpha(theme.palette.primary.main, 0.18)}`,
+                      }}
                     />
-                  </Avatar>
 
-                  {/* Content */}
-                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 0.5 }}>
-                      <Typography variant="subtitle2" noWrap>
-                        {notification.title}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Avatar
+                      sx={{
+                        bgcolor: `${getNotificationColor(notification.type)}.main`,
+                        width: 34,
+                        height: 34,
+                        boxShadow: theme.shadows[2],
+                      }}
+                    >
+                      <Iconify icon={getNotificationIcon(notification.type)} width={16} sx={{ color: 'common.white' }} />
+                    </Avatar>
+
+                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
+                        <Typography
+                          variant="subtitle2"
+                          noWrap
+                          sx={{ fontWeight: notification.read ? 600 : 800 }}
+                        >
+                          {notification.title}
+                        </Typography>
                         <Chip
                           label={notification.priority}
                           size="small"
                           color={getPriorityColor(notification.priority)}
-                          variant="outlined"
-                          sx={{ fontSize: '0.6rem', height: 16 }}
+                          variant={notification.read ? 'outlined' : 'filled'}
+                          sx={{ fontSize: '0.65rem', height: 18, fontWeight: 700 }}
                         />
                       </Box>
+
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{
+                          mb: 0.75,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                        }}
+                      >
+                        {notification.message}
+                      </Typography>
+
+                      <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                        {notification.createdAt.toLocaleDateString()} at{' '}
+                        {notification.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Typography>
                     </Box>
-
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary" 
-                      sx={{ 
-                        mb: 0.5,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                      }}
-                    >
-                      {notification.message}
-                    </Typography>
-
-                    <Typography variant="caption" color="text.disabled">
-                      {notification.createdAt.toLocaleDateString()} at {notification.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Typography>
                   </Box>
                 </Box>
-              </Box>
-            ))}
+              ))
+            )}
           </Box>
         </Scrollbar>
 
         <Divider sx={{ borderStyle: 'dashed' }} />
 
         <Box sx={{ p: 1 }}>
-          <Button fullWidth disableRipple color="inherit" onClick={handleViewAllNotifications}>
+          <Button
+            fullWidth
+            color="inherit"
+            onClick={handleViewAllNotifications}
+            endIcon={<Iconify icon="solar:alt-arrow-right-outline" />}
+            sx={{
+              py: 1.2,
+              borderRadius: 1.25,
+              fontWeight: 700,
+              textTransform: 'none',
+              '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.6) },
+            }}
+          >
             View all
           </Button>
         </Box>

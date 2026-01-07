@@ -1,6 +1,6 @@
 import type { ApexOptions } from 'apexcharts';
 
-import { useState } from 'react';
+import { useMemo } from 'react';
 import Chart from 'react-apexcharts';
 
 import Box from '@mui/material/Box';
@@ -19,6 +19,8 @@ import LinearProgress from '@mui/material/LinearProgress';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
+import { useCoursesContext } from 'src/contexts/courses-context';
+import { useApplicationsContext } from 'src/contexts/applications-context';
 
 import { Iconly } from 'src/components/iconly';
 import { Iconify } from 'src/components/iconify';
@@ -132,7 +134,51 @@ const getEventIcon = (type: string) => {
 export function StudentDashboardView() {
   const { user } = useAuth();
   const theme = useTheme();
-  const [studentData] = useState(mockStudentData);
+
+  const { courses } = useCoursesContext();
+  const { applications } = useApplicationsContext();
+
+  const enrolledCoursesData = useMemo(() => {
+    const userId = user?.id;
+    if (!userId) return [];
+
+    const accepted = applications.filter((a) => a.studentId === userId && a.status === 'accepted');
+
+    return accepted.map((app, index) => {
+      const course = courses.find((c) => c.id === app.courseId);
+      const title = course?.name ?? app.metadata?.courseName ?? 'Course';
+      const instructor = course?.instructor ?? '';
+
+      return {
+        id: app.courseId,
+        title,
+        instructor,
+        progress: 0,
+        totalLessons: 1,
+        completedLessons: 0,
+        nextLesson: 'Start learning',
+        dueAssignment: '—',
+        dueDate: new Date(Date.now() + (index + 3) * 24 * 60 * 60 * 1000),
+        grade: '—',
+        coverUrl: '/assets/school/course.webp',
+      };
+    });
+  }, [applications, courses, user?.id]);
+
+  const studentData = useMemo(
+    () => ({
+      enrolledCourses: enrolledCoursesData,
+      recentNotifications: mockStudentData.recentNotifications,
+      upcomingEvents: mockStudentData.upcomingEvents,
+      stats: {
+        totalCourses: enrolledCoursesData.length,
+        completedAssignments: 0,
+        averageGrade: '—',
+        studyHours: 0,
+      },
+    }),
+    [enrolledCoursesData]
+  );
 
   const statsCards = [
     {

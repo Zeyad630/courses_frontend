@@ -1,8 +1,9 @@
 import type { Course, CreateCourseInput, UpdateCourseInput } from 'src/types/course';
 
-import { useMemo, useContext, useReducer, useCallback, createContext } from 'react';
+import { useMemo, useEffect, useContext, useReducer, useCallback, createContext } from 'react';
 
-import { mockCourses } from 'src/_mock/courses';
+import { courseApi } from 'src/api';
+import { mapCourseDtoToCourse, mapCreateCourseInputToRequest, mapUpdateCourseInputToRequest } from 'src/api/mappers/course.mapper';
 
 // ----------------------------------------------------------------------
 
@@ -90,18 +91,27 @@ type CoursesProviderProps = {
 
 export function CoursesProvider({ children }: CoursesProviderProps) {
   const [state, dispatch] = useReducer(coursesReducer, {
-    courses: mockCourses,
+    courses: [],
     isLoading: false,
     error: null,
   });
 
   const getCourses = useCallback(() => {
     dispatch({ type: 'SET_LOADING', payload: true });
-    // Simulate API call
-    setTimeout(() => {
-      dispatch({ type: 'SET_COURSES', payload: mockCourses });
-    }, 500);
+
+    courseApi
+      .getAvailableCourses()
+      .then((items) => items.map(mapCourseDtoToCourse))
+      .then((courses) => dispatch({ type: 'SET_COURSES', payload: courses }))
+      .catch((error) => {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load courses';
+        dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      });
   }, []);
+
+  useEffect(() => {
+    getCourses();
+  }, [getCourses]);
 
   const getCourseById = useCallback(
     (id: string) => state.courses.find((course) => course.id === id),
@@ -111,30 +121,25 @@ export function CoursesProvider({ children }: CoursesProviderProps) {
   const createCourse = useCallback(async (input: CreateCourseInput): Promise<Course> => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      const newCourse: Course = {
-        id: `course_${Date.now()}`,
+      const request = mapCreateCourseInputToRequest({
         name: input.name,
-        code: input.code,
         description: input.description,
-        category: input.category,
         level: input.level,
-        price: input.price,
-        instructorId: input.instructorId,
         duration: input.duration,
-        image: input.image,
-        instructor: 'Instructor', // This will be fetched from instructorId in real app
-        students: 0,
-        rating: 0,
-        status: 'active',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+        price: input.price,
+      });
 
-      dispatch({ type: 'ADD_COURSE', payload: newCourse });
-      return newCourse;
+      const created = await courseApi.createCourse(request);
+
+      const mapped = mapCourseDtoToCourse({
+        ...created,
+        code: input.code,
+        category: input.category,
+        instructorId: input.instructorId,
+      });
+
+      dispatch({ type: 'ADD_COURSE', payload: mapped });
+      return mapped;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create course';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
@@ -145,22 +150,28 @@ export function CoursesProvider({ children }: CoursesProviderProps) {
   const updateCourse = useCallback(async (input: UpdateCourseInput): Promise<Course> => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      const request = mapUpdateCourseInputToRequest({
+        name: input.name,
+        description: input.description,
+        level: input.level,
+        duration: input.duration,
+        price: input.price,
+      });
 
-      const existingCourse = state.courses.find((c) => c.id === input.id);
-      if (!existingCourse) {
-        throw new Error('Course not found');
-      }
+      const updated = await courseApi.updateCourse(input.id, request);
+      const next = updated ? mapCourseDtoToCourse(updated) : mapCourseDtoToCourse(await courseApi.getCourseById(input.id));
 
-      const updatedCourse: Course = {
-        ...existingCourse,
-        ...input,
-        updatedAt: new Date(),
+      const merged: Course = {
+        ...next,
+        code: typeof input.code === 'string' ? input.code : next.code,
+        category: typeof input.category === 'string' ? input.category : next.category,
+        instructorId: typeof input.instructorId === 'string' ? input.instructorId : next.instructorId,
+        image: typeof input.image === 'string' ? input.image : next.image,
+        status: input.status ?? next.status,
       };
 
-      dispatch({ type: 'UPDATE_COURSE', payload: updatedCourse });
-      return updatedCourse;
+      dispatch({ type: 'UPDATE_COURSE', payload: merged });
+      return merged;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to update course';
       dispatch({ type: 'SET_ERROR', payload: errorMessage });
@@ -171,8 +182,7 @@ export function CoursesProvider({ children }: CoursesProviderProps) {
   const deleteCourse = useCallback(async (id: string): Promise<void> => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await courseApi.deleteCourse(id);
       dispatch({ type: 'DELETE_COURSE', payload: id });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to delete course';

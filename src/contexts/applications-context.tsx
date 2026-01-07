@@ -1,6 +1,9 @@
 import type { User, CourseApplication, ApplicationStatus } from 'src/types/user';
 
-import { useMemo, useContext, useReducer, useCallback, createContext } from 'react';
+import { useMemo, useEffect, useContext, useReducer, useCallback, createContext } from 'react';
+
+import { applicationApi } from 'src/api';
+import { attachReviewer, mapApplicationDtoToUi, mapCreateApplicationInputToRequest, mapUpdateStatusToRequest } from 'src/api/mappers/application.mapper';
 
 // ----------------------------------------------------------------------
 
@@ -109,23 +112,54 @@ export function ApplicationsProvider({ children }: ApplicationsProviderProps) {
     error: null,
   });
 
+  const loadApplications = useCallback(() => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+
+    applicationApi
+      .getApplications()
+      .then((items) => items.map(mapApplicationDtoToUi))
+      .then((apps) => dispatch({ type: 'SET_APPLICATIONS', payload: apps }))
+      .catch((error) => {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to load applications';
+        dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      });
+  }, []);
+
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]);
+
   const createApplication = useCallback(async (input: CreateApplicationInput): Promise<Application> => {
     dispatch({ type: 'SET_LOADING', payload: true });
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      const request = mapCreateApplicationInputToRequest({
+        studentId: input.studentId,
+        fullName: input.metadata?.fullName ?? '',
+        courseId: input.courseId,
+        email: input.metadata?.email,
+        phone: input.metadata?.phone,
+        experience: input.metadata?.experience,
+        motivation: input.metadata?.motivation,
+        courseName: input.metadata?.courseName,
+        coursePrice: input.metadata?.coursePrice,
+      });
 
-    const newApp: Application = {
-      id: `app_${Date.now()}`,
-      studentId: input.studentId,
-      courseId: input.courseId,
-      status: 'pending',
-      appliedAt: new Date(),
-      notes: input.metadata?.motivation,
-      metadata: input.metadata,
-    };
+      const created = await applicationApi.createApplication(request);
+      const mapped: Application = {
+        ...mapApplicationDtoToUi(created),
+        studentId: input.studentId,
+        metadata: {
+          ...(input.metadata ?? {}),
+        },
+      };
 
-    dispatch({ type: 'ADD_APPLICATION', payload: newApp });
-    return newApp;
+      dispatch({ type: 'ADD_APPLICATION', payload: mapped });
+      return mapped;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create application';
+      dispatch({ type: 'SET_ERROR', payload: errorMessage });
+      throw error;
+    }
   }, []);
 
   const updateApplicationStatus = useCallback(
@@ -136,31 +170,35 @@ export function ApplicationsProvider({ children }: ApplicationsProviderProps) {
       notes?: string
     ): Promise<Application | undefined> => {
       dispatch({ type: 'SET_LOADING', payload: true });
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      try {
+        const request = mapUpdateStatusToRequest(status);
+        const updated = await applicationApi.updateApplicationStatus(id, request);
+        const next = updated ? mapApplicationDtoToUi(updated) : mapApplicationDtoToUi(await applicationApi.getApplicationById(id));
 
-      const current = state.applications.find((a) => a.id === id);
-      if (!current) {
-        dispatch({ type: 'SET_ERROR', payload: 'Application not found' });
-        return undefined;
+        const merged: Application = attachReviewer(
+          {
+            ...(next as Application),
+            metadata: {
+              ...(next.metadata ?? {}),
+              ...(state.applications.find((a) => a.id === id)?.metadata ?? {}),
+            },
+          },
+          { reviewedBy, notes }
+        ) as Application;
+
+        dispatch({ type: 'UPDATE_APPLICATION', payload: merged });
+        return merged;
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to update application status';
+        dispatch({ type: 'SET_ERROR', payload: errorMessage });
+        throw error;
       }
-
-      const updated: Application = {
-        ...current,
-        status,
-        reviewedAt: new Date(),
-        reviewedBy,
-        notes: notes ?? current.notes,
-      };
-
-      dispatch({ type: 'UPDATE_APPLICATION', payload: updated });
-      return updated;
     },
     [state.applications]
   );
 
   const deleteApplication = useCallback(async (id: string): Promise<void> => {
     dispatch({ type: 'SET_LOADING', payload: true });
-    await new Promise((resolve) => setTimeout(resolve, 300));
     const exists = state.applications.some((a) => a.id === id);
     if (!exists) {
       dispatch({ type: 'SET_ERROR', payload: 'Application not found' });

@@ -18,7 +18,7 @@ export type NavItem = {
 const commonNavItems: NavItem[] = [
   {
     title: 'Dashboard',
-    path: '/',
+    path: '/dashboard',
     icon: icon('Home'),
   },
   // {

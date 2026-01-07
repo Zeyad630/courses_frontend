@@ -20,7 +20,7 @@ export function SchoolLogo({
   sx,
   disabled,
   className,
-  href = '/',
+  href = '/dashboard',
   isSingle = false,
   ...other
 }: SchoolLogoProps) {

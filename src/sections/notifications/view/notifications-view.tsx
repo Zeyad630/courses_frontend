@@ -9,6 +9,7 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
+import { alpha, useTheme } from '@mui/material/styles';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
@@ -257,6 +258,7 @@ const getPriorityColor = (priority: string) => {
 };
 
 export function NotificationsView() {
+  const theme = useTheme();
   const { user, hasRole } = useAuth();
   const [notifications, setNotifications] = useState(() => 
     getNotificationsForRole(user?.role || 'student')
@@ -307,28 +309,75 @@ export function NotificationsView() {
     <DashboardContent>
       <Container maxWidth="xl">
         {/* Header */}
-        <Box sx={{ mb: 5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Box>
-              <Typography variant="h4">Notifications</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Stay updated with your latest activities
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                variant="outlined"
-                onClick={handleMarkAllAsRead}
-                disabled={unreadCount === 0}
-                startIcon={<Iconify icon="solar:eye-bold" />}
-              >
-                Mark All Read
-              </Button>
-              <Chip
-                label={`${unreadCount} Unread`}
-                color={unreadCount > 0 ? 'error' : 'default'}
-                variant="filled"
-              />
+        <Box
+          sx={{
+            mb: 4,
+            p: 3,
+            borderRadius: 3,
+            position: 'relative',
+            overflow: 'hidden',
+            border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+            bgcolor: alpha(theme.palette.background.paper, 0.7),
+            backdropFilter: 'blur(10px)',
+            boxShadow: theme.shadows[2],
+          }}
+        >
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              opacity: 0.9,
+              background: `radial-gradient(1200px circle at 0% 0%, ${alpha(theme.palette.primary.main, 0.16)} 0%, transparent 60%), radial-gradient(900px circle at 100% 10%, ${alpha(theme.palette.secondary.main, 0.12)} 0%, transparent 55%)`,
+              pointerEvents: 'none',
+            }}
+          />
+
+          <Box sx={{ position: 'relative', zIndex: 1 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: { xs: 'flex-start', md: 'center' },
+                justifyContent: 'space-between',
+                flexDirection: { xs: 'column', md: 'row' },
+                gap: 2,
+              }}
+            >
+              <Box>
+                <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5 }}>
+                  Notifications
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Stay updated with your latest activities
+                </Typography>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                <Chip
+                  label={user?.role ? user.role.toUpperCase() : 'USER'}
+                  variant="outlined"
+                  sx={{ fontWeight: 800 }}
+                />
+                <Chip
+                  label={`${unreadCount} Unread`}
+                  color={unreadCount > 0 ? 'error' : 'default'}
+                  variant={unreadCount > 0 ? 'filled' : 'outlined'}
+                  sx={{ fontWeight: 800 }}
+                />
+                <Button
+                  variant={unreadCount > 0 ? 'contained' : 'outlined'}
+                  onClick={handleMarkAllAsRead}
+                  disabled={unreadCount === 0}
+                  startIcon={<Iconify icon="eva:done-all-fill" />}
+                  sx={{
+                    fontWeight: 800,
+                    textTransform: 'none',
+                    boxShadow: 'none',
+                    borderRadius: 1.5,
+                  }}
+                >
+                  Mark all as read
+                </Button>
+              </Box>
             </Box>
           </Box>
         </Box>
@@ -344,6 +393,17 @@ export function NotificationsView() {
                 color={filter === type.value ? 'primary' : 'default'}
                 variant={filter === type.value ? 'filled' : 'outlined'}
                 clickable
+                sx={{
+                  fontWeight: 800,
+                  borderRadius: 1.5,
+                  ...(filter === type.value
+                    ? {
+                        boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.18)}`,
+                      }
+                    : {
+                        bgcolor: alpha(theme.palette.background.paper, 0.6),
+                      }),
+                }}
               />
             ))}
           </Box>
@@ -375,12 +435,41 @@ export function NotificationsView() {
             filteredNotifications.map((notification) => (
               <Card 
                 key={notification.id}
-                sx={{ 
-                  border: notification.read ? 'none' : 2,
-                  borderColor: notification.read ? 'divider' : 'primary.main',
-                  bgcolor: notification.read ? 'background.paper' : 'primary.lighter',
+                sx={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  borderRadius: 2,
+                  border: `1px solid ${notification.read ? alpha(theme.palette.divider, 0.12) : alpha(theme.palette.primary.main, 0.28)}`,
+                  bgcolor: notification.read
+                    ? alpha(theme.palette.background.paper, 0.7)
+                    : alpha(theme.palette.primary.main, 0.06),
+                  backdropFilter: 'blur(10px)',
+                  transition: theme.transitions.create(['transform', 'box-shadow', 'border-color'], {
+                    duration: theme.transitions.duration.shorter,
+                  }),
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: theme.shadows[8],
+                    borderColor: notification.read
+                      ? alpha(theme.palette.divider, 0.2)
+                      : alpha(theme.palette.primary.main, 0.4),
+                  },
                 }}
               >
+                {!notification.read && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 4,
+                      bgcolor: 'primary.main',
+                      boxShadow: `0 0 0 6px ${alpha(theme.palette.primary.main, 0.12)}`,
+                    }}
+                  />
+                )}
+
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                     {/* Icon */}
@@ -389,6 +478,7 @@ export function NotificationsView() {
                         bgcolor: `${getNotificationColor(notification.type)}.main`,
                         width: 48,
                         height: 48,
+                        boxShadow: theme.shadows[3],
                       }}
                     >
                       <Iconify 
@@ -401,7 +491,7 @@ export function NotificationsView() {
                     {/* Content */}
                     <Box sx={{ flexGrow: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="h6" gutterBottom>
+                        <Typography variant="h6" gutterBottom sx={{ fontWeight: notification.read ? 700 : 900 }}>
                           {notification.title}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -409,13 +499,15 @@ export function NotificationsView() {
                             label={notification.priority}
                             size="small"
                             color={getPriorityColor(notification.priority)}
-                            variant="outlined"
+                            variant={notification.read ? 'outlined' : 'filled'}
+                            sx={{ fontWeight: 800 }}
                           />
                           <Chip
                             label={notification.type}
                             size="small"
                             color={getNotificationColor(notification.type)}
                             variant="outlined"
+                            sx={{ fontWeight: 800 }}
                           />
                         </Box>
                       </Box>
@@ -455,6 +547,7 @@ export function NotificationsView() {
                         size="small"
                         href={notification.actionUrl}
                         startIcon={<Iconify icon="solar:eye-bold" />}
+                        sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
                       >
                         {notification.actionText || 'View'}
                       </Button>
@@ -465,6 +558,7 @@ export function NotificationsView() {
                         size="small"
                         onClick={() => handleMarkAsRead(notification.id)}
                         startIcon={<Iconify icon="solar:eye-bold" />}
+                        sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
                       >
                         Mark as Read
                       </Button>
@@ -476,6 +570,7 @@ export function NotificationsView() {
                     color="error"
                     onClick={() => handleDeleteNotification(notification.id)}
                     startIcon={<Iconify icon="solar:pen-bold" />}
+                    sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
                   >
                     Delete
                   </Button>

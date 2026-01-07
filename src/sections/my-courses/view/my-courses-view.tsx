@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -13,6 +13,8 @@ import LinearProgress from '@mui/material/LinearProgress';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
+import { useCoursesContext } from 'src/contexts/courses-context';
+import { useApplicationsContext } from 'src/contexts/applications-context';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -102,9 +104,42 @@ const getStatusLabel = (status: string) => {
 };
 
 export function MyCoursesView() {
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const theme = useTheme();
-  const [enrolledCourses] = useState(mockEnrolledCourses);
+
+  const { courses } = useCoursesContext();
+  const { applications } = useApplicationsContext();
+
+  const enrolledCourses = useMemo(() => {
+    const userId = user?.id;
+    if (!userId) return [];
+
+    const accepted = applications.filter((a) => a.studentId === userId && a.status === 'accepted');
+
+    return accepted.map((app, index) => {
+      const course = courses.find((c) => c.id === app.courseId);
+      const fallback = mockEnrolledCourses[index % mockEnrolledCourses.length];
+
+      return {
+        id: app.courseId,
+        title: course?.name ?? app.metadata?.courseName ?? fallback?.title ?? 'Course',
+        description: course?.description ?? fallback?.description ?? '',
+        instructor: course?.instructor ?? fallback?.instructor ?? '',
+        progress: 0,
+        totalLessons: fallback?.totalLessons ?? 1,
+        completedLessons: 0,
+        nextLesson: 'Start learning',
+        dueAssignment: '—',
+        dueDate: new Date(Date.now() + (index + 3) * 24 * 60 * 60 * 1000),
+        grade: '—',
+        status: 'active',
+        enrolledAt: app.appliedAt,
+        completedAt: fallback?.completedAt,
+        image: fallback?.image ?? '/assets/school/course.webp',
+        whatYouWillLearn: fallback?.whatYouWillLearn ?? [],
+      };
+    });
+  }, [applications, courses, user?.id]);
 
   const activeCourses = enrolledCourses.filter(course => course.status === 'active');
   const completedCourses = enrolledCourses.filter(course => course.status === 'completed');

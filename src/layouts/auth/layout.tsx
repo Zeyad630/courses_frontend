@@ -51,7 +51,12 @@ export function AuthLayout({
         <>
           {/** @slot Logo */}
           {/* <Logo /> */}
-          <img src="/assets/school/logo.png" alt="asa" width={160} height={65} />
+          <Box
+            component="img"
+            src="/assets/school/logo.png"
+            alt="GenZCoders"
+            sx={{display: 'block', width: 'auto', height: 'auto', marginTop: '10px', }}
+          />
         </>
       ),
       rightArea: (
@@ -135,7 +140,7 @@ export function AuthLayout({
 
 const backgroundStyles = (): CSSObject => ({
   zIndex: 1,
-  opacity: 0.24,
+  opacity: 0.28,
   width: '100%',
   height: '100%',
   content: "''",
@@ -143,5 +148,6 @@ const backgroundStyles = (): CSSObject => ({
   backgroundSize: 'cover',
   backgroundRepeat: 'no-repeat',
   backgroundPosition: 'center center',
-  backgroundImage: 'url(/assets/background/overlay.jpg)',
+  backgroundImage:
+    'linear-gradient(135deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.02) 50%, rgba(0,0,0,0.12) 100%), url(/assets/background/overlay.jpg)',
 });

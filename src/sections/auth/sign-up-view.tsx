@@ -9,6 +9,7 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import { alpha, useTheme } from '@mui/material/styles';
 import InputAdornment from '@mui/material/InputAdornment';
 
 import { useRouter } from 'src/routes/hooks';
@@ -22,8 +23,11 @@ type Step = 'form' | 'otp';
 
 export function SignUpView() {
   const router = useRouter();
+  const theme = useTheme();
   const { register } = useAuth();
   const { t } = useTranslation();
+
+  const brandGradient = `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
 
   const [step, setStep] = useState<Step>('form');
 
@@ -53,7 +57,7 @@ export function SignUpView() {
     },
   };
 
-  const validateForm = () => {
+  const validateForm = useCallback(() => {
     if (!name.trim()) return t('validation.required');
     if (!email.trim()) return t('validation.required');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return t('validation.invalidEmail');
@@ -61,7 +65,7 @@ export function SignUpView() {
     if (password.length < 8) return t('validation.passwordTooShort');
     if (password !== confirmPassword) return t('validation.passwordMismatch');
     return '';
-  };
+  }, [confirmPassword, email, name, password, t]);
 
   const sendOtp = useCallback(async () => {
     const validationError = validateForm();
@@ -102,7 +106,7 @@ export function SignUpView() {
     } finally {
       setLoading(false);
     }
-  }, [email, name, password, confirmPassword, t]);
+  }, [email, name, t, validateForm]);
 
   const verifyOtpAndCreateAccount = useCallback(async () => {
     if (!otpToken) {
@@ -122,7 +126,7 @@ export function SignUpView() {
       const res = await fetch('/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp, token: otpToken }),
+        body: JSON.stringify({ token: otpToken, otp }),
       });
 
       if (!res.ok) {
@@ -131,7 +135,7 @@ export function SignUpView() {
       }
 
       await register({ email, name, password });
-      router.push('/courses');
+      router.push('/dashboard');
     } catch (err) {
       if (err instanceof Error) {
         if (err.message === 'Email is already registered') {
@@ -167,7 +171,7 @@ export function SignUpView() {
           sx={{
             fontWeight: 700,
             mb: 1,
-            background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+            background: brandGradient,
             backgroundClip: 'text',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
@@ -306,15 +310,15 @@ export function SignUpView() {
           fontSize: '1rem',
           fontWeight: 600,
           textTransform: 'none',
-          background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
-          boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+          background: brandGradient,
+          boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.28)}`,
           transition: 'all 0.3s ease',
           '&:hover': {
-            boxShadow: '0 8px 24px rgba(220, 38, 38, 0.4)',
+            boxShadow: `0 14px 34px ${alpha(theme.palette.primary.main, 0.35)}`,
             transform: 'translateY(-2px)',
           },
           '&:disabled': {
-            background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+            background: brandGradient,
             opacity: 0.7,
           },
         }}
@@ -402,15 +406,15 @@ export function SignUpView() {
           fontSize: '1rem',
           fontWeight: 600,
           textTransform: 'none',
-          background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
-          boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+          background: brandGradient,
+          boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.28)}`,
           transition: 'all 0.3s ease',
           '&:hover': {
-            boxShadow: '0 8px 24px rgba(220, 38, 38, 0.4)',
+            boxShadow: `0 14px 34px ${alpha(theme.palette.primary.main, 0.35)}`,
             transform: 'translateY(-2px)',
           },
           '&:disabled': {
-            background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
+            background: brandGradient,
             opacity: 0.7,
           },
         }}
@@ -443,9 +447,11 @@ export function SignUpView() {
       <Card
         sx={{
           p: 3,
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-          border: '1px solid',
-          borderColor: 'divider',
+          borderRadius: 2,
+          border: `1px solid ${alpha(theme.palette.divider, 0.14)}`,
+          bgcolor: alpha(theme.palette.background.paper, 0.7),
+          backdropFilter: 'blur(10px)',
+          boxShadow: theme.shadows[6],
           mb: 3,
         }}
       >

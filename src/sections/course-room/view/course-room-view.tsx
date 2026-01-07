@@ -1,7 +1,7 @@
 import type { Lesson, CourseModule } from 'src/types/course';
 import type { Assignment, CourseMaterial } from 'src/types/user';
 
-import { useState, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -22,8 +22,11 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import LinearProgress from '@mui/material/LinearProgress';
 
+import { courseApi } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
+import { useCoursesContext } from 'src/contexts/courses-context';
+import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -146,8 +149,62 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const { hasRole } = useAuth();
   const theme = useTheme();
   const [currentTab, setCurrentTab] = useState(0);
-  const [materials] = useState(mockMaterials);
-  const [assignments] = useState(mockAssignments);
+
+  const { courses } = useCoursesContext();
+  const courseFromContext = useMemo(() => courses.find((c) => c.id === courseId), [courses, courseId]);
+  const [courseFromApi, setCourseFromApi] = useState<ReturnType<typeof mapCourseDtoToCourse> | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!courseId || courseFromContext) {
+      setCourseFromApi(null);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    courseApi
+      .getCourseById(courseId)
+      .then((dto) => mapCourseDtoToCourse(dto))
+      .then((mapped) => {
+        if (isActive) setCourseFromApi(mapped);
+      })
+      .catch(() => {
+        if (isActive) setCourseFromApi(null);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [courseFromContext, courseId]);
+
+  const resolvedCourse = courseFromContext ?? courseFromApi;
+
+  const displayCourse = useMemo(
+    () => ({
+      id: courseId,
+      title: resolvedCourse?.name ?? mockCourse.title,
+      description: resolvedCourse?.description ?? mockCourse.description,
+      instructor: resolvedCourse?.instructor ?? mockCourse.instructor,
+      instructorId: resolvedCourse?.instructorId ?? mockCourse.instructorId,
+      duration: resolvedCourse ? `${resolvedCourse.duration} hours` : mockCourse.duration,
+      level: resolvedCourse ? `${resolvedCourse.level.charAt(0).toUpperCase()}${resolvedCourse.level.slice(1)}` : mockCourse.level,
+      language: mockCourse.language,
+      price: resolvedCourse?.price ?? mockCourse.price,
+      students: resolvedCourse?.students ?? mockCourse.students,
+      rating: resolvedCourse?.rating ?? mockCourse.rating,
+      totalLessons: mockCourse.totalLessons,
+      completedLessons: mockCourse.completedLessons,
+      nextClass: mockCourse.nextClass,
+      zoomLink: mockCourse.zoomLink,
+      syllabus: mockCourse.syllabus,
+    }),
+    [courseId, resolvedCourse]
+  );
+
+  const materials = useMemo(() => mockMaterials.map((m) => ({ ...m, courseId })), [courseId]);
+  const assignments = useMemo(() => mockAssignments.map((a) => ({ ...a, courseId })), [courseId]);
 
   // Simple content management state (Weeks/Modules & Lessons)
   const [modules, setModules] = useState<CourseModule[]>([]);
@@ -248,18 +305,18 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
            <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: 'space-between', gap: 3 }}>
              <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                     <Chip label={mockCourse.level} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600, border: '1px solid rgba(255,255,255,0.1)' }} />
+                     <Chip label={displayCourse.level} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600, border: '1px solid rgba(255,255,255,0.1)' }} />
                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.8 }}>
                         <Iconify icon="solar:clock-circle-bold" width={16} />
-                        <Typography variant="body2">{mockCourse.duration}</Typography>
+                        <Typography variant="body2">{displayCourse.duration}</Typography>
                      </Box>
                 </Box>
                 <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
-                  {mockCourse.title}
+                  {displayCourse.title}
                 </Typography>
                 <Typography variant="body1" sx={{ opacity: 0.9, display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Iconify icon="solar:user-circle-bold" width={20} />
-                  Instructor: {mockCourse.instructor}
+                  Instructor: {displayCourse.instructor}
                 </Typography>
              </Box>
              
@@ -270,16 +327,16 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                     <Box sx={{ flexGrow: 1 }}>
                          <LinearProgress 
                             variant="determinate" 
-                            value={(mockCourse.completedLessons / mockCourse.totalLessons) * 100}
+                            value={(displayCourse.completedLessons / displayCourse.totalLessons) * 100}
                             sx={{ height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.2)', '& .MuiLinearProgress-bar': { bgcolor: 'white' } }} 
                          />
                     </Box>
                     <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                        {Math.round((mockCourse.completedLessons / mockCourse.totalLessons) * 100)}%
+                        {Math.round((displayCourse.completedLessons / displayCourse.totalLessons) * 100)}%
                     </Typography>
                  </Box>
                  <Typography variant="caption" sx={{ opacity: 0.8, mt: 0.5, display: 'block' }}>
-                     {mockCourse.completedLessons} of {mockCourse.totalLessons} lessons completed
+                     {displayCourse.completedLessons} of {displayCourse.totalLessons} lessons completed
                  </Typography>
              </Box>
            </Box>
@@ -338,26 +395,26 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                       About this Course
                     </Typography>
                     <Typography variant="body1" sx={{ color: 'text.secondary', lineHeight: 1.8, mb: 4 }}>
-                      {mockCourse.description}
+                      {displayCourse.description}
                     </Typography>
 
                     {/* At a glance */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
                       <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.04), border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}` }}>
                         <Typography variant="caption" color="text.secondary">Level</Typography>
-                        <Typography variant="body2" fontWeight={700}>{mockCourse.level}</Typography>
+                        <Typography variant="body2" fontWeight={700}>{displayCourse.level}</Typography>
                       </Box>
                       <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.info.main, 0.04), border: `1px solid ${alpha(theme.palette.info.main, 0.12)}` }}>
                         <Typography variant="caption" color="text.secondary">Language</Typography>
-                        <Typography variant="body2" fontWeight={700}>{mockCourse.language}</Typography>
+                        <Typography variant="body2" fontWeight={700}>{displayCourse.language}</Typography>
                       </Box>
                       <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.success.main, 0.04), border: `1px solid ${alpha(theme.palette.success.main, 0.12)}` }}>
                         <Typography variant="caption" color="text.secondary">Lessons</Typography>
-                        <Typography variant="body2" fontWeight={700}>{mockCourse.totalLessons}</Typography>
+                        <Typography variant="body2" fontWeight={700}>{displayCourse.totalLessons}</Typography>
                       </Box>
                       <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.warning.main, 0.04), border: `1px solid ${alpha(theme.palette.warning.main, 0.12)}` }}>
                         <Typography variant="caption" color="text.secondary">Rating</Typography>
-                        <Typography variant="body2" fontWeight={700}>{mockCourse.rating}</Typography>
+                        <Typography variant="body2" fontWeight={700}>{displayCourse.rating}</Typography>
                       </Box>
                     </Box>
 
@@ -365,7 +422,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                       What you&apos;ll learn
                     </Typography>
                     <Grid container spacing={2}>
-                        {mockCourse.syllabus.map((topic, index) => (
+                        {displayCourse.syllabus.map((topic, index) => (
                           <Grid size={{ xs: 12, sm: 6 }} key={index}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                   <Iconify icon="solar:check-circle-bold" width={20} sx={{ color: 'success.main' }} />
@@ -388,13 +445,13 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                       
                       <Box sx={{ mt: 2, mb: 3 }}>
                         <Typography variant="h4" sx={{ color: 'info.darker', mb: 0.5 }}>
-                           {mockCourse.nextClass.getDate()}
+                           {displayCourse.nextClass.getDate()}
                         </Typography>
                         <Typography variant="subtitle1" sx={{ color: 'info.dark' }}>
-                           {mockCourse.nextClass.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                           {displayCourse.nextClass.toLocaleString('default', { month: 'long', year: 'numeric' })}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-                           {mockCourse.nextClass.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', weekday: 'long' })}
+                           {displayCourse.nextClass.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', weekday: 'long' })}
                         </Typography>
                       </Box>
 
@@ -403,7 +460,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                         color="info"
                         fullWidth
                         startIcon={<Iconify icon="solar:videocamera-bold" />}
-                        href={mockCourse.zoomLink}
+                        href={displayCourse.zoomLink}
                         target="_blank"
                       >
                         Join Zoom
@@ -416,15 +473,15 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                <Typography variant="body2" color="text.secondary">Skill Level</Typography>
-                               <Chip label={mockCourse.level} size="small" color="primary" variant="outlined" />
+                               <Chip label={displayCourse.level} size="small" color="primary" variant="outlined" />
                            </Box>
                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                <Typography variant="body2" color="text.secondary">Language</Typography>
-                               <Typography variant="body2" fontWeight={600}>{mockCourse.language}</Typography>
+                               <Typography variant="body2" fontWeight={600}>{displayCourse.language}</Typography>
                            </Box>
                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                <Typography variant="body2" color="text.secondary">Students</Typography>
-                               <Typography variant="body2" fontWeight={600}>{mockCourse.students}</Typography>
+                               <Typography variant="body2" fontWeight={600}>{displayCourse.students}</Typography>
                            </Box>
                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                <Typography variant="body2" color="text.secondary">Certificate</Typography>

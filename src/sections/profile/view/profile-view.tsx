@@ -5,11 +5,13 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
+import Divider from '@mui/material/Divider';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
+import { alpha, useTheme } from '@mui/material/styles';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
@@ -19,6 +21,7 @@ import { Iconify } from 'src/components/iconify';
 // ----------------------------------------------------------------------
 
 export function ProfileView() {
+  const theme = useTheme();
   const { user, hasRole } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
@@ -91,75 +94,177 @@ export function ProfileView() {
     <DashboardContent>
       <Container maxWidth="lg">
         {/* Header */}
-        <Box sx={{ mb: 5 }}>
-          <Typography variant="h4">Profile Settings</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Manage your account information and preferences
-          </Typography>
+        <Box
+          sx={{
+            mb: 4,
+            p: 3,
+            borderRadius: 3,
+            position: 'relative',
+            overflow: 'hidden',
+            border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+            bgcolor: alpha(theme.palette.background.paper, 0.7),
+            backdropFilter: 'blur(10px)',
+            boxShadow: theme.shadows[2],
+          }}
+        >
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              opacity: 0.95,
+              background: `radial-gradient(1100px circle at 0% 0%, ${alpha(theme.palette.primary.main, 0.16)} 0%, transparent 60%), radial-gradient(900px circle at 100% 20%, ${alpha(theme.palette.secondary.main, 0.12)} 0%, transparent 55%)`,
+              pointerEvents: 'none',
+            }}
+          />
+
+          <Box
+            sx={{
+              position: 'relative',
+              zIndex: 1,
+              display: 'flex',
+              alignItems: { xs: 'flex-start', md: 'center' },
+              justifyContent: 'space-between',
+              flexDirection: { xs: 'column', md: 'row' },
+              gap: 2,
+            }}
+          >
+            <Box>
+              <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5 }}>
+                Profile
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Manage your account information and preferences
+              </Typography>
+            </Box>
+
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+              <Chip
+                label={user?.role ? user.role.toUpperCase() : 'USER'}
+                variant="outlined"
+                sx={{ fontWeight: 800 }}
+              />
+              <Button
+                variant={isEditing ? 'outlined' : 'contained'}
+                startIcon={<Iconify icon={isEditing ? 'solar:close-circle-bold-duotone' : 'solar:pen-new-square-bold-duotone'} />}
+                onClick={() => setIsEditing(!isEditing)}
+                sx={{
+                  fontWeight: 800,
+                  textTransform: 'none',
+                  borderRadius: 1.5,
+                  boxShadow: 'none',
+                }}
+              >
+                {isEditing ? 'Cancel editing' : 'Edit profile'}
+              </Button>
+            </Box>
+          </Box>
         </Box>
 
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 2fr' }, gap: 3 }}>
           {/* Profile Card */}
-          <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Avatar
-                sx={{
-                  width: 120,
-                  height: 120,
-                  mx: 'auto',
-                  mb: 2,
-                  bgcolor: 'primary.main',
-                  fontSize: '2rem',
-                  fontWeight: 'bold',
-                }}
-              >
-                {user?.name?.charAt(0) || 'U'}
-              </Avatar>
-              
-              <Typography variant="h5" gutterBottom>
+          <Card
+            sx={{
+              borderRadius: 2,
+              overflow: 'hidden',
+              border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+              bgcolor: alpha(theme.palette.background.paper, 0.7),
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            <Box
+              sx={{
+                position: 'relative',
+                height: 120,
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.28)} 0%, ${alpha(theme.palette.secondary.main, 0.18)} 100%)`,
+              }}
+            />
+
+            <CardContent sx={{ textAlign: 'center', pt: 0 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: '-56px', mb: 1.5 }}>
+                <Box
+                  sx={{
+                    p: 0.5,
+                    borderRadius: '50%',
+                    bgcolor: alpha(theme.palette.background.paper, 0.9),
+                    border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+                    boxShadow: theme.shadows[6],
+                  }}
+                >
+                  <Avatar
+                    sx={{
+                      width: 112,
+                      height: 112,
+                      bgcolor: 'primary.main',
+                      fontSize: '2rem',
+                      fontWeight: 900,
+                    }}
+                  >
+                    {user?.name?.charAt(0) || 'U'}
+                  </Avatar>
+                </Box>
+              </Box>
+
+              <Typography variant="h5" sx={{ fontWeight: 900 }}>
                 {formData.name}
               </Typography>
-              
-              <Chip
-                label={user?.role?.toUpperCase()}
-                color="primary"
-                variant="filled"
-                sx={{ mb: 2 }}
-              />
-              
-              <Typography variant="body2" color="text.secondary" paragraph>
+
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                {formData.email}
+              </Typography>
+
+              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+                <Chip
+                  label={user?.role?.toUpperCase()}
+                  color="primary"
+                  variant="filled"
+                  sx={{ fontWeight: 800 }}
+                />
+                <Chip
+                  icon={<Iconify icon="solar:map-point-bold-duotone" width={18} />}
+                  label={formData.location}
+                  variant="outlined"
+                  sx={{ fontWeight: 700 }}
+                />
+              </Box>
+
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2.5 }}>
                 {formData.bio}
               </Typography>
 
-              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 3 }}>
+              <Divider sx={{ my: 2.5, borderStyle: 'dashed' }} />
+
+              <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Iconify icon="solar:link-bold-duotone" />}
+                  href={formData.website}
+                  target="_blank"
+                  sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
+                >
+                  Website
+                </Button>
                 <Button
                   variant="outlined"
                   size="small"
                   startIcon={<Iconify icon="solar:share-bold" />}
                   href={formData.linkedin}
                   target="_blank"
+                  sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
                 >
                   LinkedIn
                 </Button>
                 <Button
                   variant="outlined"
                   size="small"
-                  startIcon={<Iconify icon="solar:pen-bold" />}
+                  startIcon={<Iconify icon="solar:code-bold-duotone" />}
                   href={formData.github}
                   target="_blank"
+                  sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
                 >
                   GitHub
                 </Button>
               </Box>
-
-              <Button
-                variant={isEditing ? 'outlined' : 'contained'}
-                fullWidth
-                startIcon={<Iconify icon={isEditing ? 'solar:pen-bold' : 'solar:pen-bold'} />}
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                {isEditing ? 'Cancel Edit' : 'Edit Profile'}
-              </Button>
             </CardContent>
           </Card>
 
@@ -168,7 +273,19 @@ export function ProfileView() {
             {/* Stats Cards */}
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, mb: 3 }}>
               {stats.map((stat, index) => (
-                <Card key={index}>
+                <Card
+                  key={index}
+                  sx={{
+                    borderRadius: 2,
+                    border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+                    bgcolor: alpha(theme.palette.background.paper, 0.7),
+                    backdropFilter: 'blur(10px)',
+                    transition: theme.transitions.create(['transform', 'box-shadow'], {
+                      duration: theme.transitions.duration.shorter,
+                    }),
+                    '&:hover': { transform: 'translateY(-2px)', boxShadow: theme.shadows[6] },
+                  }}
+                >
                   <CardContent sx={{ textAlign: 'center' }}>
                     <Iconify 
                       icon={stat.icon as any} 
@@ -188,7 +305,14 @@ export function ProfileView() {
             </Box>
 
             {/* Profile Information */}
-            <Card>
+            <Card
+              sx={{
+                borderRadius: 2,
+                border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+                bgcolor: alpha(theme.palette.background.paper, 0.7),
+                backdropFilter: 'blur(10px)',
+              }}
+            >
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   Personal Information
@@ -253,6 +377,7 @@ export function ProfileView() {
                     <Button
                       variant="outlined"
                       onClick={handleCancel}
+                      sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
                     >
                       Cancel
                     </Button>
@@ -260,6 +385,7 @@ export function ProfileView() {
                       variant="contained"
                       onClick={handleSave}
                       startIcon={<Iconify icon="solar:pen-bold" />}
+                      sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5, boxShadow: 'none' }}
                     >
                       Save Changes
                     </Button>
@@ -269,7 +395,15 @@ export function ProfileView() {
             </Card>
 
             {/* Social Links */}
-            <Card sx={{ mt: 3 }}>
+            <Card
+              sx={{
+                mt: 3,
+                borderRadius: 2,
+                border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+                bgcolor: alpha(theme.palette.background.paper, 0.7),
+                backdropFilter: 'blur(10px)',
+              }}
+            >
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   Social Links
@@ -302,7 +436,15 @@ export function ProfileView() {
             </Card>
 
             {/* Account Settings */}
-            <Card sx={{ mt: 3 }}>
+            <Card
+              sx={{
+                mt: 3,
+                borderRadius: 2,
+                border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+                bgcolor: alpha(theme.palette.background.paper, 0.7),
+                backdropFilter: 'blur(10px)',
+              }}
+            >
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   Account Settings
