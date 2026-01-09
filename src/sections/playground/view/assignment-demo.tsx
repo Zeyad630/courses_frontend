@@ -185,16 +185,16 @@ export function AssignmentDemo() {
                           px: 1.5,
                           py: 0.5,
                           borderRadius: 1,
-                          bgcolor: passedTests === totalTests ? '#ECFDF5' : '#FEF3C7',
+                          bgcolor: passedTests === totalTests ? 'primary.lighter' : 'grey.100',
                           border: '1px solid',
-                          borderColor: passedTests === totalTests ? '#10B981' : '#F59E0B',
+                          borderColor: passedTests === totalTests ? 'primary.main' : 'grey.500',
                         }}
                       >
                         <Typography
                           variant="caption"
                           sx={{
                             fontWeight: 600,
-                            color: passedTests === totalTests ? '#10B981' : '#F59E0B',
+                            color: passedTests === totalTests ? 'primary.main' : 'grey.700',
                           }}
                         >
                           {passedTests}/{totalTests} Passed

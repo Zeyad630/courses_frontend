@@ -152,7 +152,7 @@ export function CodeValidator({ testCases, onValidate }: CodeValidatorProps) {
                     borderRadius: 4,
                     backgroundColor: 'rgba(220, 38, 38, 0.1)',
                     '& .MuiLinearProgress-bar': {
-                      backgroundColor: passedCount === totalCount ? '#10B981' : '#F59E0B',
+                      backgroundColor: passedCount === totalCount ? 'var(--mui-palette-primary-main)' : 'var(--mui-palette-grey-600)',
                     },
                   }}
                 />

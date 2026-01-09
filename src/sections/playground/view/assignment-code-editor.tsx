@@ -187,11 +187,11 @@ export function AssignmentCodeEditor({ assignment, onSubmit }: AssignmentCodeEdi
                   </Box>
                 </Box>
 
-                <Paper sx={{ p: 2, bgcolor: '#FEF3C7', border: '1px solid #FBBF24', mb: 2 }}>
+                <Paper sx={{ p: 2, bgcolor: 'grey.100', border: '1px solid', borderColor: 'primary.main', mb: 2 }}>
                   <Typography variant="body2">{assignment.hints[currentHintIndex]}</Typography>
                 </Paper>
 
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Button
                     variant="outlined"
                     onClick={handlePreviousHint}

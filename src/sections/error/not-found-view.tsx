@@ -5,13 +5,17 @@ import Typography from '@mui/material/Typography';
 
 import { RouterLink } from 'src/routes/components';
 
+import { SchoolLogo } from 'src/components/school-logo';
+
 
 // ----------------------------------------------------------------------
 
 export function NotFoundView() {
   return (
     <>
-      <img style={{ position: 'fixed', top: 20, left: 20, width: 140, height: 30 }} src="/assets/school/logo.png" />
+      <Box sx={{ position: 'fixed', top: 20, left: 20, width: 140, height: 30 }}>
+        <SchoolLogo href="/" />
+      </Box>
 
       <Container
         sx={{

@@ -8,6 +8,8 @@ import Alert from '@mui/material/Alert';
 
 import { RouterLink } from 'src/routes/components';
 
+import { SchoolLogo } from 'src/components/school-logo';
+
 import { AuthContent } from './content';
 import { MainSection } from '../core/main-section';
 import { LayoutSection } from '../core/layout-section';
@@ -51,12 +53,7 @@ export function AuthLayout({
         <>
           {/** @slot Logo */}
           {/* <Logo /> */}
-          <Box
-            component="img"
-            src="/assets/school/logo.png"
-            alt="GenZCoders"
-            sx={{display: 'block', width: 'auto', height: 'auto', marginTop: '10px', }}
-          />
+          <SchoolLogo href="/" />
         </>
       ),
       rightArea: (

@@ -8,6 +8,7 @@ import { ThemeProvider } from 'src/theme/theme-provider';
 import { CoursesProvider } from 'src/contexts/courses-context';
 import { AuthProvider } from 'src/contexts/simple-auth-context';
 import { ApplicationsProvider } from 'src/contexts/applications-context';
+import { CourseRoundsProvider } from 'src/contexts/course-rounds-context';
 
 
 type AppProps = {
@@ -22,7 +23,7 @@ export default function App({ children }: AppProps) {
       <AuthProvider>
         <ApplicationsProvider>
           <CoursesProvider>
-            {children}
+            <CourseRoundsProvider>{children}</CourseRoundsProvider>
           </CoursesProvider>
         </ApplicationsProvider>
       </AuthProvider>

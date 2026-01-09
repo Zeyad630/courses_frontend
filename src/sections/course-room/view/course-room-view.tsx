@@ -1,22 +1,23 @@
 import type { Lesson, CourseModule } from 'src/types/course';
 import type { Assignment, CourseMaterial } from 'src/types/user';
 
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
-import Grid from '@mui/material/Grid';
 import Tabs from '@mui/material/Tabs';
+import Grid from '@mui/material/Grid';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import DialogTitle from '@mui/material/DialogTitle';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
-import DialogTitle from '@mui/material/DialogTitle';
 import { alpha, useTheme } from '@mui/material/styles';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -27,13 +28,26 @@ import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
 import { useCoursesContext } from 'src/contexts/courses-context';
 import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
+import { useApplicationsContext } from 'src/contexts/applications-context';
+import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
 
 import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
-
 type CourseRoomViewProps = {
   courseId: string;
+};
+
+const courseContentStorageKey = (courseId: string) => `course_content_modules_v1_${courseId}`;
+
+const safeParseModules = (raw: string | null): CourseModule[] => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? (parsed as CourseModule[]) : [];
+  } catch {
+    return [];
+  }
 };
 
 // Enhanced mock course data
@@ -146,9 +160,26 @@ const getMaterialIcon = (type: CourseMaterial['type']) => {
 };
 
 export function CourseRoomView({ courseId }: CourseRoomViewProps) {
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
   const theme = useTheme();
   const [currentTab, setCurrentTab] = useState(0);
+
+  const { getRoundForStudent, getRoundsByCourse } = useCourseRoundsContext();
+  const { getApplicationsByStudent, isLoading: applicationsLoading } = useApplicationsContext();
+  const assignedRound = useMemo(() => {
+    if (!hasRole('student')) return undefined;
+    if (!user?.id) return undefined;
+    return getRoundForStudent(courseId, user.id);
+  }, [courseId, getRoundForStudent, hasRole, user?.id]);
+
+  const isAcceptedStudent = useMemo(() => {
+    if (!hasRole('student')) return false;
+    if (!user?.id) return false;
+    if (applicationsLoading) return false;
+    return getApplicationsByStudent(user.id).some((a) => a.courseId === courseId && a.status === 'accepted');
+  }, [applicationsLoading, courseId, getApplicationsByStudent, hasRole, user?.id]);
+
+  const roundsCount = useMemo(() => getRoundsByCourse(courseId).length, [courseId, getRoundsByCourse]);
 
   const { courses } = useCoursesContext();
   const courseFromContext = useMemo(() => courses.find((c) => c.id === courseId), [courses, courseId]);
@@ -215,6 +246,37 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const [newLessonTitle, setNewLessonTitle] = useState('');
   const [newLessonDescription, setNewLessonDescription] = useState('');
 
+  const [editWeekDialog, setEditWeekDialog] = useState<{ open: boolean; moduleId?: string }>({ open: false });
+  const [editWeekTitle, setEditWeekTitle] = useState('');
+  const [editWeekDescription, setEditWeekDescription] = useState('');
+
+  const [deleteWeekDialog, setDeleteWeekDialog] = useState<{ open: boolean; moduleId?: string }>({ open: false });
+
+  const [editLessonDialog, setEditLessonDialog] = useState<{ open: boolean; moduleId?: string; lessonId?: string }>({ open: false });
+  const [editLessonTitle, setEditLessonTitle] = useState('');
+  const [editLessonDescription, setEditLessonDescription] = useState('');
+  const [editLessonDuration, setEditLessonDuration] = useState<number>(30);
+  const [editLessonContent, setEditLessonContent] = useState('');
+
+  const [deleteLessonDialog, setDeleteLessonDialog] = useState<{ open: boolean; moduleId?: string; lessonId?: string }>({ open: false });
+
+  useEffect(() => {
+    const stored = safeParseModules(localStorage.getItem(courseContentStorageKey(courseId)));
+    if (stored.length > 0) {
+      setModules(stored);
+      return;
+    }
+
+    const apiModules = resolvedCourse?.content?.modules;
+    if (Array.isArray(apiModules) && apiModules.length > 0) {
+      setModules(apiModules);
+    }
+  }, [courseId, resolvedCourse?.content?.modules]);
+
+  useEffect(() => {
+    localStorage.setItem(courseContentStorageKey(courseId), JSON.stringify(modules));
+  }, [courseId, modules]);
+
   const handleTabChange = useCallback((event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   }, []);
@@ -261,6 +323,92 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     setNewLessonDescription('');
   }, []);
 
+  const handleEditWeek = useCallback((module: CourseModule) => {
+    setEditWeekDialog({ open: true, moduleId: module.id });
+    setEditWeekTitle(module.title);
+    setEditWeekDescription(module.description);
+  }, []);
+
+  const saveEditedWeek = useCallback(() => {
+    if (!editWeekDialog.moduleId) return;
+    if (!editWeekTitle.trim()) return;
+
+    setModules((prev) =>
+      prev.map((m) =>
+        m.id === editWeekDialog.moduleId
+          ? { ...m, title: editWeekTitle.trim(), description: editWeekDescription.trim() }
+          : m
+      )
+    );
+    setEditWeekDialog({ open: false });
+  }, [editWeekDescription, editWeekDialog.moduleId, editWeekTitle]);
+
+  const handleDeleteWeek = useCallback((moduleId: string) => {
+    setDeleteWeekDialog({ open: true, moduleId });
+  }, []);
+
+  const confirmDeleteWeek = useCallback(() => {
+    if (!deleteWeekDialog.moduleId) return;
+    setModules((prev) => prev.filter((m) => m.id !== deleteWeekDialog.moduleId));
+    setDeleteWeekDialog({ open: false });
+  }, [deleteWeekDialog.moduleId]);
+
+  const handleEditLesson = useCallback((moduleId: string, lesson: Lesson) => {
+    setEditLessonDialog({ open: true, moduleId, lessonId: lesson.id });
+    setEditLessonTitle(lesson.title);
+    setEditLessonDescription(lesson.description);
+    setEditLessonDuration(lesson.duration);
+    setEditLessonContent(lesson.content);
+  }, []);
+
+  const saveEditedLesson = useCallback(() => {
+    if (!editLessonDialog.moduleId || !editLessonDialog.lessonId) return;
+    if (!editLessonTitle.trim()) return;
+
+    setModules((prev) =>
+      prev.map((m) => {
+        if (m.id !== editLessonDialog.moduleId) return m;
+        return {
+          ...m,
+          lessons: m.lessons.map((l) =>
+            l.id === editLessonDialog.lessonId
+              ? {
+                  ...l,
+                  title: editLessonTitle.trim(),
+                  description: editLessonDescription.trim(),
+                  duration: Number.isFinite(editLessonDuration) ? editLessonDuration : l.duration,
+                  content: editLessonContent,
+                }
+              : l
+          ),
+        };
+      })
+    );
+
+    setEditLessonDialog({ open: false });
+  }, [editLessonContent, editLessonDescription, editLessonDialog.lessonId, editLessonDialog.moduleId, editLessonDuration, editLessonTitle]);
+
+  const handleDeleteLesson = useCallback((moduleId: string, lessonId: string) => {
+    setDeleteLessonDialog({ open: true, moduleId, lessonId });
+  }, []);
+
+  const confirmDeleteLesson = useCallback(() => {
+    if (!deleteLessonDialog.moduleId || !deleteLessonDialog.lessonId) return;
+
+    setModules((prev) =>
+      prev.map((m) => {
+        if (m.id !== deleteLessonDialog.moduleId) return m;
+        const nextLessons = m.lessons
+          .filter((l) => l.id !== deleteLessonDialog.lessonId)
+          .map((l, idx) => ({ ...l, order: idx + 1 }));
+
+        return { ...m, lessons: nextLessons };
+      })
+    );
+
+    setDeleteLessonDialog({ open: false });
+  }, [deleteLessonDialog.lessonId, deleteLessonDialog.moduleId]);
+
   const saveNewLesson = useCallback(() => {
     if (!addLessonDialog.moduleId || !newLessonTitle.trim()) return;
     setModules((prev) =>
@@ -285,6 +433,61 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     );
     setAddLessonDialog({ open: false });
   }, [addLessonDialog.moduleId, newLessonTitle, newLessonDescription]);
+
+  if (hasRole('student') && user?.id && !assignedRound) {
+    if (applicationsLoading) {
+      return (
+        <DashboardContent>
+          <Container maxWidth="xl">
+            <Card sx={{ p: 4, mt: 4 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>
+                Loading...
+              </Typography>
+              <LinearProgress />
+            </Card>
+          </Container>
+        </DashboardContent>
+      );
+    }
+
+    if (!isAcceptedStudent) {
+      return (
+        <DashboardContent>
+          <Container maxWidth="xl">
+            <Card sx={{ p: 4, mt: 4 }}>
+              <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
+                You do not have access to this course
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Please apply for the course and wait for admin acceptance.
+              </Typography>
+              <Button variant="contained" href="/courses" sx={{ borderRadius: 30 }}>
+                Browse Courses
+              </Button>
+            </Card>
+          </Container>
+        </DashboardContent>
+      );
+    }
+
+    return (
+      <DashboardContent>
+        <Container maxWidth="xl">
+          <Card sx={{ p: 4, mt: 4 }}>
+            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
+              You are not assigned to a round yet
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              The admin has accepted your application. Please wait until the instructor creates a round and assigns you.
+            </Typography>
+            <Button variant="contained" href="/my-courses" sx={{ borderRadius: 30 }}>
+              Back to My Courses
+            </Button>
+          </Card>
+        </Container>
+      </DashboardContent>
+    );
+  }
 
   return (
     <DashboardContent>
@@ -318,6 +521,36 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                   <Iconify icon="solar:user-circle-bold" width={20} />
                   Instructor: {displayCourse.instructor}
                 </Typography>
+
+                {(assignedRound || (hasRole('instructor') && roundsCount > 0)) && (
+                  <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', opacity: 0.95 }}>
+                    {assignedRound && (
+                      <>
+                        <Chip
+                          label={`Round: ${assignedRound.name}`}
+                          size="small"
+                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700 }}
+                        />
+                        <Chip
+                          label={String(assignedRound.status).toUpperCase()}
+                          size="small"
+                          sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 700 }}
+                        />
+                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                          {new Date(assignedRound.startDate).toLocaleDateString()} - {new Date(assignedRound.endDate).toLocaleDateString()}
+                        </Typography>
+                      </>
+                    )}
+
+                    {hasRole('instructor') && roundsCount > 0 && !assignedRound && (
+                      <Chip
+                        label={`Rounds: ${roundsCount}`}
+                        size="small"
+                        sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 700 }}
+                      />
+                    )}
+                  </Box>
+                )}
              </Box>
              
              {/* Overall Progress Circle */}
@@ -514,7 +747,15 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{module.description}</Typography>
                           )}
                         </Box>
-                        <Chip label={`${module.lessons.length} lessons`} color="primary" variant="outlined" />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Chip label={`${module.lessons.length} lessons`} color="primary" variant="outlined" />
+                          <IconButton size="small" onClick={() => handleEditWeek(module)} aria-label="Edit week">
+                            <Iconify icon="solar:pen-bold" width={18} />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => handleDeleteWeek(module.id)} aria-label="Delete week">
+                            <Iconify icon="solar:trash-bin-trash-bold" width={18} />
+                          </IconButton>
+                        </Box>
                       </Box>
 
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -587,15 +828,30 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 2 }}>
                         {module.lessons.map((lesson) => (
                           <Box key={lesson.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, bgcolor: 'background.neutral', borderRadius: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                               <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
-                                 {lesson.order}
-                               </Box>
-                               <Typography variant="body2" fontWeight={600}>
-                                 {lesson.title}
-                               </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+                              <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700 }}>
+                                {lesson.order}
+                              </Box>
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="body2" fontWeight={600} noWrap>
+                                  {lesson.title}
+                                </Typography>
+                                {lesson.description && (
+                                  <Typography variant="caption" color="text.secondary" noWrap>
+                                    {lesson.description}
+                                  </Typography>
+                                )}
+                              </Box>
                             </Box>
-                            <Chip label={`${lesson.duration}m`} size="small" variant="outlined" />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <Chip label={`${lesson.duration}m`} size="small" variant="outlined" />
+                              <IconButton size="small" onClick={() => handleEditLesson(module.id, lesson)} aria-label="Edit lesson">
+                                <Iconify icon="solar:pen-bold" width={18} />
+                              </IconButton>
+                              <IconButton size="small" color="error" onClick={() => handleDeleteLesson(module.id, lesson.id)} aria-label="Delete lesson">
+                                <Iconify icon="solar:trash-bin-trash-bold" width={18} />
+                              </IconButton>
+                            </Box>
                           </Box>
                         ))}
                       </Box>
@@ -633,6 +889,81 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
               <DialogActions>
                 <Button onClick={() => setAddLessonDialog({ open: false })}>Cancel</Button>
                 <Button variant="contained" onClick={saveNewLesson} disabled={!newLessonTitle.trim()}>Save</Button>
+              </DialogActions>
+            </Dialog>
+
+            <Dialog open={editWeekDialog.open} onClose={() => setEditWeekDialog({ open: false })} maxWidth="sm" fullWidth>
+              <DialogTitle>Edit Week</DialogTitle>
+              <DialogContent>
+                <TextField fullWidth label="Week Title" sx={{ mt: 1 }} value={editWeekTitle} onChange={(e) => setEditWeekTitle(e.target.value)} />
+                <TextField fullWidth label="Description" sx={{ mt: 2 }} multiline rows={3} value={editWeekDescription} onChange={(e) => setEditWeekDescription(e.target.value)} />
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setEditWeekDialog({ open: false })}>Cancel</Button>
+                <Button variant="contained" onClick={saveEditedWeek} disabled={!editWeekTitle.trim()}>
+                  Save
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            <Dialog open={deleteWeekDialog.open} onClose={() => setDeleteWeekDialog({ open: false })} maxWidth="xs" fullWidth>
+              <DialogTitle>Delete Week</DialogTitle>
+              <DialogContent>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  This will permanently delete the week and all lessons inside it.
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setDeleteWeekDialog({ open: false })}>Cancel</Button>
+                <Button variant="contained" color="error" onClick={confirmDeleteWeek}>
+                  Delete
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            <Dialog open={editLessonDialog.open} onClose={() => setEditLessonDialog({ open: false })} maxWidth="sm" fullWidth>
+              <DialogTitle>Edit Lesson</DialogTitle>
+              <DialogContent>
+                <TextField fullWidth label="Lesson Title" sx={{ mt: 1 }} value={editLessonTitle} onChange={(e) => setEditLessonTitle(e.target.value)} />
+                <TextField fullWidth label="Description" sx={{ mt: 2 }} multiline rows={3} value={editLessonDescription} onChange={(e) => setEditLessonDescription(e.target.value)} />
+                <TextField
+                  fullWidth
+                  label="Duration (minutes)"
+                  sx={{ mt: 2 }}
+                  type="number"
+                  value={editLessonDuration}
+                  onChange={(e) => setEditLessonDuration(Number(e.target.value))}
+                />
+                <TextField
+                  fullWidth
+                  label="Content"
+                  sx={{ mt: 2 }}
+                  multiline
+                  rows={6}
+                  value={editLessonContent}
+                  onChange={(e) => setEditLessonContent(e.target.value)}
+                />
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setEditLessonDialog({ open: false })}>Cancel</Button>
+                <Button variant="contained" onClick={saveEditedLesson} disabled={!editLessonTitle.trim()}>
+                  Save
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            <Dialog open={deleteLessonDialog.open} onClose={() => setDeleteLessonDialog({ open: false })} maxWidth="xs" fullWidth>
+              <DialogTitle>Delete Lesson</DialogTitle>
+              <DialogContent>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  This will permanently delete the lesson.
+                </Typography>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setDeleteLessonDialog({ open: false })}>Cancel</Button>
+                <Button variant="contained" color="error" onClick={confirmDeleteLesson}>
+                  Delete
+                </Button>
               </DialogActions>
             </Dialog>
           </Box>

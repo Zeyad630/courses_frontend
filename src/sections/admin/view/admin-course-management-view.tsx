@@ -6,6 +6,7 @@ import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
+import Menu from '@mui/material/Menu';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Tabs from '@mui/material/Tabs';
@@ -17,8 +18,8 @@ import Dialog from '@mui/material/Dialog';
 import Select from '@mui/material/Select';
 import Drawer from '@mui/material/Drawer';
 import Divider from '@mui/material/Divider';
-import TableRow from '@mui/material/TableRow';
 import MenuItem from '@mui/material/MenuItem';
+import TableRow from '@mui/material/TableRow';
 import Container from '@mui/material/Container';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -27,6 +28,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import InputLabel from '@mui/material/InputLabel';
 import IconButton from '@mui/material/IconButton';
+import ButtonGroup from '@mui/material/ButtonGroup';
 import CardContent from '@mui/material/CardContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
@@ -83,6 +85,9 @@ export function AdminCourseManagementView() {
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [exportMenuAnchorEl, setExportMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [exportingFormat, setExportingFormat] = useState<null | 'xlsx' | 'csv'>(null);
+  const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx');
   const [editAppDialog, setEditAppDialog] = useState<{
     open: boolean;
     appId?: string;
@@ -292,9 +297,45 @@ export function AdminCourseManagementView() {
       ]),
     ];
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Applications');
-    XLSX.writeFile(wb, `${selectedCourse.code || selectedCourse.name}_applications.xlsx`);
+    const safeName = (selectedCourse.name || 'Course').toString().slice(0, 31).replace(/[\\/?*:[\]]/g, ' ');
+    XLSX.utils.book_append_sheet(wb, ws, safeName || 'Sheet');
+    XLSX.writeFile(wb, `${selectedCourse.code || selectedCourse.id}_applications.xlsx`);
   }, [selectedCourse, courseApplications]);
+
+  const exportMenuOpen = Boolean(exportMenuAnchorEl);
+  const canExportCourse = Boolean(selectedCourse) && courseApplications.length > 0;
+
+  const handleOpenExportMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    setExportMenuAnchorEl(event.currentTarget);
+  }, []);
+
+  const handleCloseExportMenu = useCallback(() => {
+    setExportMenuAnchorEl(null);
+  }, []);
+
+  const runExport = useCallback(
+    async (format: 'xlsx' | 'csv') => {
+      if (!selectedCourse || courseApplications.length === 0) return;
+
+      setExportingFormat(format);
+      try {
+        if (format === 'csv') {
+          exportCourseCsv();
+          setSuccess('CSV export downloaded.');
+        } else {
+          exportCourseXlsx();
+          setSuccess('Excel export downloaded.');
+        }
+        setTimeout(() => setSuccess(null), 2500);
+      } catch (err) {
+        setError('Export failed. Please try again.');
+      } finally {
+        setExportingFormat(null);
+        setExportMenuAnchorEl(null);
+      }
+    },
+    [selectedCourse, courseApplications.length, exportCourseCsv, exportCourseXlsx]
+  );
 
   const activeCourses = courses.filter((c) => c.status === 'active');
   const inactiveCourses = courses.filter((c) => c.status !== 'active');
@@ -721,9 +762,69 @@ export function AdminCourseManagementView() {
                   <Chip label={`Accepted: ${acceptedCount}`} color="success" variant="outlined" />
                   <Chip label={`Rejected: ${rejectedCount}`} color="error" variant="outlined" />
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button variant="outlined" size="small" onClick={exportCourseCsv} startIcon={<Iconify icon="solar:download-bold-duotone" />}>CSV</Button>
-                  <Button variant="contained" size="small" onClick={exportCourseXlsx} startIcon={<Iconify icon="mdi:file-excel" />}>Excel</Button>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <ButtonGroup
+                    variant="contained"
+                    size="small"
+                    sx={{
+                      bgcolor: 'background.paper',
+                      boxShadow: theme.shadows[2],
+                      '& .MuiButton-root': {
+                        bgcolor: 'background.paper',
+                        color: 'text.primary',
+                        '&:hover': { bgcolor: alpha(theme.palette.grey[500], 0.08) },
+                      },
+                      '& .MuiButtonGroup-grouped:not(:last-of-type)': {
+                        borderColor: theme.palette.divider,
+                      },
+                    }}
+                  >
+                    <Button
+                      startIcon={
+                        exportingFormat ? (
+                          <Iconify icon="solar:refresh-bold" />
+                        ) : (
+                          <Iconify icon="solar:download-bold-duotone" />
+                        )
+                      }
+                      onClick={() => runExport(exportFormat)}
+                      disabled={loading || exportingFormat !== null || !canExportCourse}
+                    >
+                      {exportFormat === 'xlsx' ? 'Export Excel' : 'Export CSV'}
+                    </Button>
+                    <Button onClick={handleOpenExportMenu} disabled={loading || exportingFormat !== null || !canExportCourse}>
+                      <Iconify icon="eva:arrow-ios-downward-fill" />
+                    </Button>
+                  </ButtonGroup>
+
+                  <Menu
+                    anchorEl={exportMenuAnchorEl}
+                    open={exportMenuOpen}
+                    onClose={handleCloseExportMenu}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                  >
+                    <MenuItem
+                      onClick={() => {
+                        setExportFormat('xlsx');
+                        void runExport('xlsx');
+                      }}
+                      disabled={loading || exportingFormat !== null || !canExportCourse}
+                    >
+                      <Iconify icon="mdi:file-excel" width={20} style={{ marginRight: 10 }} />
+                      Excel
+                    </MenuItem>
+                    <MenuItem
+                      onClick={() => {
+                        setExportFormat('csv');
+                        void runExport('csv');
+                      }}
+                      disabled={loading || exportingFormat !== null || !canExportCourse}
+                    >
+                      <Iconify icon="solar:document-text-bold-duotone" width={20} style={{ marginRight: 10 }} />
+                      CSV
+                    </MenuItem>
+                  </Menu>
                 </Box>
                 <Divider />
                 <Typography variant="subtitle2">Applicants</Typography>

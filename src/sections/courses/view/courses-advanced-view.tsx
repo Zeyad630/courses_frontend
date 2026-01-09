@@ -212,7 +212,7 @@ export function CoursesAdvancedView() {
                 key={index}
                 sx={{
                   p: 3,
-                  background: `linear-gradient(135deg, ${stat.color === 'primary' ? '#DC2626' : stat.color === 'success' ? '#10B981' : '#F59E0B'} 0%, ${stat.color === 'primary' ? '#FF6B6B' : stat.color === 'success' ? '#34D399' : '#FBBF24'} 100%)`,
+                  background: `linear-gradient(135deg, ${stat.color === 'primary' ? '#DC2626' : '#262626'} 0%, ${stat.color === 'primary' ? '#FCA5A5' : '#A3A3A3'} 100%)`,
                   color: 'white',
                   textAlign: 'center',
                 }}
@@ -524,7 +524,7 @@ export function CoursesAdvancedView() {
                         position: 'absolute',
                         top: 10,
                         right: -30,
-                        background: 'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)',
+                        background: 'linear-gradient(135deg, #DC2626 0%, #262626 100%)',
                         color: 'white',
                         padding: '4px 40px',
                         transform: 'rotate(45deg)',

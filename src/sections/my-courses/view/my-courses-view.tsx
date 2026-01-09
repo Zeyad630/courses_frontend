@@ -15,6 +15,7 @@ import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
 import { useCoursesContext } from 'src/contexts/courses-context';
 import { useApplicationsContext } from 'src/contexts/applications-context';
+import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -109,18 +110,30 @@ export function MyCoursesView() {
 
   const { courses } = useCoursesContext();
   const { applications } = useApplicationsContext();
+  const { getRoundForStudent } = useCourseRoundsContext();
 
-  const enrolledCourses = useMemo(() => {
+  const { enrolledCourses, waitingCourses } = useMemo(() => {
     const userId = user?.id;
-    if (!userId) return [];
+    if (!userId) return { enrolledCourses: [], waitingCourses: [] };
 
     const accepted = applications.filter((a) => a.studentId === userId && a.status === 'accepted');
 
-    return accepted.map((app, index) => {
+    const enrolled: any[] = [];
+    const waiting: any[] = [];
+
+    accepted.forEach((app, index) => {
       const course = courses.find((c) => c.id === app.courseId);
       const fallback = mockEnrolledCourses[index % mockEnrolledCourses.length];
 
-      return {
+      const round = getRoundForStudent(app.courseId, userId);
+      const mappedStatus =
+        round?.status === 'finished'
+          ? 'completed'
+          : round?.status === 'cancelled'
+            ? 'paused'
+            : 'active';
+
+      const base = {
         id: app.courseId,
         title: course?.name ?? app.metadata?.courseName ?? fallback?.title ?? 'Course',
         description: course?.description ?? fallback?.description ?? '',
@@ -132,16 +145,29 @@ export function MyCoursesView() {
         dueAssignment: '—',
         dueDate: new Date(Date.now() + (index + 3) * 24 * 60 * 60 * 1000),
         grade: '—',
-        status: 'active',
+        status: mappedStatus,
         enrolledAt: app.appliedAt,
         completedAt: fallback?.completedAt,
         image: fallback?.image ?? '/assets/school/course.webp',
         whatYouWillLearn: fallback?.whatYouWillLearn ?? [],
       };
+
+      if (!round) {
+        waiting.push(base);
+        return;
+      }
+
+      enrolled.push({
+        ...base,
+        round,
+      });
     });
-  }, [applications, courses, user?.id]);
+
+    return { enrolledCourses: enrolled, waitingCourses: waiting };
+  }, [applications, courses, getRoundForStudent, user?.id]);
 
   const activeCourses = enrolledCourses.filter(course => course.status === 'active');
+  const pausedCourses = enrolledCourses.filter(course => course.status === 'paused');
   const completedCourses = enrolledCourses.filter(course => course.status === 'completed');
 
   if (!hasRole('student')) {
@@ -266,6 +292,49 @@ export function MyCoursesView() {
           ))}
         </Box>
 
+        {waitingCourses.length > 0 && (
+          <Card
+            sx={{
+              mb: 6,
+              p: 3,
+              borderRadius: 3,
+              border: `1px dashed ${alpha(theme.palette.warning.main, 0.32)}`,
+              bgcolor: alpha(theme.palette.warning.main, 0.04),
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  bgcolor: alpha(theme.palette.warning.main, 0.16),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
+              >
+                <Iconify icon="solar:clock-circle-bold-duotone" width={24} sx={{ color: 'warning.main' }} />
+              </Box>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+                  Waiting for round assignment
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  You have been accepted by the admin. Please wait until the instructor creates a round and assigns you.
+                </Typography>
+
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {waitingCourses.map((c) => (
+                    <Chip key={c.id} label={c.title} variant="outlined" />
+                  ))}
+                </Box>
+              </Box>
+            </Box>
+          </Card>
+        )}
+
         {/* Active Courses */}
         {activeCourses.length > 0 && (
           <Box sx={{ mb: 6 }}>
@@ -320,6 +389,45 @@ export function MyCoursesView() {
                         </Typography>
                     </Box>
 
+                    {course.round && (
+                      <Box
+                        sx={{
+                          mb: 3,
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: alpha(theme.palette.info.main, 0.06),
+                          border: `1px solid ${alpha(theme.palette.info.main, 0.16)}`,
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          alignItems: 'center',
+                          gap: 1,
+                        }}
+                      >
+                        <Chip
+                          label={`Round: ${course.round.name}`}
+                          size="small"
+                          color="info"
+                          variant="outlined"
+                        />
+                        <Chip
+                          label={String(course.round.status).toUpperCase()}
+                          size="small"
+                          color={
+                            course.round.status === 'active'
+                              ? 'success'
+                              : course.round.status === 'finished'
+                                ? 'info'
+                                : course.round.status === 'cancelled'
+                                  ? 'error'
+                                  : 'warning'
+                          }
+                        />
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                          {new Date(course.round.startDate).toLocaleDateString()} - {new Date(course.round.endDate).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                    )}
+
                     <Box sx={{ mb: 3 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="caption" fontWeight={600} color="text.secondary">
@@ -355,7 +463,7 @@ export function MyCoursesView() {
                             Key Takeaways
                          </Typography>
                          <Box component="ul" sx={{ pl: 2.5, m: 0, typography: 'caption', color: 'text.secondary', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            {course.whatYouWillLearn.map((item, i) => (
+                            {course.whatYouWillLearn.map((item: string, i: number) => (
                               <li key={i}>{item}</li>
                             ))}
                          </Box>
@@ -488,8 +596,71 @@ export function MyCoursesView() {
           </Box>
         )}
 
+        {/* Paused Courses */}
+        {pausedCourses.length > 0 && (
+          <Box sx={{ mb: 5 }}>
+            <Typography variant="h5" sx={{ mb: 3, fontWeight: 700 }}>
+              Paused Courses
+            </Typography>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: 3 }}>
+              {pausedCourses.map((course) => (
+                <Card key={course.id} sx={{ height: '100%', display: 'flex', flexDirection: 'column', opacity: 0.95, transition: 'all 0.3s', '&:hover': { opacity: 1, transform: 'translateY(-4px)', boxShadow: theme.shadows[8] } }}>
+                  <Box
+                    sx={{
+                      height: 120,
+                      background: `linear-gradient(135deg, ${alpha(theme.palette.warning.lighter, 0.3)} 0%, ${alpha(theme.palette.warning.light, 0.3)} 100%)`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      position: 'relative',
+                    }}
+                  >
+                    <Iconify icon="solar:pause-circle-bold-duotone" width={60} sx={{ color: 'warning.main' }} />
+                    <Chip
+                      label={getStatusLabel(course.status)}
+                      size="small"
+                      color="warning"
+                      sx={{ position: 'absolute', top: 12, right: 12, fontWeight: 800 }}
+                    />
+                  </Box>
+
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 700 }}>
+                      {course.title}
+                    </Typography>
+
+                    {course.round && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Round: {course.round.name}
+                      </Typography>
+                    )}
+
+                    <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Iconify icon="solar:user-circle-bold" width={16} />
+                      {course.instructor}
+                    </Typography>
+                  </CardContent>
+
+                  <CardActions sx={{ p: 2 }}>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      startIcon={<Iconify icon="solar:eye-bold" />}
+                      href={`/course-room/${course.id}`}
+                      color="inherit"
+                    >
+                      View Course
+                    </Button>
+                  </CardActions>
+                </Card>
+              ))}
+            </Box>
+          </Box>
+        )}
+
         {/* Empty State */}
-        {enrolledCourses.length === 0 && (
+        {enrolledCourses.length === 0 && waitingCourses.length === 0 && (
           <Box sx={{ textAlign: 'center', py: 10 }}>
             <Box sx={{ mb: 3, p: 4, borderRadius: '50%', bgcolor: alpha(theme.palette.primary.main, 0.08), display: 'inline-flex' }}>
                  <Iconify icon="solar:notebook-minimalistic-bold-duotone" width={64} sx={{ color: 'primary.main', opacity: 0.6 }} />

@@ -19,7 +19,7 @@ interface CoursesState {
   courses: Course[];
   isLoading: boolean;
   error: string | null;
-}
+} 
 
 type CoursesContextValue = CoursesState & {
   getCourses: () => void;

@@ -9,14 +9,21 @@ import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
+import Menu from '@mui/material/Menu';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import MenuItem from '@mui/material/MenuItem';
+import Snackbar from '@mui/material/Snackbar';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
+import ButtonGroup from '@mui/material/ButtonGroup';
 import CardContent from '@mui/material/CardContent';
-import CardActions from '@mui/material/CardActions';
 import DialogTitle from '@mui/material/DialogTitle';
+import CardActions from '@mui/material/CardActions';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
 import { alpha, useTheme } from '@mui/material/styles';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -50,6 +57,14 @@ export function AdminApplicationsView() {
   const [selectedApplication, setSelectedApplication] = useState<(typeof applications)[number] | null>(null);
   const [reviewDialog, setReviewDialog] = useState(false);
   const [reviewNotes, setReviewNotes] = useState('');
+  const [exportMenuAnchorEl, setExportMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [exportingFormat, setExportingFormat] = useState<null | 'xlsx' | 'acceptedCsv'>(null);
+  const [exportFormat, setExportFormat] = useState<'xlsx' | 'acceptedCsv'>('xlsx');
+  const [toast, setToast] = useState<{ open: boolean; severity: 'success' | 'error'; message: string }>({
+    open: false,
+    severity: 'success',
+    message: '',
+  });
 
   const handleReviewApplication = useCallback((application: (typeof applications)[number]) => {
     setSelectedApplication(application);
@@ -157,6 +172,42 @@ export function AdminApplicationsView() {
     XLSX.writeFile(wb, 'applications_by_course.xlsx');
   }, [applications]);
 
+  const exportMenuOpen = Boolean(exportMenuAnchorEl);
+  const canExportAll = applications.length > 0;
+  const canExportAccepted = acceptedApplications.length > 0;
+
+  const runExport = useCallback(
+    async (format: 'xlsx' | 'acceptedCsv') => {
+      const allowed = format === 'xlsx' ? canExportAll : canExportAccepted;
+      if (!allowed) return;
+
+      setExportingFormat(format);
+      try {
+        if (format === 'xlsx') {
+          exportApplicationsXlsx();
+          setToast({ open: true, severity: 'success', message: 'Excel export downloaded.' });
+        } else {
+          exportAcceptedStudentsCsv();
+          setToast({ open: true, severity: 'success', message: 'Accepted students CSV downloaded.' });
+        }
+      } catch (err) {
+        setToast({ open: true, severity: 'error', message: 'Export failed. Please try again.' });
+      } finally {
+        setExportingFormat(null);
+        setExportMenuAnchorEl(null);
+      }
+    },
+    [canExportAccepted, canExportAll, exportAcceptedStudentsCsv, exportApplicationsXlsx]
+  );
+
+  const handleOpenExportMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    setExportMenuAnchorEl(event.currentTarget);
+  }, []);
+
+  const handleCloseExportMenu = useCallback(() => {
+    setExportMenuAnchorEl(null);
+  }, []);
+
   const chartOptions: ApexOptions = {
     chart: {
       fontFamily: theme.typography.fontFamily,
@@ -234,27 +285,77 @@ export function AdminApplicationsView() {
                 </Typography>
              </Box>
              
-             <Box sx={{ display: 'flex', gap: 1.5 }}>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  startIcon={<Iconify icon="solar:download-bold-duotone" />}
-                  onClick={exportAcceptedStudentsCsv}
-                  disabled={acceptedApplications.length === 0}
-                  sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.4)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
-                >
-                  Export Accepted (CSV)
-                </Button>
-                <Button
-                  variant="contained"
-                  size="large"
-                  startIcon={<Iconify icon="mdi:file-excel" />}
-                  onClick={exportApplicationsXlsx}
-                  disabled={applications.length === 0}
-                  sx={{ bgcolor: 'white', color: 'primary.dark', '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' } }}
-                >
-                  Export Excel
-                </Button>
+             <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+               <ButtonGroup
+                 variant="contained"
+                 size="large"
+                 sx={{
+                   bgcolor: 'white',
+                   boxShadow: theme.shadows[4],
+                   '& .MuiButton-root': {
+                     bgcolor: 'white',
+                     color: 'primary.dark',
+                     '&:hover': { bgcolor: 'rgba(255,255,255,0.92)' },
+                   },
+                   '& .MuiButtonGroup-grouped:not(:last-of-type)': {
+                     borderColor: 'rgba(0,0,0,0.12)',
+                   },
+                 }}
+               >
+                 <Button
+                   startIcon={
+                     exportingFormat ? (
+                       <Iconify icon="solar:refresh-bold" />
+                     ) : (
+                       <Iconify icon="solar:download-bold-duotone" />
+                     )
+                   }
+                   onClick={() => runExport(exportFormat)}
+                   disabled={exportingFormat !== null || (exportFormat === 'xlsx' ? !canExportAll : !canExportAccepted)}
+                 >
+                   {exportFormat === 'xlsx' ? 'Export Excel' : 'Export Accepted (CSV)'}
+                 </Button>
+                 <Button
+                   onClick={handleOpenExportMenu}
+                   disabled={exportingFormat !== null || (!canExportAll && !canExportAccepted)}
+                 >
+                   <Iconify icon="eva:arrow-ios-downward-fill" />
+                 </Button>
+               </ButtonGroup>
+
+               <Menu
+                 anchorEl={exportMenuAnchorEl}
+                 open={exportMenuOpen}
+                 onClose={handleCloseExportMenu}
+                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+               >
+                 <MenuItem
+                   onClick={() => {
+                     setExportFormat('xlsx');
+                     void runExport('xlsx');
+                   }}
+                   disabled={!canExportAll || exportingFormat !== null}
+                 >
+                   <ListItemIcon>
+                     <Iconify icon="mdi:file-excel" />
+                   </ListItemIcon>
+                   <ListItemText primary="All applications (Excel)" />
+                 </MenuItem>
+
+                 <MenuItem
+                   onClick={() => {
+                     setExportFormat('acceptedCsv');
+                     void runExport('acceptedCsv');
+                   }}
+                   disabled={!canExportAccepted || exportingFormat !== null}
+                 >
+                   <ListItemIcon>
+                     <Iconify icon="solar:document-text-bold-duotone" />
+                   </ListItemIcon>
+                   <ListItemText primary="Accepted students (CSV)" />
+                 </MenuItem>
+               </Menu>
              </Box>
           </Box>
           <Box sx={{ position: 'absolute', top: -50, right: -50, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)' }} />
@@ -494,6 +595,22 @@ export function AdminApplicationsView() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <Snackbar
+          open={toast.open}
+          autoHideDuration={4000}
+          onClose={() => setToast((prev) => ({ ...prev, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={() => setToast((prev) => ({ ...prev, open: false }))}
+            severity={toast.severity}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {toast.message}
+          </Alert>
+        </Snackbar>
       </Container>
     </DashboardContent>
   );

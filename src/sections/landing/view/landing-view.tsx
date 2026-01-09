@@ -1,7 +1,7 @@
 import type { Theme } from '@mui/material/styles';
 
-import { useCallback } from 'react';
 import { varAlpha } from 'minimal-shared/utils';
+import { useMemo, useState, useCallback } from 'react';
 
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
@@ -21,6 +21,8 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import { alpha, useTheme, keyframes } from '@mui/material/styles';
 
 import { RouterLink } from 'src/routes/components';
+
+import { useCoursesContext } from 'src/contexts/courses-context';
 
 import { Iconly } from 'src/components/iconly';
 import { SchoolLogo } from 'src/components/school-logo';
@@ -139,6 +141,26 @@ function FeatureCard({ feature }: { feature: Feature }) {
 export function LandingView() {
   const theme = useTheme();
 
+  const { courses, isLoading, error } = useCoursesContext();
+
+  const offeredCourses = useMemo(() => courses.slice(0, 6), [courses]);
+
+  const schoolPhotos = useMemo(
+    () => [
+      '/assets/school/course.webp',
+      '/assets/school/logo.png',
+      '/assets/school/logo2.png',
+      '/assets/school/logoo.png',
+      '/assets/school/logoss.png',
+      '/assets/school/logoss2.png',
+      '/assets/school/logossss.png',
+      '/assets/school/3.png',
+    ],
+    []
+  );
+
+  const [activeSchoolPhoto, setActiveSchoolPhoto] = useState(0);
+
   const features: Feature[] = [
     {
       title: 'Role-Based Dashboards',
@@ -176,6 +198,14 @@ export function LandingView() {
     scrollToId('top');
   }, []);
 
+  const onPrevSchoolPhoto = useCallback(() => {
+    setActiveSchoolPhoto((prev) => (prev - 1 + schoolPhotos.length) % schoolPhotos.length);
+  }, [schoolPhotos.length]);
+
+  const onNextSchoolPhoto = useCallback(() => {
+    setActiveSchoolPhoto((prev) => (prev + 1) % schoolPhotos.length);
+  }, [schoolPhotos.length]);
+
   return (
     <Box id="top" sx={{ bgcolor: 'background.default' }}>
       <AppBar
@@ -202,6 +232,12 @@ export function LandingView() {
             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ display: { xs: 'none', md: 'flex' } }}>
               <Button color="inherit" onClick={() => scrollToId('features')} sx={{ fontWeight: 700 }}>
                 Features
+              </Button>
+              <Button color="inherit" onClick={() => scrollToId('courses')} sx={{ fontWeight: 700 }}>
+                Courses
+              </Button>
+              <Button color="inherit" onClick={() => scrollToId('gallery')} sx={{ fontWeight: 700 }}>
+                Gallery
               </Button>
               <Button color="inherit" onClick={() => scrollToId('workflow')} sx={{ fontWeight: 700 }}>
                 Workflow
@@ -521,6 +557,195 @@ export function LandingView() {
           ))}
         </Box>
       </Container>
+
+      <Container id="courses" maxWidth="lg" sx={{ py: { xs: 8, md: 10 } }}>
+        <Reveal>
+          <Stack spacing={1} sx={{ mb: 4 }}>
+            <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 900 }}>
+              COURSES
+            </Typography>
+            <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: -0.8 }}>
+              We offer courses
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 720, lineHeight: 1.8 }}>
+              Browse our available courses and choose the right level for your goals.
+            </Typography>
+          </Stack>
+        </Reveal>
+
+        {isLoading && (
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Loading courses...
+            </Typography>
+          </Box>
+        )}
+
+        {!isLoading && error && (
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              {error}
+            </Typography>
+          </Box>
+        )}
+
+        {!isLoading && !error && offeredCourses.length > 0 && (
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+              gap: 2.25,
+            }}
+          >
+            {offeredCourses.map((course) => (
+              <Reveal key={course.id}>
+                <Card
+                  variant="outlined"
+                  sx={{
+                    height: '100%',
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.18),
+                    bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.75),
+                    backdropFilter: 'blur(14px)',
+                    transition: theme.transitions.create(['transform', 'box-shadow', 'border-color'], { duration: 220 }),
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      borderColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.32),
+                      boxShadow: `0 18px 40px ${varAlpha(theme.vars.palette.common.blackChannel, 0.14)}`,
+                    },
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={course.image || '/assets/school/course.webp'}
+                    alt={course.name}
+                    sx={{
+                      width: 1,
+                      height: 160,
+                      objectFit: 'cover',
+                      display: 'block',
+                      bgcolor: varAlpha(theme.vars.palette.grey['500Channel'], 0.06),
+                    }}
+                  />
+                  <CardContent>
+                    <Stack spacing={1.25}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                        {course.name}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.7 }}>
+                        {course.description}
+                      </Typography>
+                      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                        <Chip label={course.level} size="small" />
+                        <Chip label={`${course.duration}h`} size="small" />
+                        <Chip label={`${course.price} EGP`} size="small" />
+                      </Stack>
+                      <Button
+                        component={RouterLink}
+                        href="/sign-in"
+                        variant="contained"
+                        sx={{ mt: 0.5, fontWeight: 900 }}
+                        endIcon={<Iconly name="Arrow - Right 2" size={18} />}
+                      >
+                        Enroll
+                      </Button>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Reveal>
+            ))}
+          </Box>
+        )}
+      </Container>
+
+      <Box id="gallery" sx={{ py: { xs: 8, md: 10 }, bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.55) }}>
+        <Container maxWidth="lg">
+          <Reveal>
+            <Stack spacing={1} sx={{ mb: 4 }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 900 }}>
+                GALLERY
+              </Typography>
+              <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: -0.8 }}>
+                School photos
+              </Typography>
+              <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 720, lineHeight: 1.8 }}>
+                A quick look at our school and learning environment.
+              </Typography>
+            </Stack>
+          </Reveal>
+
+          <Reveal>
+            <Card
+              variant="outlined"
+              sx={{
+                borderRadius: 3,
+                borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.18),
+                bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.7),
+                backdropFilter: 'blur(14px)',
+                overflow: 'hidden',
+              }}
+            >
+              <Box sx={{ position: 'relative' }}>
+                <Box
+                  component="img"
+                  src={schoolPhotos[activeSchoolPhoto]}
+                  alt={`School photo ${activeSchoolPhoto + 1}`}
+                  sx={{ width: 1, height: { xs: 220, md: 360 }, objectFit: 'cover', display: 'block' }}
+                />
+
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    position: 'absolute',
+                    left: 16,
+                    right: 16,
+                    bottom: 16,
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <IconButton
+                    onClick={onPrevSchoolPhoto}
+                    sx={{
+                      bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.8),
+                      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
+                      backdropFilter: 'blur(12px)',
+                      '&:hover': { bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.92) },
+                    }}
+                  >
+                    <Iconly name="Arrow - Left 2" size={20} />
+                  </IconButton>
+
+                  <Chip
+                    label={`${activeSchoolPhoto + 1} / ${schoolPhotos.length}`}
+                    variant="outlined"
+                    sx={{
+                      fontWeight: 900,
+                      bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.8),
+                      borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.22),
+                      backdropFilter: 'blur(12px)',
+                    }}
+                  />
+
+                  <IconButton
+                    onClick={onNextSchoolPhoto}
+                    sx={{
+                      bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.8),
+                      border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
+                      backdropFilter: 'blur(12px)',
+                      '&:hover': { bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.92) },
+                    }}
+                  >
+                    <Iconly name="Arrow - Right 2" size={20} />
+                  </IconButton>
+                </Stack>
+              </Box>
+            </Card>
+          </Reveal>
+        </Container>
+      </Box>
 
       <Box id="workflow" sx={{ py: { xs: 8, md: 10 }, bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.55) }}>
         <Container maxWidth="lg">

@@ -80,13 +80,13 @@ const errorBoundaryClasses = {
 };
 
 const cssVars: CSSObject = {
-  '--info-color': '#2dd9da',
-  '--warning-color': '#e2aa53',
-  '--error-color': '#ff5555',
-  '--error-background': '#2a1e1e',
-  '--details-background': '#111111',
-  '--root-background': '#2c2c2e',
-  '--container-background': '#1c1c1e',
+  '--info-color': '#D4D4D4',
+  '--warning-color': '#A3A3A3',
+  '--error-color': '#DC2626',
+  '--error-background': '#171717',
+  '--details-background': '#0B0B0B',
+  '--root-background': '#0F0F0F',
+  '--container-background': '#171717',
   '--font-stack-monospace':
     '"SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace',
   '--font-stack-sans':

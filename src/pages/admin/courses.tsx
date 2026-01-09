@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 import { usePageTitle } from 'src/hooks';
 
 import { AdminCourseManagementView } from 'src/sections/admin/view/admin-course-management-view';
@@ -5,6 +7,7 @@ import { AdminCourseManagementView } from 'src/sections/admin/view/admin-course-
 // ----------------------------------------------------------------------
 
 export default function AdminCoursesPage() {
-  usePageTitle('Course Management');
+  const { t } = useTranslation();
+  usePageTitle(t('courses.courseManagement'));
   return <AdminCourseManagementView />;
 }
