@@ -13,12 +13,30 @@ export const http = axios.create({
   },
 });
 
+// Request interceptor to add authentication token
 http.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => config,
+  (config: InternalAxiosRequestConfig) => {
+    // Get token from localStorage
+    const token = localStorage.getItem('accessToken');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
   (error: unknown) => Promise.reject(toApiError(error))
 );
 
+// Response interceptor to handle errors
 http.interceptors.response.use(
   (response: AxiosResponse) => response,
-  (error: unknown) => Promise.reject(toApiError(error))
+  (error: unknown) => {
+    // Handle 401 Unauthorized - clear token and redirect to login
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('user');
+      // Optionally redirect to login page
+      // window.location.href = '/login';
+    }
+    return Promise.reject(toApiError(error));
+  }
 );

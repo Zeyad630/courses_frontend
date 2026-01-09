@@ -9,11 +9,11 @@ import type {
 
 const statusIdToStatus = (statusId: ApplicationStatusId | undefined): ApplicationStatus => {
   switch (statusId) {
-    case 16:
+    case 3:
       return 'accepted';
-    case 15:
+    case 2:
       return 'rejected';
-    case 14:
+    case 1:
     default:
       return 'pending';
   }
@@ -22,12 +22,12 @@ const statusIdToStatus = (statusId: ApplicationStatusId | undefined): Applicatio
 const statusToStatusId = (status: ApplicationStatus): ApplicationStatusId => {
   switch (status) {
     case 'accepted':
-      return 16;
+      return 3;
     case 'rejected':
-      return 15;
+      return 2;
     case 'pending':
     default:
-      return 14;
+      return 1;
   }
 };
 

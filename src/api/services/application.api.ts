@@ -23,10 +23,21 @@ export const applicationApi = {
   },
 
   updateApplicationStatus: async (id: string | number, payload: UpdateApplicationStatusRequest): Promise<ApplicationDto | void> => {
-    const res = await http.patch<ApplicationDto>(`/api/Application/${id}`, payload, {
-      validateStatus: (status: number) => (status >= 200 && status < 300) || status === 204,
-    });
+    try {
+      const res = await http.patch<ApplicationDto>(`/api/Application/${id}`, payload, {
+        validateStatus: (status: number) => (status >= 200 && status < 300) || status === 204,
+      });
 
-    return res.status === 204 ? undefined : res.data;
+      return res.status === 204 ? undefined : res.data;
+    } catch (error: any) {
+      // Log the error for debugging
+      console.error('PATCH /api/Application error:', {
+        id,
+        payload,
+        error: error?.response?.data || error?.message,
+        status: error?.response?.status,
+      });
+      throw error;
+    }
   },
 };

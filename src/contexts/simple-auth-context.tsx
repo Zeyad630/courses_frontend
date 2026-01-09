@@ -2,6 +2,8 @@ import type { User, UserRole, AuthState } from 'src/types/user';
 
 import { useMemo, useEffect, useContext, useReducer, useCallback, createContext } from 'react';
 
+import { authApi } from 'src/api';
+
 // ----------------------------------------------------------------------
 
 type AuthAction =
@@ -21,12 +23,28 @@ type AuthContextValue = AuthState & {
 
 // ----------------------------------------------------------------------
 
+// Map backend roleId to frontend UserRole
+// Note: You may need to adjust these mappings based on your backend role IDs
+const mapRoleIdToRole = (roleId: number): UserRole => {
+  // Default mapping: 1 = admin, 2 = instructor, 3 = student
+  // Adjust based on your actual role IDs in the database
+  if (roleId === 1) return 'admin';
+  if (roleId === 2) return 'instructor';
+  return 'student';
+};
+
 // Get initial state from localStorage
 const getInitialState = (): AuthState => {
   try {
     const savedUser = localStorage.getItem('auth_user');
-    if (savedUser) {
+    const token = localStorage.getItem('accessToken');
+    
+    if (savedUser && token) {
       const user = JSON.parse(savedUser);
+      // Convert date strings back to Date objects
+      if (user.createdAt) user.createdAt = new Date(user.createdAt);
+      if (user.updatedAt) user.updatedAt = new Date(user.updatedAt);
+      
       return {
         user,
         isAuthenticated: true,
@@ -35,6 +53,9 @@ const getInitialState = (): AuthState => {
     }
   } catch (error) {
     console.error('Error loading auth state from localStorage:', error);
+    // Clear corrupted data
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('accessToken');
   }
   
   return {
@@ -142,58 +163,77 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.setItem('auth_user', JSON.stringify(state.user));
     } else {
       localStorage.removeItem('auth_user');
+      localStorage.removeItem('accessToken');
     }
   }, [state.user]);
+
+  // Try to restore session from token on mount
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken');
+    const savedUser = localStorage.getItem('auth_user');
+    
+    if (token && savedUser && !state.user) {
+      // Token exists, try to fetch user info
+      dispatch({ type: 'SET_LOADING', payload: true });
+      authApi.getMe()
+        .then((userInfo) => {
+          if (userInfo.accountId && userInfo.email) {
+            const user: User = {
+              id: userInfo.accountId,
+              name: userInfo.email.split('@')[0], // Use email prefix as name fallback
+              email: userInfo.email,
+              role: mapRoleIdToRole(Number(userInfo.roleId || '3')),
+              isActive: true,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            dispatch({ type: 'LOGIN', payload: user });
+          } else {
+            // Invalid token, clear storage
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('auth_user');
+            dispatch({ type: 'SET_LOADING', payload: false });
+          }
+        })
+        .catch(() => {
+          // Token invalid, clear storage
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('auth_user');
+          dispatch({ type: 'SET_LOADING', payload: false });
+        });
+    }
+  }, []); // Only run on mount
 
   const login = useCallback(async (email: string, password: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call backend API
+      const response = await authApi.login({ email, password });
       
-      const storedUsers = getStoredUsers();
-      const stored = storedUsers.find((u) => u.email === email);
-
-      if (stored) {
-        if (!stored.isVerified) {
-          throw new Error('Email is not verified');
-        }
-
-        if (stored.password !== password) {
-          throw new Error('Invalid credentials');
-        }
-
-        dispatch({ type: 'LOGIN', payload: buildUserFromStored(stored) });
-        return;
-      }
-
-      const validCredentials = [
-        { email: 'admin@school.com', password: 'admin123', role: 'admin' as UserRole, name: 'Admin User' },
-        { email: 'instructor@school.com', password: 'instructor123', role: 'instructor' as UserRole, name: 'Instructor User' },
-        { email: 'student@school.com', password: 'student123', role: 'student' as UserRole, name: 'Student User' },
-        { email: 'hello@gmail.com', password: '@demo1234', role: 'admin' as UserRole, name: 'Admin User' },
-      ];
-
-      const user = validCredentials.find(cred => cred.email === email && cred.password === password);
+      // Store token
+      localStorage.setItem('accessToken', response.accessToken);
       
-      if (!user) {
-        throw new Error('Invalid credentials');
-      }
+      // Fetch user info to get role
+      const userInfo = await authApi.getMe();
       
-      const mockUser: User = {
-        id: user.role === 'admin' ? '1' : user.role === 'instructor' ? '2' : '3',
-        name: user.name,
-        email: user.email,
-        role: user.role,
+      // Build user object
+      const user: User = {
+        id: String(response.accountId),
+        name: email.split('@')[0], // Use email prefix as name fallback
+        email: response.email,
+        role: mapRoleIdToRole(response.roleId),
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
       
-      dispatch({ type: 'LOGIN', payload: mockUser });
-    } catch (error) {
+      dispatch({ type: 'LOGIN', payload: user });
+    } catch (error: any) {
       dispatch({ type: 'SET_LOADING', payload: false });
-      throw error;
+      // Extract error message
+      const errorMessage = error?.response?.data?.message || error?.message || 'Login failed';
+      throw new Error(errorMessage);
     }
   }, []);
 
@@ -201,52 +241,46 @@ export function AuthProvider({ children }: AuthProviderProps) {
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-
       const { email, name, password } = params;
 
-      const storedUsers = getStoredUsers();
-      const existingStored = storedUsers.find((u) => u.email === email);
-
-      if (existingStored) {
-        throw new Error('Email is already registered');
-      }
-
-      const existingDemo = [
-        'admin@school.com',
-        'instructor@school.com',
-        'student@school.com',
-        'hello@gmail.com',
-      ].includes(email);
-
-      if (existingDemo) {
-        throw new Error('Email is already registered');
-      }
-
-      const now = new Date().toISOString();
-      const id = globalThis.crypto?.randomUUID?.() ?? String(Date.now());
-
-      const newStoredUser: StoredUser = {
-        id,
-        name,
+      // Call backend API
+      const response = await authApi.register({
         email,
-        role: 'student',
         password,
+        fullNameEn: name,
+        // Add other fields if needed
+      });
+      
+      // Store token
+      localStorage.setItem('accessToken', response.accessToken);
+      
+      // Fetch user info to get role
+      const userInfo = await authApi.getMe();
+      
+      // Build user object
+      const user: User = {
+        id: String(response.accountId),
+        name: name || email.split('@')[0],
+        email: response.email,
+        role: mapRoleIdToRole(response.roleId),
         isActive: true,
-        isVerified: true,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       };
-
-      setStoredUsers([...storedUsers, newStoredUser]);
-      dispatch({ type: 'LOGIN', payload: buildUserFromStored(newStoredUser) });
-    } catch (error) {
+      
+      dispatch({ type: 'LOGIN', payload: user });
+    } catch (error: any) {
       dispatch({ type: 'SET_LOADING', payload: false });
-      throw error;
+      // Extract error message
+      const errorMessage = error?.response?.data?.message || error?.message || 'Registration failed';
+      throw new Error(errorMessage);
     }
   }, []);
 
   const logout = useCallback(() => {
+    // Clear token and user data
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('auth_user');
     dispatch({ type: 'LOGOUT' });
   }, []);
 

@@ -74,18 +74,42 @@ export function AdminApplicationsView() {
 
   const handleApproveApplication = useCallback(async () => {
     if (!selectedApplication || !user) return;
-    await updateApplicationStatus(selectedApplication.id, 'accepted', user.id, reviewNotes);
-    setReviewDialog(false);
-    setSelectedApplication(null);
-    setReviewNotes('');
+    try {
+      await updateApplicationStatus(selectedApplication.id, 'accepted', user.id, reviewNotes);
+      setToast({ open: true, severity: 'success', message: 'Application approved successfully!' });
+      setReviewDialog(false);
+      setSelectedApplication(null);
+      setReviewNotes('');
+    } catch (error: any) {
+      // Extract error message from various possible formats
+      const errorMessage = 
+        error?.response?.data?.message || 
+        error?.response?.data?.detail ||
+        error?.message || 
+        'Failed to approve application. Please try again.';
+      setToast({ open: true, severity: 'error', message: errorMessage });
+      console.error('Error approving application:', error);
+    }
   }, [selectedApplication, reviewNotes, updateApplicationStatus, user]);
 
   const handleRejectApplication = useCallback(async () => {
     if (!selectedApplication || !user) return;
-    await updateApplicationStatus(selectedApplication.id, 'rejected', user.id, reviewNotes);
-    setReviewDialog(false);
-    setSelectedApplication(null);
-    setReviewNotes('');
+    try {
+      await updateApplicationStatus(selectedApplication.id, 'rejected', user.id, reviewNotes);
+      setToast({ open: true, severity: 'success', message: 'Application rejected successfully!' });
+      setReviewDialog(false);
+      setSelectedApplication(null);
+      setReviewNotes('');
+    } catch (error: any) {
+      // Extract error message from various possible formats
+      const errorMessage = 
+        error?.response?.data?.message || 
+        error?.response?.data?.detail ||
+        error?.message || 
+        'Failed to reject application. Please try again.';
+      setToast({ open: true, severity: 'error', message: errorMessage });
+      console.error('Error rejecting application:', error);
+    }
   }, [selectedApplication, reviewNotes, updateApplicationStatus, user]);
 
   const pendingApplications = applications.filter(app => app.status === 'pending');

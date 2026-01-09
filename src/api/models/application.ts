@@ -1,4 +1,4 @@
-export type ApplicationStatusId = 14 | 15 | 16;
+export type ApplicationStatusId = 1 | 2 | 3;
 
 export type ApplicationDto = {
   id: number | string;

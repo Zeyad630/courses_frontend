@@ -3,5 +3,6 @@ export { http } from './http';
 
 export * from './errors';
 
+export { authApi } from './services/auth.api';
 export { courseApi } from './services/course.api';
 export { applicationApi } from './services/application.api';
