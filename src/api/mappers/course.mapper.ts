@@ -48,7 +48,7 @@ export const mapCourseDtoToCourse = (dto: CourseDto): Course => ({
   level: levelIdToLevel(dto.levelId),
   price: dto.price ?? 0,
   instructor: dto.instructor ?? '',
-  instructorId: dto.instructorId ?? '',
+  instructorId: dto.instructorId != null ? String(dto.instructorId) : '',
   duration: dto.durationHours ?? 0,
   students: dto.students ?? 0,
   rating: dto.rating ?? 0,

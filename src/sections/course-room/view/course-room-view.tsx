@@ -1,7 +1,10 @@
 import type { Lesson, CourseModule } from 'src/types/course';
 import type { Assignment, CourseMaterial } from 'src/types/user';
+import type { MaterialDto } from 'src/api/models/material';
+import type { ZoomMeetingDto } from 'src/api/models/zoom-meeting';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -16,14 +19,18 @@ import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import DialogTitle from '@mui/material/DialogTitle';
+import FormControl from '@mui/material/FormControl';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import { alpha, useTheme } from '@mui/material/styles';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import LinearProgress from '@mui/material/LinearProgress';
 
-import { courseApi } from 'src/api';
+import { courseApi, materialApi, zoomMeetingApi } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
 import { useCoursesContext } from 'src/contexts/courses-context';
@@ -144,7 +151,8 @@ const mockAssignments: Assignment[] = [
 
 
 
-const getMaterialIcon = (type: CourseMaterial['type']) => {
+const getMaterialIcon = (type: string) => {
+  const lower = type.toLowerCase();
   switch (type) {
     case 'video':
       return 'solar:videocamera-record-bold-duotone';
@@ -155,6 +163,10 @@ const getMaterialIcon = (type: CourseMaterial['type']) => {
     case 'link':
       return 'solar:link-bold-duotone';
     default:
+      if (lower.includes('video')) return 'solar:videocamera-record-bold-duotone';
+      if (lower.includes('pdf')) return 'solar:document-text-bold-duotone';
+      if (lower.includes('zoom')) return 'solar:videocamera-bold-duotone';
+      if (lower.includes('link')) return 'solar:link-bold-duotone';
       return 'solar:file-bold-duotone';
   }
 };
@@ -163,6 +175,9 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const { user, hasRole } = useAuth();
   const theme = useTheme();
   const [currentTab, setCurrentTab] = useState(0);
+
+  const [searchParams] = useSearchParams();
+  const roundIdFromQuery = useMemo(() => searchParams.get('roundId') ?? '', [searchParams]);
 
   const { getRoundForStudent, getRoundsByCourse } = useCourseRoundsContext();
   const { getApplicationsByStudent, isLoading: applicationsLoading } = useApplicationsContext();
@@ -181,20 +196,48 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
 
   const roundsCount = useMemo(() => getRoundsByCourse(courseId).length, [courseId, getRoundsByCourse]);
 
+  const roundsForCourse = useMemo(() => getRoundsByCourse(courseId), [courseId, getRoundsByCourse]);
+  const [selectedRoundId, setSelectedRoundId] = useState<string>('');
+
+  useEffect(() => {
+    if (!hasRole('instructor')) return;
+    if (roundsForCourse.length === 0) return;
+    if (roundIdFromQuery && roundsForCourse.some((r) => r.id === roundIdFromQuery)) {
+      if (selectedRoundId !== roundIdFromQuery) setSelectedRoundId(roundIdFromQuery);
+      return;
+    }
+    if (selectedRoundId) return;
+    setSelectedRoundId(roundsForCourse[0].id);
+  }, [hasRole, roundIdFromQuery, roundsForCourse, selectedRoundId]);
+
+  const activeRoundId = useMemo(() => {
+    if (hasRole('student')) return assignedRound?.id;
+    if (hasRole('instructor')) return selectedRoundId || roundsForCourse[0]?.id;
+    return undefined;
+  }, [assignedRound?.id, hasRole, roundsForCourse, selectedRoundId]);
+
+  const activeRound = useMemo(
+    () => (activeRoundId ? roundsForCourse.find((r) => r.id === activeRoundId) : undefined),
+    [activeRoundId, roundsForCourse]
+  );
+
   const { courses } = useCoursesContext();
   const courseFromContext = useMemo(() => courses.find((c) => c.id === courseId), [courses, courseId]);
   const [courseFromApi, setCourseFromApi] = useState<ReturnType<typeof mapCourseDtoToCourse> | null>(null);
+  const [courseLoading, setCourseLoading] = useState(false);
 
   useEffect(() => {
     let isActive = true;
 
     if (!courseId || courseFromContext) {
       setCourseFromApi(null);
+      setCourseLoading(false);
       return () => {
         isActive = false;
       };
     }
 
+    setCourseLoading(true);
     courseApi
       .getCourseById(courseId)
       .then((dto) => mapCourseDtoToCourse(dto))
@@ -203,6 +246,9 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
       })
       .catch(() => {
         if (isActive) setCourseFromApi(null);
+      })
+      .finally(() => {
+        if (isActive) setCourseLoading(false);
       });
 
     return () => {
@@ -211,6 +257,14 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   }, [courseFromContext, courseId]);
 
   const resolvedCourse = courseFromContext ?? courseFromApi;
+
+  const instructorHasAccess = useMemo(() => {
+    if (!hasRole('instructor')) return true;
+    if (!user?.id) return false;
+    const ownsCourse = resolvedCourse?.instructorId === user.id;
+    const ownsAnyRoundInCourse = roundsForCourse.some((r) => r.createdBy === user.id);
+    return ownsCourse || ownsAnyRoundInCourse;
+  }, [hasRole, resolvedCourse?.instructorId, roundsForCourse, user?.id]);
 
   const displayCourse = useMemo(
     () => ({
@@ -234,8 +288,156 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     [courseId, resolvedCourse]
   );
 
-  const materials = useMemo(() => mockMaterials.map((m) => ({ ...m, courseId })), [courseId]);
+  const [materials, setMaterials] = useState<MaterialDto[]>([]);
+  const [zoomMeetings, setZoomMeetings] = useState<ZoomMeetingDto[]>([]);
+  const [roundDataError, setRoundDataError] = useState<string>('');
+
   const assignments = useMemo(() => mockAssignments.map((a) => ({ ...a, courseId })), [courseId]);
+
+  useEffect(() => {
+    if (!activeRoundId) {
+      setMaterials([]);
+      setZoomMeetings([]);
+      setRoundDataError('');
+      return;
+    }
+
+    let cancelled = false;
+    setRoundDataError('');
+
+    Promise.all([
+      materialApi.getByCourseRoundId(Number(activeRoundId)),
+      zoomMeetingApi.getByCourseRoundId(Number(activeRoundId)),
+    ])
+      .then(([mats, zooms]) => {
+        if (cancelled) return;
+        setMaterials(mats);
+        setZoomMeetings(zooms);
+      })
+      .catch((error: any) => {
+        if (cancelled) return;
+        setMaterials([]);
+        setZoomMeetings([]);
+        setRoundDataError(error?.message || 'Failed to load round materials/zoom meetings');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRoundId]);
+
+  const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
+  const [zoomDialogOpen, setZoomDialogOpen] = useState(false);
+
+  const [materialForm, setMaterialForm] = useState({ title: '', description: '', link: '', materialType: 'link' });
+  const [zoomForm, setZoomForm] = useState({
+    topic: '',
+    description: '',
+    meetingLink: '',
+    meetingId: '',
+    passcode: '',
+    meetingDateTime: new Date().toISOString().slice(0, 16),
+    durationMinutes: 60,
+  });
+
+  const reloadRoundData = useCallback(async () => {
+    if (!activeRoundId) return;
+    setRoundDataError('');
+    try {
+      const [mats, zooms] = await Promise.all([
+        materialApi.getByCourseRoundId(Number(activeRoundId)),
+        zoomMeetingApi.getByCourseRoundId(Number(activeRoundId)),
+      ]);
+      setMaterials(mats);
+      setZoomMeetings(zooms);
+    } catch (error: any) {
+      setRoundDataError(error?.message || 'Failed to load round materials/zoom meetings');
+    }
+  }, [activeRoundId]);
+
+  const handleCreateMaterial = useCallback(async () => {
+    if (!activeRoundId) return;
+    if (!materialForm.title.trim() || !materialForm.link.trim()) return;
+    try {
+      await materialApi.create({
+        courseRoundId: Number(activeRoundId),
+        title: materialForm.title.trim(),
+        description: materialForm.description.trim() || undefined,
+        link: materialForm.link.trim(),
+        materialType: materialForm.materialType,
+      });
+      setMaterialDialogOpen(false);
+      setMaterialForm({ title: '', description: '', link: '', materialType: 'link' });
+      await reloadRoundData();
+    } catch (error: any) {
+      setRoundDataError(error?.message || 'Failed to upload material');
+    }
+  }, [activeRoundId, materialForm, reloadRoundData]);
+
+  const handleDeleteMaterial = useCallback(
+    async (id: number) => {
+      if (!confirm('Delete this material?')) return;
+      try {
+        await materialApi.delete(id);
+        await reloadRoundData();
+      } catch (error: any) {
+        setRoundDataError(error?.message || 'Failed to delete material');
+      }
+    },
+    [reloadRoundData]
+  );
+
+  const handleCreateZoomMeeting = useCallback(async () => {
+    if (!activeRoundId) return;
+    if (!zoomForm.topic.trim() || !zoomForm.meetingLink.trim()) return;
+    try {
+      await zoomMeetingApi.create({
+        courseRoundId: Number(activeRoundId),
+        topic: zoomForm.topic.trim(),
+        description: zoomForm.description.trim() || undefined,
+        meetingLink: zoomForm.meetingLink.trim(),
+        meetingId: zoomForm.meetingId.trim() || undefined,
+        passcode: zoomForm.passcode.trim() || undefined,
+        meetingDateTime: new Date(zoomForm.meetingDateTime).toISOString(),
+        durationMinutes: Number(zoomForm.durationMinutes) || 60,
+      });
+      setZoomDialogOpen(false);
+      setZoomForm({
+        topic: '',
+        description: '',
+        meetingLink: '',
+        meetingId: '',
+        passcode: '',
+        meetingDateTime: new Date().toISOString().slice(0, 16),
+        durationMinutes: 60,
+      });
+      await reloadRoundData();
+    } catch (error: any) {
+      setRoundDataError(error?.message || 'Failed to add zoom meeting');
+    }
+  }, [activeRoundId, reloadRoundData, zoomForm]);
+
+  const handleDeleteZoomMeeting = useCallback(
+    async (id: number) => {
+      if (!confirm('Delete this zoom meeting?')) return;
+      try {
+        await zoomMeetingApi.delete(id);
+        await reloadRoundData();
+      } catch (error: any) {
+        setRoundDataError(error?.message || 'Failed to delete zoom meeting');
+      }
+    },
+    [reloadRoundData]
+  );
+
+  const nextZoomMeeting = useMemo(() => {
+    const now = Date.now();
+    const upcoming = zoomMeetings
+      .map((m) => ({ m, t: new Date(m.meetingDateTime).getTime() }))
+      .filter((x) => Number.isFinite(x.t) && x.t >= now)
+      .sort((a, b) => a.t - b.t);
+    return upcoming[0]?.m;
+  }, [zoomMeetings]);
 
   // Simple content management state (Weeks/Modules & Lessons)
   const [modules, setModules] = useState<CourseModule[]>([]);
@@ -489,6 +691,41 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     );
   }
 
+  if (hasRole('instructor') && courseLoading) {
+    return (
+      <DashboardContent>
+        <Container maxWidth="xl">
+          <Card sx={{ p: 4, mt: 4 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>
+              Loading...
+            </Typography>
+            <LinearProgress />
+          </Card>
+        </Container>
+      </DashboardContent>
+    );
+  }
+
+  if (hasRole('instructor') && !instructorHasAccess) {
+    return (
+      <DashboardContent>
+        <Container maxWidth="xl">
+          <Card sx={{ p: 4, mt: 4 }}>
+            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
+              You do not have access to this course
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              This course is not assigned to your instructor account.
+            </Typography>
+            <Button variant="contained" href="/instructor/courses" sx={{ borderRadius: 30 }}>
+              Back to My Courses
+            </Button>
+          </Card>
+        </Container>
+      </DashboardContent>
+    );
+  }
+
   return (
     <DashboardContent>
       <Container maxWidth="xl">
@@ -677,15 +914,20 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                       </Typography>
                       
                       <Box sx={{ mt: 2, mb: 3 }}>
-                        <Typography variant="h4" sx={{ color: 'info.darker', mb: 0.5 }}>
-                           {displayCourse.nextClass.getDate()}
-                        </Typography>
-                        <Typography variant="subtitle1" sx={{ color: 'info.dark' }}>
-                           {displayCourse.nextClass.toLocaleString('default', { month: 'long', year: 'numeric' })}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-                           {displayCourse.nextClass.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', weekday: 'long' })}
-                        </Typography>
+                        {nextZoomMeeting ? (
+                          <>
+                            <Typography variant="h6" sx={{ color: 'info.darker', mb: 0.5, fontWeight: 800 }}>
+                              {nextZoomMeeting.topic}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+                              {new Date(nextZoomMeeting.meetingDateTime).toLocaleString()}
+                            </Typography>
+                          </>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                            No zoom sessions scheduled yet.
+                          </Typography>
+                        )}
                       </Box>
 
                       <Button
@@ -693,8 +935,9 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                         color="info"
                         fullWidth
                         startIcon={<Iconify icon="solar:videocamera-bold" />}
-                        href={displayCourse.zoomLink}
+                        href={nextZoomMeeting?.meetingLink}
                         target="_blank"
+                        disabled={!nextZoomMeeting?.meetingLink}
                       >
                         Join Zoom
                       </Button>
@@ -974,15 +1217,59 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h5" sx={{ fontWeight: 700 }}>Course Materials</Typography>
-              {hasRole('instructor') && (
-                <Button
-                  variant="contained"
-                  startIcon={<Iconify icon="solar:upload-square-bold-duotone" />}
-                >
-                  Upload Material
-                </Button>
-              )}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                {hasRole('instructor') && roundsForCourse.length > 0 && (
+                  <FormControl size="small" sx={{ minWidth: 220 }}>
+                    <InputLabel>Round</InputLabel>
+                    <Select
+                      value={activeRoundId ?? ''}
+                      label="Round"
+                      onChange={(e) => setSelectedRoundId(String(e.target.value))}
+                    >
+                      {roundsForCourse.map((r) => (
+                        <MenuItem key={r.id} value={r.id}>
+                          {r.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+                {hasRole('instructor') && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Iconify icon="solar:upload-square-bold-duotone" />}
+                    onClick={() => setMaterialDialogOpen(true)}
+                    disabled={!activeRoundId}
+                  >
+                    Upload Material
+                  </Button>
+                )}
+              </Box>
             </Box>
+
+            {roundDataError && (
+              <Card sx={{ p: 2 }}>
+                <Typography variant="body2" color="error">
+                  {roundDataError}
+                </Typography>
+              </Card>
+            )}
+
+            {!activeRoundId && (
+              <Card sx={{ p: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Select a course round to view materials.
+                </Typography>
+              </Card>
+            )}
+
+            {activeRoundId && materials.length === 0 && (
+              <Card sx={{ p: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No materials added yet.
+                </Typography>
+              </Card>
+            )}
 
             <Grid container spacing={3}>
               {materials.map((material) => (
@@ -1002,14 +1289,14 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                             color: 'primary.main',
                           }}
                         >
-                          <Iconify icon={getMaterialIcon(material.type)} width={32} />
+                          <Iconify icon={getMaterialIcon(material.materialType)} width={32} />
                         </Box>
 
                         <Box sx={{ flexGrow: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                             <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>{material.title}</Typography>
                             <Chip
-                              label={material.type.toUpperCase()}
+                              label={String(material.materialType || 'link').toUpperCase()}
                               size="small"
                               color="primary"
                               variant="outlined"
@@ -1021,28 +1308,83 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                           </Typography>
                           <Typography variant="caption" color="text.disabled" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                              <Iconify icon="solar:calendar-mark-bold" width={12} />
-                            Uploaded: {material.uploadedAt.toLocaleDateString()}
+                            Uploaded: {new Date(material.createdAt).toLocaleDateString()}
                           </Typography>
                         </Box>
                       </Box>
                     </CardContent>
 
                     <CardActions sx={{ p: 2, pt: 0 }}>
+                      {hasRole('instructor') && (
+                        <IconButton color="error" onClick={() => handleDeleteMaterial(material.id)} aria-label="Delete material">
+                          <Iconify icon="solar:trash-bin-trash-bold" width={20} />
+                        </IconButton>
+                      )}
                       <Button
                         variant="contained"
                         fullWidth
                         startIcon={<Iconify icon="solar:eye-bold" />}
-                        href={material.url}
+                        href={material.link}
                         target="_blank"
                         sx={{ borderRadius: 1 }}
                       >
-                        {material.type === 'zoom' ? 'Join Session' : 'View Material'}
+                        {String(material.materialType || '').toLowerCase().includes('zoom') ? 'Join Session' : 'View Material'}
                       </Button>
                     </CardActions>
                   </Card>
                 </Grid>
               ))}
             </Grid>
+
+            <Dialog open={materialDialogOpen} onClose={() => setMaterialDialogOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Upload Material</DialogTitle>
+              <DialogContent>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                  <TextField
+                    label="Title"
+                    value={materialForm.title}
+                    onChange={(e) => setMaterialForm({ ...materialForm, title: e.target.value })}
+                    required
+                    fullWidth
+                  />
+                  <TextField
+                    label="Description"
+                    value={materialForm.description}
+                    onChange={(e) => setMaterialForm({ ...materialForm, description: e.target.value })}
+                    multiline
+                    rows={3}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Link"
+                    value={materialForm.link}
+                    onChange={(e) => setMaterialForm({ ...materialForm, link: e.target.value })}
+                    required
+                    fullWidth
+                    placeholder="https://example.com/material.pdf"
+                  />
+                  <FormControl fullWidth>
+                    <InputLabel>Material Type</InputLabel>
+                    <Select
+                      value={materialForm.materialType}
+                      onChange={(e) => setMaterialForm({ ...materialForm, materialType: String(e.target.value) })}
+                      label="Material Type"
+                    >
+                      <MenuItem value="link">Link</MenuItem>
+                      <MenuItem value="pdf">PDF</MenuItem>
+                      <MenuItem value="video">Video</MenuItem>
+                      <MenuItem value="document">Document</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setMaterialDialogOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={handleCreateMaterial} disabled={!materialForm.title.trim() || !materialForm.link.trim()}>
+                  Upload
+                </Button>
+              </DialogActions>
+            </Dialog>
           </Box>
         )}
 
@@ -1128,93 +1470,187 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
         {/* Zoom Sessions Tab */}
         {currentTab === 3 && (
           <Box>
-            <Grid container spacing={3}>
-               <Grid size={{ xs: 12, md: 7 }}>
-                  {/* Current Session */}
-                  <Card sx={{ border: '2px solid', borderColor: 'primary.main', position: 'relative', overflow: 'hidden', mb: 3 }}>
-                    <Box sx={{ position: 'absolute', top: 0, right: 0, p: 1, bgcolor: 'primary.main', borderBottomLeftRadius: 8, color: 'white', fontWeight: 700, px: 2, fontSize: '0.75rem' }}>
-                       UPCOMING
-                    </Box>
-                    <CardContent sx={{ pt: 4 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                        <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'primary.lighter', color: 'primary.main' }}>
-                            <Iconify icon="solar:videocamera-bold" width={32} />
-                        </Box>
-                        <Box>
-                          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                            Live Session - Functions
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {mockCourse.nextClass.toLocaleDateString()} at {mockCourse.nextClass.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </Typography>
-                        </Box>
-                      </Box>
-                      
-                      <Typography variant="body1" paragraph sx={{ mb: 3 }}>
-                        Join us for an interactive session covering Python functions, parameters, and return values. 
-                        We&apos;ll work through practical examples and answer your questions.
-                      </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Typography variant="h5" sx={{ fontWeight: 700 }}>Zoom Sessions</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                {hasRole('instructor') && roundsForCourse.length > 0 && (
+                  <FormControl size="small" sx={{ minWidth: 220 }}>
+                    <InputLabel>Round</InputLabel>
+                    <Select
+                      value={activeRoundId ?? ''}
+                      label="Round"
+                      onChange={(e) => setSelectedRoundId(String(e.target.value))}
+                    >
+                      {roundsForCourse.map((r) => (
+                        <MenuItem key={r.id} value={r.id}>
+                          {r.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+                {hasRole('instructor') && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Iconify icon="solar:videocamera-add-bold" />}
+                    onClick={() => setZoomDialogOpen(true)}
+                    disabled={!activeRoundId}
+                  >
+                    Add Zoom
+                  </Button>
+                )}
+              </Box>
+            </Box>
 
-                      <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
-                        <Chip label="Live" color="error" variant="filled" size="small" />
-                        <Chip label="Interactive" color="primary" variant="outlined" size="small" />
-                        <Chip label="Q&A" color="info" variant="outlined" size="small" />
-                      </Box>
+            {roundDataError && (
+              <Card sx={{ p: 2, mb: 2 }}>
+                <Typography variant="body2" color="error">
+                  {roundDataError}
+                </Typography>
+              </Card>
+            )}
 
-                      <Box sx={{ p: 2, bgcolor: alpha(theme.palette.info.main, 0.08), borderRadius: 1, mb: 2, border: `1px dashed ${alpha(theme.palette.info.main, 0.4)}` }}>
-                        <Typography variant="body2" color="text.primary" sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span><strong>Meeting ID:</strong> 123-456-789</span>
-                          <span><strong>Pass:</strong> abcd1234</span>
-                        </Typography>
-                      </Box>
+            {!activeRoundId && (
+              <Card sx={{ p: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Select a course round to view zoom meetings.
+                </Typography>
+              </Card>
+            )}
 
-                      <Button
-                        variant="contained"
-                        size="large"
-                        fullWidth
-                        startIcon={<Iconify icon="solar:play-circle-bold" />}
-                        href={mockCourse.zoomLink}
-                        target="_blank"
-                        sx={{ borderRadius: 1 }}
-                      >
-                        Join Zoom Session
-                      </Button>
-                    </CardContent>
-                  </Card>
-               </Grid>
-               
-               <Grid size={{ xs: 12, md: 5 }}>
-                  <Card sx={{ height: '100%' }}>
-                     <CardContent>
-                        <Typography variant="h6" sx={{ mb: 3, fontWeight: 700 }}>Upcoming Schedule</Typography>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                            {[
-                              { title: 'OOP Basics', date: new Date('2024-02-01T14:00:00'), color: 'warning.main' },
-                              { title: 'File Handling', date: new Date('2024-02-08T14:00:00'), color: 'success.main' },
-                              { title: 'Error Handling', date: new Date('2024-02-15T14:00:00'), color: 'info.main' },
-                            ].map((session, index) => (
-                              <Box
-                                key={index}
-                                sx={{
-                                  p: 2,
-                                  borderLeft: '4px solid',
-                                  borderColor: session.color,
-                                  bgcolor: alpha(theme.palette.grey[500], 0.04),
-                                  mb: 2,
-                                  borderRadius: 0.5
-                                }}
-                              >
-                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{session.title}</Typography>
+            {activeRoundId && zoomMeetings.length === 0 && (
+              <Card sx={{ p: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No zoom meetings scheduled yet.
+                </Typography>
+              </Card>
+            )}
+
+            <Grid container spacing={2}>
+              {zoomMeetings
+                .slice()
+                .sort((a, b) => new Date(a.meetingDateTime).getTime() - new Date(b.meetingDateTime).getTime())
+                .map((meeting) => (
+                  <Grid key={meeting.id} size={{ xs: 12, md: 6 }}>
+                    <Card sx={{ height: '100%' }}>
+                      <CardContent>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 800 }} noWrap>
+                              {meeting.topic}
+                            </Typography>
+                            {meeting.description && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                {meeting.description}
+                              </Typography>
+                            )}
+                            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                <strong>Date/Time:</strong> {new Date(meeting.meetingDateTime).toLocaleString()}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                <strong>Duration:</strong> {meeting.durationMinutes} minutes
+                              </Typography>
+                              {meeting.meetingId && (
                                 <Typography variant="caption" color="text.secondary">
-                                  {session.date.toLocaleDateString()} • 2:00 PM
+                                  <strong>Meeting ID:</strong> {meeting.meetingId}
                                 </Typography>
-                              </Box>
-                            ))}
+                              )}
+                              {meeting.passcode && (
+                                <Typography variant="caption" color="text.secondary">
+                                  <strong>Passcode:</strong> {meeting.passcode}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                          {hasRole('instructor') && (
+                            <IconButton color="error" onClick={() => handleDeleteZoomMeeting(meeting.id)} aria-label="Delete zoom meeting">
+                              <Iconify icon="solar:trash-bin-trash-bold" width={20} />
+                            </IconButton>
+                          )}
                         </Box>
-                     </CardContent>
-                  </Card>
-               </Grid>
+                      </CardContent>
+                      <CardActions sx={{ px: 2, pb: 2 }}>
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          startIcon={<Iconify icon="solar:play-circle-bold" />}
+                          href={meeting.meetingLink}
+                          target="_blank"
+                        >
+                          Join Zoom
+                        </Button>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                ))}
             </Grid>
+
+            <Dialog open={zoomDialogOpen} onClose={() => setZoomDialogOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>Add Zoom Meeting</DialogTitle>
+              <DialogContent>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                  <TextField
+                    label="Topic"
+                    value={zoomForm.topic}
+                    onChange={(e) => setZoomForm({ ...zoomForm, topic: e.target.value })}
+                    required
+                    fullWidth
+                  />
+                  <TextField
+                    label="Description"
+                    value={zoomForm.description}
+                    onChange={(e) => setZoomForm({ ...zoomForm, description: e.target.value })}
+                    multiline
+                    rows={3}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Meeting Link"
+                    value={zoomForm.meetingLink}
+                    onChange={(e) => setZoomForm({ ...zoomForm, meetingLink: e.target.value })}
+                    required
+                    fullWidth
+                    placeholder="https://zoom.us/j/123456789"
+                  />
+                  <TextField
+                    label="Meeting ID (optional)"
+                    value={zoomForm.meetingId}
+                    onChange={(e) => setZoomForm({ ...zoomForm, meetingId: e.target.value })}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Passcode (optional)"
+                    value={zoomForm.passcode}
+                    onChange={(e) => setZoomForm({ ...zoomForm, passcode: e.target.value })}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Date & Time"
+                    type="datetime-local"
+                    value={zoomForm.meetingDateTime}
+                    onChange={(e) => setZoomForm({ ...zoomForm, meetingDateTime: e.target.value })}
+                    required
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                  />
+                  <TextField
+                    label="Duration (minutes)"
+                    type="number"
+                    value={zoomForm.durationMinutes}
+                    onChange={(e) => setZoomForm({ ...zoomForm, durationMinutes: Number(e.target.value) })}
+                    required
+                    fullWidth
+                  />
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setZoomDialogOpen(false)}>Cancel</Button>
+                <Button variant="contained" onClick={handleCreateZoomMeeting} disabled={!zoomForm.topic.trim() || !zoomForm.meetingLink.trim()}>
+                  Add Zoom
+                </Button>
+              </DialogActions>
+            </Dialog>
           </Box>
         )}
 

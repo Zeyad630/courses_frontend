@@ -1,10 +1,11 @@
 import type { Course } from 'src/types/course';
 
 import { useTranslation } from 'react-i18next';
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -36,9 +37,10 @@ import {
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
-import { useCoursesContext } from 'src/contexts/courses-context';
 import { useApplicationsContext } from 'src/contexts/applications-context';
 import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
+import { courseApi } from 'src/api';
+import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -70,7 +72,6 @@ export function InstructorCoursesView() {
   const theme = useTheme();
 
   const { user, hasRole } = useAuth();
-  const { courses } = useCoursesContext();
   const { getApplicationsByCourse } = useApplicationsContext();
   const {
     createRound,
@@ -95,19 +96,28 @@ export function InstructorCoursesView() {
   const [selectedRoundId, setSelectedRoundId] = useState<string>('');
   const [selectedStudentIds, setSelectedStudentIds] = useState<Record<string, boolean>>({});
 
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editRoundName, setEditRoundName] = useState('');
-  const [editRoundStartDate, setEditRoundStartDate] = useState('');
-  const [editRoundEndDate, setEditRoundEndDate] = useState('');
-  const [editRoundDetails, setEditRoundDetails] = useState('');
-  const [editRoundStatus, setEditRoundStatus] = useState('scheduled');
-
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const instructorCourses = useMemo(() => {
-    const mine = user ? courses.filter((c) => c.instructorId === user.id) : [];
-    return mine.length > 0 ? mine : courses;
-  }, [courses, user]);
+  const [instructorCourses, setInstructorCourses] = useState<Course[]>([]);
+
+  // Load courses assigned to this instructor
+  useEffect(() => {
+    const loadInstructorCourses = async () => {
+      if (!user?.id) return;
+      try {
+        const instructorId = Number(user.id);
+        if (isNaN(instructorId)) return;
+
+        const coursesData = await courseApi.getCoursesByInstructor(instructorId);
+        const mappedCourses: Course[] = coursesData.map(mapCourseDtoToCourse);
+        setInstructorCourses(mappedCourses);
+      } catch (error) {
+        console.error('Failed to load instructor courses:', error);
+        setInstructorCourses([]);
+      }
+    };
+    loadInstructorCourses();
+  }, [user?.id]);
 
   const courseRounds = useMemo(() => {
     if (!selectedCourse) return [];
@@ -150,35 +160,46 @@ export function InstructorCoursesView() {
     setCreateDialogOpen(true);
   }, []);
 
-  const handleCreateRound = useCallback(() => {
+  const handleCreateRound = useCallback(async () => {
     if (!selectedCourse || !user) return;
     if (!roundName.trim()) return;
 
-    const created = createRound({
-      courseId: selectedCourse.id,
-      name: roundName.trim(),
-      startDate: new Date(roundStartDate).toISOString(),
-      endDate: new Date(roundEndDate).toISOString(),
-      details: roundDetails.trim(),
-      createdBy: user.id,
-    });
+    try {
+      const created = await createRound({
+        courseId: selectedCourse.id,
+        name: roundName.trim(),
+        startDate: new Date(roundStartDate).toISOString(),
+        endDate: new Date(roundEndDate).toISOString(),
+        details: roundDetails.trim(),
+        createdBy: user.id,
+      });
 
-    setSelectedRoundId(created.id);
-    setCreateDialogOpen(false);
+      setSelectedRoundId(created.id);
+      setCreateDialogOpen(false);
+    } catch (error: any) {
+      console.error('Failed to create round:', error);
+      alert(error?.message || 'Failed to create course round');
+    }
   }, [createRound, roundDetails, roundEndDate, roundName, roundStartDate, selectedCourse, user]);
 
-  const handleAssign = useCallback(() => {
+  const handleAssign = useCallback(async () => {
     if (!selectedCourse) return;
     if (!selectedRoundId) return;
     if (selectedStudentsArray.length === 0) return;
 
-    assignStudentsToRound({
-      courseId: selectedCourse.id,
-      roundId: selectedRoundId,
-      studentIds: selectedStudentsArray,
-    });
+    try {
+      await assignStudentsToRound({
+        courseId: selectedCourse.id,
+        roundId: selectedRoundId,
+        studentIds: selectedStudentsArray,
+      });
 
-    setSelectedStudentIds({});
+      setSelectedStudentIds({});
+      alert('Students assigned successfully!');
+    } catch (error: any) {
+      console.error('Failed to assign students:', error);
+      alert(error?.message || 'Failed to assign students');
+    }
   }, [assignStudentsToRound, selectedCourse, selectedRoundId, selectedStudentsArray]);
 
   const handleAssignAllAccepted = useCallback(() => {
@@ -203,32 +224,6 @@ export function InstructorCoursesView() {
     if (!selectedRound) return 0;
     return getAssignmentsByRound(selectedRound.id).length;
   }, [getAssignmentsByRound, selectedRound]);
-
-  const handleOpenEditRound = useCallback(() => {
-    if (!selectedRound) return;
-
-    setEditRoundName(selectedRound.name);
-    setEditRoundStartDate(toDateInputValue(selectedRound.startDate));
-    setEditRoundEndDate(toDateInputValue(selectedRound.endDate));
-    setEditRoundDetails(selectedRound.details ?? '');
-    setEditRoundStatus(selectedRound.status);
-    setEditDialogOpen(true);
-  }, [selectedRound]);
-
-  const handleSaveEditRound = useCallback(() => {
-    if (!selectedRound) return;
-    if (!editRoundName.trim()) return;
-
-    updateRound(selectedRound.id, {
-      name: editRoundName.trim(),
-      startDate: new Date(editRoundStartDate).toISOString(),
-      endDate: new Date(editRoundEndDate).toISOString(),
-      details: editRoundDetails.trim(),
-      status: editRoundStatus as any,
-    });
-
-    setEditDialogOpen(false);
-  }, [editRoundDetails, editRoundEndDate, editRoundName, editRoundStartDate, editRoundStatus, selectedRound, updateRound]);
 
   if (!hasRole('instructor')) {
     return (
@@ -307,9 +302,6 @@ export function InstructorCoursesView() {
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 700 }}>
                         {course.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {course.code}
                       </Typography>
                     </Box>
                     <Chip
@@ -465,13 +457,17 @@ export function InstructorCoursesView() {
                     )}
 
                     <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
-                      <Button size="small" variant="outlined" onClick={handleOpenEditRound}>
-                        {t('common.edit')}
-                      </Button>
+
                       <Button
                         size="small"
                         variant="outlined"
-                        onClick={() => updateRound(selectedRound.id, { status: 'active' })}
+                        onClick={async () => {
+                          try {
+                            await updateRound(selectedRound.id, { status: 'active' });
+                          } catch (error: any) {
+                            alert(error?.message || 'Failed to update status');
+                          }
+                        }}
                       >
                         {t('courses.markActive')}
                       </Button>
@@ -479,7 +475,13 @@ export function InstructorCoursesView() {
                         size="small"
                         variant="outlined"
                         color="info"
-                        onClick={() => updateRound(selectedRound.id, { status: 'finished' })}
+                        onClick={async () => {
+                          try {
+                            await updateRound(selectedRound.id, { status: 'finished' });
+                          } catch (error: any) {
+                            alert(error?.message || 'Failed to update status');
+                          }
+                        }}
                       >
                         {t('courses.markFinished')}
                       </Button>
@@ -487,7 +489,13 @@ export function InstructorCoursesView() {
                         size="small"
                         variant="outlined"
                         color="error"
-                        onClick={() => updateRound(selectedRound.id, { status: 'cancelled' })}
+                        onClick={async () => {
+                          try {
+                            await updateRound(selectedRound.id, { status: 'cancelled' });
+                          } catch (error: any) {
+                            alert(error?.message || 'Failed to update status');
+                          }
+                        }}
                       >
                         {t('courses.markCancelled')}
                       </Button>
@@ -503,8 +511,6 @@ export function InstructorCoursesView() {
                   </Box>
                 )}
               </Box>
-
-              <Divider sx={{ my: 2 }} />
 
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="h6" sx={{ fontWeight: 800 }}>
@@ -624,65 +630,6 @@ export function InstructorCoursesView() {
           </DialogActions>
         </Dialog>
 
-        <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} fullWidth maxWidth="sm">
-          <DialogTitle>{t('courses.editRound')}</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-              <TextField
-                label={t('courses.roundName')}
-                value={editRoundName}
-                onChange={(e) => setEditRoundName(e.target.value)}
-                fullWidth
-              />
-
-              <TextField
-                label={t('courses.startDate')}
-                type="date"
-                value={editRoundStartDate}
-                onChange={(e) => setEditRoundStartDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-
-              <TextField
-                label={t('courses.endDate')}
-                type="date"
-                value={editRoundEndDate}
-                onChange={(e) => setEditRoundEndDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('courses.status')}</InputLabel>
-                <Select
-                  value={editRoundStatus}
-                  label={t('courses.status')}
-                  onChange={(e) => setEditRoundStatus(String(e.target.value))}
-                >
-                  <MenuItem value="scheduled">{t('courses.roundStatus.scheduled')}</MenuItem>
-                  <MenuItem value="active">{t('courses.roundStatus.active')}</MenuItem>
-                  <MenuItem value="finished">{t('courses.roundStatus.finished')}</MenuItem>
-                  <MenuItem value="cancelled">{t('courses.roundStatus.cancelled')}</MenuItem>
-                </Select>
-              </FormControl>
-
-              <TextField
-                label={t('courses.details')}
-                value={editRoundDetails}
-                onChange={(e) => setEditRoundDetails(e.target.value)}
-                fullWidth
-                multiline
-                rows={4}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setEditDialogOpen(false)}>{t('common.cancel')}</Button>
-            <Button variant="contained" onClick={handleSaveEditRound} disabled={!editRoundName.trim()}>
-              {t('common.save')}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
         <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} fullWidth maxWidth="xs">
           <DialogTitle>{t('courses.deleteRound')}</DialogTitle>
           <DialogContent>
@@ -695,11 +642,16 @@ export function InstructorCoursesView() {
             <Button
               variant="contained"
               color="error"
-              onClick={() => {
+              onClick={async () => {
                 if (!selectedRound) return;
-                deleteRound(selectedRound.id);
-                setSelectedRoundId('');
-                setDeleteDialogOpen(false);
+                try {
+                  await deleteRound(selectedRound.id);
+                  setSelectedRoundId('');
+                  setDeleteDialogOpen(false);
+                } catch (error: any) {
+                  console.error('Failed to delete round:', error);
+                  alert(error?.message || 'Failed to delete course round');
+                }
               }}
             >
               {t('common.delete')}

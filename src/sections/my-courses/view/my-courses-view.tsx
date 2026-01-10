@@ -110,7 +110,7 @@ export function MyCoursesView() {
 
   const { courses } = useCoursesContext();
   const { applications } = useApplicationsContext();
-  const { getRoundForStudent } = useCourseRoundsContext();
+  const { assignments, getRoundForStudent } = useCourseRoundsContext();
 
   const { enrolledCourses, waitingCourses } = useMemo(() => {
     const userId = user?.id;
@@ -118,14 +118,28 @@ export function MyCoursesView() {
 
     const accepted = applications.filter((a) => a.studentId === userId && a.status === 'accepted');
 
+    const assignedCourseIds = new Set(
+      assignments
+        .filter((a) => a.studentId === userId)
+        .map((a) => a.courseId)
+    );
+
+    const courseIds = Array.from(
+      new Set<string>([
+        ...accepted.map((a) => a.courseId),
+        ...Array.from(assignedCourseIds),
+      ])
+    );
+
     const enrolled: any[] = [];
     const waiting: any[] = [];
 
-    accepted.forEach((app, index) => {
-      const course = courses.find((c) => c.id === app.courseId);
+    courseIds.forEach((courseId, index) => {
+      const app = accepted.find((a) => a.courseId === courseId);
+      const course = courses.find((c) => c.id === courseId);
       const fallback = mockEnrolledCourses[index % mockEnrolledCourses.length];
 
-      const round = getRoundForStudent(app.courseId, userId);
+      const round = getRoundForStudent(courseId, userId);
       const mappedStatus =
         round?.status === 'finished'
           ? 'completed'
@@ -134,8 +148,8 @@ export function MyCoursesView() {
             : 'active';
 
       const base = {
-        id: app.courseId,
-        title: course?.name ?? app.metadata?.courseName ?? fallback?.title ?? 'Course',
+        id: courseId,
+        title: course?.name ?? app?.metadata?.courseName ?? fallback?.title ?? 'Course',
         description: course?.description ?? fallback?.description ?? '',
         instructor: course?.instructor ?? fallback?.instructor ?? '',
         progress: 0,
@@ -146,13 +160,15 @@ export function MyCoursesView() {
         dueDate: new Date(Date.now() + (index + 3) * 24 * 60 * 60 * 1000),
         grade: '—',
         status: mappedStatus,
-        enrolledAt: app.appliedAt,
+        enrolledAt: app?.appliedAt,
         completedAt: fallback?.completedAt,
         image: fallback?.image ?? '/assets/school/course.webp',
         whatYouWillLearn: fallback?.whatYouWillLearn ?? [],
       };
 
       if (!round) {
+        // If the student is accepted but not assigned yet, keep it in waiting.
+        // If they somehow have an assignment but rounds haven't loaded yet, this will self-heal once rounds load.
         waiting.push(base);
         return;
       }
@@ -164,7 +180,7 @@ export function MyCoursesView() {
     });
 
     return { enrolledCourses: enrolled, waitingCourses: waiting };
-  }, [applications, courses, getRoundForStudent, user?.id]);
+  }, [applications, assignments, courses, getRoundForStudent, user?.id]);
 
   const activeCourses = enrolledCourses.filter(course => course.status === 'active');
   const pausedCourses = enrolledCourses.filter(course => course.status === 'paused');
@@ -505,7 +521,7 @@ export function MyCoursesView() {
                       fullWidth
                       size="large"
                       startIcon={<Iconify icon="solar:play-circle-bold" />}
-                      href={`/course-room/${course.id}`}
+                      href={course.round ? `/course-room/${course.id}?roundId=${course.round.id}` : `/course-room/${course.id}`}
                       sx={{ borderRadius: 30, boxShadow: theme.shadows[4] }}
                     >
                       Continue Learning
@@ -584,7 +600,7 @@ export function MyCoursesView() {
                       variant="outlined"
                       fullWidth
                       startIcon={<Iconify icon="solar:eye-bold" />}
-                      href={`/course-room/${course.id}`}
+                      href={course.round ? `/course-room/${course.id}?roundId=${course.round.id}` : `/course-room/${course.id}`}
                       color="inherit"
                     >
                       Review Course
@@ -647,7 +663,7 @@ export function MyCoursesView() {
                       variant="outlined"
                       fullWidth
                       startIcon={<Iconify icon="solar:eye-bold" />}
-                      href={`/course-room/${course.id}`}
+                      href={course.round ? `/course-room/${course.id}?roundId=${course.round.id}` : `/course-room/${course.id}`}
                       color="inherit"
                     >
                       View Course

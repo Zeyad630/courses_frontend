@@ -47,6 +47,19 @@ export class ValidationError extends ApiError {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const extractProblemMessage = (data: unknown): string | undefined => {
+  if (!isRecord(data)) return undefined;
+  const message = typeof data.message === 'string' ? data.message : undefined;
+  const title = typeof data.title === 'string' ? data.title : undefined;
+  const detail = typeof data.detail === 'string' ? data.detail : undefined;
+
+  if (message) return message;
+  if (title && detail) return `${title}: ${detail}`;
+  if (detail) return detail;
+  if (title) return title;
+  return undefined;
+};
+
 export const toApiError = (error: unknown): ApiError => {
   const axiosError = error as AxiosError | undefined;
   const status = axiosError?.response?.status;
@@ -70,7 +83,8 @@ export const toApiError = (error: unknown): ApiError => {
   }
 
   if (typeof status === 'number') {
-    const message = `Request failed with status ${status}`;
+    const problem = extractProblemMessage(data);
+    const message = problem ? `Request failed with status ${status}: ${problem}` : `Request failed with status ${status}`;
     return new ApiError(message, { status, data });
   }
 

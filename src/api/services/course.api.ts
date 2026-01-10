@@ -35,4 +35,19 @@ export const courseApi = {
       validateStatus: (status: number) => (status >= 200 && status < 300) || status === 204,
     });
   },
+
+  getCoursesByInstructor: async (instructorId: number): Promise<CourseDto[]> => {
+    const res = await http.get<unknown>(`/api/Course/instructor/${instructorId}`);
+    const data = unwrap(res);
+
+    if (Array.isArray(data)) return data as CourseDto[];
+    if (data && typeof data === 'object') {
+      const maybeData = (data as any).data;
+      if (Array.isArray(maybeData)) return maybeData as CourseDto[];
+      const maybeResult = (data as any).result;
+      if (Array.isArray(maybeResult)) return maybeResult as CourseDto[];
+    }
+
+    return [];
+  },
 };

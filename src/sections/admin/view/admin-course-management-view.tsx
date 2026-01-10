@@ -1,8 +1,8 @@
-import type { Course, CourseLevel, CreateCourseInput, UpdateCourseInput } from 'src/types/course';
+import type { Course, CourseLevel } from 'src/types/course';
 
 import * as XLSX from 'xlsx';
 import { useTranslation } from 'react-i18next';
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -39,8 +39,10 @@ import TableContainer from '@mui/material/TableContainer';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
-import { useCoursesContext } from 'src/contexts/courses-context';
 import { useApplicationsContext } from 'src/contexts/applications-context';
+import { accountApi, courseApi } from 'src/api';
+import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
+import { ApiError } from 'src/api/errors';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -48,33 +50,30 @@ import { Iconify } from 'src/components/iconify';
 
 interface CourseFormData {
   name: string;
-  code: string;
   description: string;
-  category: string;
   level: CourseLevel;
   price: number;
-  instructorId: string;
+  instructorIds: number[];
   duration: number;
 }
 
 const initialFormData: CourseFormData = {
   name: '',
-  code: '',
   description: '',
-  category: '',
   level: 'beginner',
   price: 0,
-  instructorId: '',
+  instructorIds: [],
   duration: 0,
 };
 
 export function AdminCourseManagementView() {
   const { t } = useTranslation();
   const theme = useTheme();
-  const { courses, createCourse, updateCourse, deleteCourse } = useCoursesContext();
   const { user } = useAuth();
   const { getApplicationsByCourse, updateApplicationStatus, deleteApplication, updateApplicationMetadata } =
     useApplicationsContext();
+
+  const [adminCourses, setAdminCourses] = useState<Course[]>([]);
 
   const [tabValue, setTabValue] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
@@ -93,6 +92,39 @@ export function AdminCourseManagementView() {
     appId?: string;
     values: { fullName: string; email: string; phone: string };
   }>({ open: false, values: { fullName: '', email: '', phone: '' } });
+  const [successDialog, setSuccessDialog] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
+  const [instructors, setInstructors] = useState<Array<{ id: number; fullNameEn: string; email: string }>>([]);
+  const [loadingInstructors, setLoadingInstructors] = useState(false);
+
+  const loadAdminCourses = useCallback(async () => {
+    try {
+      const items = await courseApi.getAvailableCourses();
+      setAdminCourses(items.map(mapCourseDtoToCourse));
+    } catch (error) {
+      console.error('Failed to load courses:', error);
+      setAdminCourses([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAdminCourses();
+  }, [loadAdminCourses]);
+
+  // Load instructors when component mounts
+  useEffect(() => {
+    const loadInstructors = async () => {
+      try {
+        setLoadingInstructors(true);
+        const data = await accountApi.getInstructors();
+        setInstructors(data);
+      } catch (error) {
+        console.error('Failed to load instructors:', error);
+      } finally {
+        setLoadingInstructors(false);
+      }
+    };
+    loadInstructors();
+  }, []);
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -103,12 +135,10 @@ export function AdminCourseManagementView() {
       setEditingCourse(course);
       setFormData({
         name: course.name,
-        code: course.code,
         description: course.description,
-        category: course.category,
         level: course.level,
         price: course.price,
-        instructorId: course.instructorId,
+        instructorIds: course.instructorId ? [Number(course.instructorId)] : [],
         duration: course.duration,
       });
     } else {
@@ -133,8 +163,13 @@ export function AdminCourseManagementView() {
     }));
   };
 
+  const levelIdFromForm = useCallback(
+    (level: CourseLevel) => (level === 'beginner' ? 1 : level === 'intermediate' ? 2 : 3),
+    []
+  );
+
   const handleSaveCourse = useCallback(async () => {
-    if (!formData.name || !formData.code || !formData.description) {
+    if (!formData.name || !formData.description) {
       setError(t('validation.required'));
       return;
     }
@@ -144,26 +179,40 @@ export function AdminCourseManagementView() {
 
     try {
       if (editingCourse) {
-        await updateCourse({
-          id: editingCourse.id,
-          ...formData,
-        } as UpdateCourseInput);
-        setSuccess(t('courses.courseUpdatedSuccess'));
-      } else {
-        await createCourse(formData as CreateCourseInput);
-        setSuccess(t('courses.courseCreatedSuccess'));
-      }
+        await courseApi.updateCourse(editingCourse.id, {
+          title: formData.name,
+          description: formData.description,
+          levelId: levelIdFromForm(formData.level),
+          durationHours: formData.duration,
+          price: formData.price,
+          instructorIds: formData.instructorIds,
+        });
 
-      setTimeout(() => {
+        await loadAdminCourses();
         handleCloseDialog();
-        setSuccess(null);
-      }, 1500);
+        setSuccessDialog({ open: true, message: t('courses.courseUpdatedSuccess') });
+      } else {
+        // Use courseApi directly to send instructorIds
+        await courseApi.createCourse({
+          title: formData.name,
+          description: formData.description,
+          levelId: levelIdFromForm(formData.level),
+          durationHours: formData.duration,
+          maxStudents: undefined,
+          price: formData.price,
+          instructorIds: formData.instructorIds,
+        });
+
+        await loadAdminCourses();
+        handleCloseDialog();
+        setSuccessDialog({ open: true, message: t('courses.courseCreatedSuccess') });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('messages.savingError'));
     } finally {
       setLoading(false);
     }
-  }, [formData, editingCourse, createCourse, updateCourse, t]);
+  }, [formData, editingCourse, handleCloseDialog, levelIdFromForm, loadAdminCourses, t]);
 
   const handleDeleteCourse = useCallback(
     async (courseId: string) => {
@@ -175,18 +224,35 @@ export function AdminCourseManagementView() {
       setError(null);
 
       try {
-        await deleteCourse(courseId);
-        setSuccess(t('courses.courseDeletedSuccess'));
-        setTimeout(() => {
-          setSuccess(null);
-        }, 1500);
+        await courseApi.deleteCourse(courseId);
+        await loadAdminCourses();
+        setSuccessDialog({ open: true, message: t('courses.courseDeletedSuccess') });
       } catch (err) {
+        console.error('Failed to delete course:', err);
+
+        if (err instanceof ApiError) {
+          const data = err.data as any;
+          const details =
+            data && typeof data === 'object'
+              ? typeof data.message === 'string'
+                ? data.message
+                : typeof data.detail === 'string'
+                  ? data.detail
+                  : typeof data.title === 'string'
+                    ? data.title
+                    : undefined
+              : undefined;
+
+          setError(details ? `${err.message} - ${details}` : err.message);
+          return;
+        }
+
         setError(err instanceof Error ? err.message : t('messages.savingError'));
       } finally {
         setLoading(false);
       }
     },
-    [deleteCourse, t]
+    [loadAdminCourses, t]
   );
 
   const handleOpenDetails = (course: Course) => {
@@ -305,6 +371,14 @@ export function AdminCourseManagementView() {
   const exportMenuOpen = Boolean(exportMenuAnchorEl);
   const canExportCourse = Boolean(selectedCourse) && courseApplications.length > 0;
 
+  const selectedCourseInstructorName = useMemo(() => {
+    if (!selectedCourse) return '';
+    if (selectedCourse.instructor && selectedCourse.instructor.trim()) return selectedCourse.instructor;
+    if (!selectedCourse.instructorId) return '';
+    const inst = instructors.find((i) => String(i.id) === String(selectedCourse.instructorId));
+    return inst?.fullNameEn ?? '';
+  }, [instructors, selectedCourse]);
+
   const handleOpenExportMenu = useCallback((event: React.MouseEvent<HTMLElement>) => {
     setExportMenuAnchorEl(event.currentTarget);
   }, []);
@@ -337,13 +411,13 @@ export function AdminCourseManagementView() {
     [selectedCourse, courseApplications.length, exportCourseCsv, exportCourseXlsx]
   );
 
-  const activeCourses = courses.filter((c) => c.status === 'active');
-  const inactiveCourses = courses.filter((c) => c.status !== 'active');
+  const activeCourses = adminCourses.filter((c) => c.status === 'active');
+  const inactiveCourses = adminCourses.filter((c) => c.status !== 'active');
 
   const stats = [
     {
       title: t('admin.totalCourses'),
-      value: courses.length,
+      value: adminCourses.length,
       icon: 'solar:notebook-bold-duotone',
       color: 'primary',
       bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.primary.light, 0.2)} 0%, ${alpha(theme.palette.primary.main, 0.2)} 100%)`,
@@ -364,7 +438,7 @@ export function AdminCourseManagementView() {
     },
     {
       title: t('admin.totalRevenue'),
-      value: `$${courses.reduce((acc, c) => acc + (c.price * (c.students || 0)), 0).toLocaleString()}`,
+      value: `$${adminCourses.reduce((acc, c) => acc + (c.price * (c.students || 0)), 0).toLocaleString()}`,
       icon: 'solar:dollar-minimalistic-bold-duotone',
       color: 'info',
       bgGradient: `linear-gradient(135deg, ${alpha(theme.palette.info.light, 0.2)} 0%, ${alpha(theme.palette.info.main, 0.2)} 100%)`,
@@ -389,14 +463,6 @@ export function AdminCourseManagementView() {
 
       <TextField
         fullWidth
-        label={t('courses.courseCode')}
-        value={formData.code}
-        onChange={(e) => handleFormChange('code', e.target.value)}
-        placeholder="e.g., WEB-101"
-      />
-
-      <TextField
-        fullWidth
         multiline
         rows={4}
         label={t('courses.courseDescription')}
@@ -406,14 +472,6 @@ export function AdminCourseManagementView() {
       />
 
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-        <TextField
-          fullWidth
-          label={t('courses.category')}
-          value={formData.category}
-          onChange={(e) => handleFormChange('category', e.target.value)}
-          placeholder="e.g., Web Development"
-        />
-
         <FormControl fullWidth>
           <InputLabel>{t('courses.level')}</InputLabel>
           <Select
@@ -426,9 +484,31 @@ export function AdminCourseManagementView() {
             <MenuItem value="advanced">{t('courses.advanced')}</MenuItem>
           </Select>
         </FormControl>
+
+        <FormControl fullWidth>
+          <InputLabel>{t('courses.instructors')}</InputLabel>
+          <Select
+            multiple
+            value={formData.instructorIds}
+            onChange={(e) => handleFormChange('instructorIds', e.target.value as number[])}
+            label={t('courses.instructors')}
+            renderValue={(selected) => {
+              const selectedNames = instructors
+                .filter((inst) => (selected as number[]).includes(inst.id))
+                .map((inst) => inst.fullNameEn);
+              return selectedNames.join(', ');
+            }}
+          >
+            {instructors.map((instructor) => (
+              <MenuItem key={instructor.id} value={instructor.id}>
+                {instructor.fullNameEn} ({instructor.email})
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
         <TextField
             fullWidth
             type="number"
@@ -447,17 +527,6 @@ export function AdminCourseManagementView() {
             label={t('courses.duration')}
             value={formData.duration}
             onChange={(e) => handleFormChange('duration', parseInt(e.target.value, 10))}
-            placeholder="Hours"
-            InputProps={{
-              endAdornment: <Typography variant="caption" sx={{ color: 'text.secondary' }}>hrs</Typography>
-            }}
-        />
-         <TextField
-            fullWidth
-            label={t('courses.instructor')}
-            value={formData.instructorId}
-            onChange={(e) => handleFormChange('instructorId', e.target.value)}
-            placeholder="ID"
         />
       </Box>
     </Box>
@@ -478,10 +547,8 @@ export function AdminCourseManagementView() {
         <TableHead>
           <TableRow sx={{ bgcolor: alpha(theme.palette.grey[500], 0.08) }}>
             <TableCell sx={{ borderTopLeftRadius: 8, borderBottomLeftRadius: 8 }}>{t('courses.courseName')}</TableCell>
-            <TableCell>{t('courses.courseCode')}</TableCell>
-            <TableCell>{t('courses.category')}</TableCell>
             <TableCell>{t('courses.level')}</TableCell>
-            {/* <TableCell align="right">{t('courses.price')}</TableCell> */}
+            <TableCell align="right">{t('courses.price')}</TableCell>
             <TableCell align="right">{t('courses.students')}</TableCell>
             <TableCell align="center" sx={{ borderTopRightRadius: 8, borderBottomRightRadius: 8 }}>{t('common.action')}</TableCell>
           </TableRow>
@@ -489,7 +556,7 @@ export function AdminCourseManagementView() {
         <TableBody>
           {courseList.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+              <TableCell colSpan={4} align="center" sx={{ py: 6 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                    <Iconify icon="solar:folder-with-files-bold-duotone" width={48} sx={{ color: 'text.disabled', mb: 1 }} />
                     <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -515,13 +582,6 @@ export function AdminCourseManagementView() {
                     {course.name}
                   </Typography>
                 </TableCell>
-                <TableCell>{course.code}</TableCell>
-                <TableCell>
-                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                       <Iconify icon="solar:folder-bold-duotone" width={16} sx={{ color: 'primary.main', opacity: 0.7 }} />
-                       {course.category}
-                   </Box>
-                </TableCell>
                 <TableCell>
                   <Box
                     sx={{
@@ -538,9 +598,9 @@ export function AdminCourseManagementView() {
                     {t(`courses.${course.level}`)}
                   </Box>
                 </TableCell>
-                {/* <TableCell align="right">
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>${course.price}</Typography>
-                </TableCell> */}
+                <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>${course.price}</Typography>
+                  </TableCell>
                 <TableCell align="right">
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
                         <Iconify icon="solar:users-group-rounded-bold" width={16} sx={{ color: 'text.secondary' }} />
@@ -727,6 +787,29 @@ export function AdminCourseManagementView() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        <Dialog
+          open={successDialog.open}
+          onClose={() => setSuccessDialog({ open: false, message: '' })}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 2 } }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Iconify icon="solar:check-circle-bold-duotone" width={28} />
+            {t('common.success')}
+          </DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary">
+              {successDialog.message}
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ p: 2.5 }}>
+            <Button variant="contained" onClick={() => setSuccessDialog({ open: false, message: '' })}>
+              {t('common.ok')}
+            </Button>
+          </DialogActions>
+        </Dialog>
         <Drawer anchor="right" open={detailsOpen} onClose={handleCloseDetails} PaperProps={{ sx: { width: 460 } }}>
           <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
             {selectedCourse && (
@@ -734,18 +817,13 @@ export function AdminCourseManagementView() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <Box>
                     <Typography variant="h6" sx={{ fontWeight: 800 }}>{selectedCourse.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">{selectedCourse.code}</Typography>
                   </Box>
                   <Chip label={t(`courses.${selectedCourse.level}`)} size="small" color="primary" variant="outlined" />
                 </Box>
                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                   <Box>
-                    <Typography variant="caption" color="text.secondary">Category</Typography>
-                    <Typography variant="body2" fontWeight={600}>{selectedCourse.category}</Typography>
-                  </Box>
-                  <Box>
                     <Typography variant="caption" color="text.secondary">Instructor</Typography>
-                    <Typography variant="body2" fontWeight={600}>{selectedCourse.instructor}</Typography>
+                    <Typography variant="body2" fontWeight={600}>{selectedCourseInstructorName}</Typography>
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary">Price</Typography>
@@ -755,6 +833,16 @@ export function AdminCourseManagementView() {
                     <Typography variant="caption" color="text.secondary">Duration</Typography>
                     <Typography variant="body2" fontWeight={600}>{selectedCourse.duration}h</Typography>
                   </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">{t('courses.students')}</Typography>
+                    <Typography variant="body2" fontWeight={700}>{selectedCourse.students}</Typography>
+                  </Box>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">{t('courses.courseDescription')}</Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    {selectedCourse.description}
+                  </Typography>
                 </Box>
                 <Divider />
                 <Box sx={{ display: 'flex', gap: 1.5 }}>

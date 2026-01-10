@@ -25,8 +25,9 @@ export type CreateCourseRequest = {
   description: string;
   levelId: CourseLevelId;
   durationHours: number;
-  maxStudents: number;
-  price: number;
+  maxStudents?: number;
+  price?: number;
+  instructorIds?: number[];
 };
 
 export type UpdateCourseRequest = Partial<CreateCourseRequest>;

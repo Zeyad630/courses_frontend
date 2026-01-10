@@ -1,6 +1,6 @@
 import type { ApexOptions } from 'apexcharts';
 
-import { useState } from 'react';
+import { useMemo } from 'react';
 import Chart from 'react-apexcharts';
 
 import Box from '@mui/material/Box';
@@ -18,86 +18,68 @@ import { alpha, useTheme } from '@mui/material/styles';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
+import { useCoursesContext } from 'src/contexts/courses-context';
+import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
 
 import { Iconify } from 'src/components/iconify';
-
-// ----------------------------------------------------------------------
-
-// Mock instructor data
-const mockInstructorData = {
-  myCourses: [
-    {
-      id: '1',
-      title: 'Introduction to Programming',
-      students: 25,
-      pendingAssignments: 8,
-      avgGrade: 'B+',
-      nextClass: new Date('2024-01-25T14:00:00'),
-      recentActivity: 'New assignment submitted by John Doe',
-    },
-    {
-      id: '2',
-      title: 'Advanced JavaScript',
-      students: 18,
-      pendingAssignments: 3,
-      avgGrade: 'A-',
-      nextClass: new Date('2024-01-26T10:00:00'),
-      recentActivity: '5 students completed React project',
-    },
-  ],
-  pendingGrading: [
-    {
-      id: '1',
-      studentName: 'John Doe',
-      assignment: 'Variables and Functions',
-      course: 'Introduction to Programming',
-      submittedAt: new Date('2024-01-20'),
-      daysOverdue: 2,
-    },
-    {
-      id: '2',
-      studentName: 'Jane Smith',
-      assignment: 'React Components',
-      course: 'Advanced JavaScript',
-      submittedAt: new Date('2024-01-22'),
-      daysOverdue: 0,
-    },
-  ],
-  recentNotifications: [
-    {
-      id: '1',
-      title: 'Assignment Submitted',
-      message: 'John Doe submitted Variables Assignment',
-      time: '1 hour ago',
-      type: 'submission',
-      read: false,
-    },
-    {
-      id: '2',
-      title: 'Student Question',
-      message: 'Sarah Wilson asked a question in Programming course',
-      time: '3 hours ago',
-      type: 'question',
-      read: false,
-    },
-  ],
-  stats: {
-    totalStudents: 43,
-    totalCourses: 2,
-    pendingGrades: 11,
-    avgCourseRating: 4.8,
-  },
-};
 
 export function InstructorDashboardView() {
   const { user } = useAuth();
   const theme = useTheme();
-  const [instructorData] = useState(mockInstructorData);
+
+  const { courses } = useCoursesContext();
+  const { rounds } = useCourseRoundsContext();
+
+  const instructorCourses = useMemo(() => {
+    const myId = user?.id;
+    if (!myId) return [];
+    return courses.filter((c) => c.instructorId === myId);
+  }, [courses, user?.id]);
+
+  const totalStudents = useMemo(
+    () => instructorCourses.reduce((acc, c) => acc + (Number.isFinite(c.students) ? c.students : 0), 0),
+    [instructorCourses]
+  );
+
+  const avgCourseRating = useMemo(() => {
+    if (instructorCourses.length === 0) return 0;
+    const sum = instructorCourses.reduce((acc, c) => acc + (Number.isFinite(c.rating) ? c.rating : 0), 0);
+    return Math.round((sum / instructorCourses.length) * 10) / 10;
+  }, [instructorCourses]);
+
+  const myCourses = useMemo(
+    () =>
+      instructorCourses.map((c) => ({
+        id: c.id,
+        title: c.name,
+        students: c.students,
+        pendingAssignments: 0,
+        avgGrade: '—',
+      })),
+    [instructorCourses]
+  );
+
+  const myCourseRounds = useMemo(() => {
+    const myId = user?.id;
+    if (!myId) return [];
+
+    const rows = rounds
+      .filter((round) => round.createdBy === myId)
+      .map((round) => {
+        const course = courses.find((c) => c.id === round.courseId);
+        return {
+          ...round,
+          courseTitle: course?.name ?? `Course ${round.courseId}`,
+        };
+      });
+
+    return rows.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  }, [courses, rounds, user?.id]);
 
   const statsCards = [
     {
       title: 'Total Students',
-      value: instructorData.stats.totalStudents,
+      value: totalStudents,
       icon: 'solar:users-group-rounded-bold-duotone',
       color: theme.palette.primary.main,
       textColor: theme.palette.primary.darker,
@@ -107,7 +89,7 @@ export function InstructorDashboardView() {
     },
     {
       title: 'Active Courses',
-      value: instructorData.stats.totalCourses,
+      value: instructorCourses.length,
       icon: 'solar:notebook-bold-duotone',
       color: theme.palette.secondary.main,
       textColor: theme.palette.secondary.darker,
@@ -117,7 +99,7 @@ export function InstructorDashboardView() {
     },
     {
       title: 'Pending Grades',
-      value: instructorData.stats.pendingGrades,
+      value: 0,
       icon: 'solar:clipboard-list-bold-duotone',
       color: theme.palette.grey[700],
       textColor: theme.palette.grey[900],
@@ -127,7 +109,7 @@ export function InstructorDashboardView() {
     },
     {
       title: 'Course Rating',
-      value: `${instructorData.stats.avgCourseRating}⭐`,
+      value: `${avgCourseRating}⭐`,
       icon: 'solar:star-bold-duotone',
       color: theme.palette.primary.main,
       textColor: theme.palette.primary.darker,
@@ -325,7 +307,7 @@ export function InstructorDashboardView() {
             </Stack>
 
             <Stack spacing={2.5}>
-              {instructorData.myCourses.map((course) => (
+              {myCourses.map((course) => (
                 <Card
                   key={course.id}
                   sx={{
@@ -363,7 +345,7 @@ export function InstructorDashboardView() {
                       />
                       <Chip
                         icon={<Iconify icon="solar:calendar-bold-duotone" width={16} />}
-                        label={`Next class: ${course.nextClass.toLocaleDateString()}`}
+                        label="Next class: —"
                         variant="outlined"
                         sx={{ fontWeight: 700 }}
                       />
@@ -371,7 +353,7 @@ export function InstructorDashboardView() {
 
                     <Box sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: 'background.neutral' }}>
                       <Typography variant="body2" color="text.secondary">
-                        Recent: {course.recentActivity}
+                        Recent: —
                       </Typography>
                     </Box>
                   </CardContent>
@@ -392,12 +374,56 @@ export function InstructorDashboardView() {
               ))}
             </Stack>
 
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 5, mb: 2 }}>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                My Course Rounds
+              </Typography>
+            </Stack>
+
+            {myCourseRounds.length === 0 ? (
+              <Card sx={{ borderRadius: 3, p: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No course rounds yet.
+                </Typography>
+              </Card>
+            ) : (
+              <Stack spacing={2}>
+                {myCourseRounds.map((round) => (
+                  <Card key={round.id} sx={{ borderRadius: 3 }}>
+                    <CardContent sx={{ p: 2.5 }}>
+                      <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 800 }} noWrap>
+                            {round.courseTitle} — {round.name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {new Date(round.startDate).toLocaleDateString()} - {new Date(round.endDate).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                        <Chip label={String(round.status).toUpperCase()} color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
+                      </Stack>
+                    </CardContent>
+
+                    <CardActions sx={{ px: 2.5, pb: 2.5, pt: 0 }}>
+                      <Button
+                        variant="contained"
+                        startIcon={<Iconify icon="solar:eye-bold-duotone" />}
+                        href={`/course-room/${round.courseId}?roundId=${round.id}`}
+                      >
+                        Open Course Room
+                      </Button>
+                    </CardActions>
+                  </Card>
+                ))}
+              </Stack>
+            )}
+
             <Typography variant="h5" sx={{ mt: 5, mb: 2, fontWeight: 800 }}>
               Pending Grading
             </Typography>
 
             <Stack spacing={2}>
-              {instructorData.pendingGrading.map((item) => (
+              {([] as any[]).map((item) => (
                 <Card key={item.id} sx={{ borderRadius: 3 }}>
                   <CardContent sx={{ p: 2.5 }}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
@@ -458,7 +484,7 @@ export function InstructorDashboardView() {
                 </Typography>
 
                 <Stack spacing={1.5}>
-                  {instructorData.recentNotifications.map((notification) => (
+                  {([] as any[]).map((notification) => (
                     <Box
                       key={notification.id}
                       sx={{
