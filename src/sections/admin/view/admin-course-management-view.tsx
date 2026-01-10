@@ -37,12 +37,12 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TableContainer from '@mui/material/TableContainer';
 
+import { ApiError } from 'src/api/errors';
+import { accountApi, courseApi } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
-import { useApplicationsContext } from 'src/contexts/applications-context';
-import { accountApi, courseApi } from 'src/api';
 import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
-import { ApiError } from 'src/api/errors';
+import { useApplicationsContext } from 'src/contexts/applications-context';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -100,8 +100,8 @@ export function AdminCourseManagementView() {
     try {
       const items = await courseApi.getAvailableCourses();
       setAdminCourses(items.map(mapCourseDtoToCourse));
-    } catch (error) {
-      console.error('Failed to load courses:', error);
+    } catch (err) {
+      console.error('Failed to load courses:', err);
       setAdminCourses([]);
     }
   }, []);
@@ -117,8 +117,8 @@ export function AdminCourseManagementView() {
         setLoadingInstructors(true);
         const data = await accountApi.getInstructors();
         setInstructors(data);
-      } catch (error) {
-        console.error('Failed to load instructors:', error);
+      } catch (err) {
+        console.error('Failed to load instructors:', err);
       } finally {
         setLoadingInstructors(false);
       }

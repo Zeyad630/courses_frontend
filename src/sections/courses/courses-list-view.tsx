@@ -32,6 +32,7 @@ import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
 import { useCoursesContext } from 'src/contexts/courses-context';
 import { useApplicationsContext } from 'src/contexts/applications-context';
+import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
 
 import { Iconly } from 'src/components/iconly';
 import { SvgColor } from 'src/components/svg-color';
@@ -42,8 +43,19 @@ export function CoursesListView() {
   const { t } = useTranslation();
   const theme = useTheme();
   const { courses } = useCoursesContext();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const { createApplication } = useApplicationsContext();
+  const { getRoundForStudent } = useCourseRoundsContext();
+
+  const isBlockedFromApplying = useMemo(() => {
+    if (!hasRole('student')) return () => false;
+    if (!user?.id) return () => false;
+
+    return (courseId: string) => {
+      const round = getRoundForStudent(courseId, user.id);
+      return Boolean(round && (round.status === 'active' || round.status === 'scheduled'));
+    };
+  }, [getRoundForStudent, hasRole, user?.id]);
 
   const [minPrice, maxPrice] = useMemo(() => {
     if (!courses.length) return [0, 1000];
@@ -158,6 +170,7 @@ export function CoursesListView() {
 
   // Enrollment handlers
   const handleEnrollClick = (course: Course) => {
+    if (isBlockedFromApplying(course.id)) return;
     setSelectedCourse(course);
     setEnrollmentDialogOpen(true);
     setEnrollmentErrors({});
@@ -233,6 +246,11 @@ export function CoursesListView() {
       return;
     }
 
+    if (isBlockedFromApplying(selectedCourse.id)) {
+      setEnrollmentErrors({ general: 'You are already enrolled in this course for the current round.' });
+      return;
+    }
+
     await createApplication({
       studentId: user.id,
       courseId: selectedCourse.id,
@@ -288,6 +306,7 @@ export function CoursesListView() {
 
   const renderCourseGridCard = (course: Course) => {
     const levelColors = getLevelColor(course.level);
+    const blocked = isBlockedFromApplying(course.id);
     
     return (
       <Card
@@ -433,13 +452,14 @@ export function CoursesListView() {
                 size="small"
                 endIcon={<SvgColor src="/assets/icons/Iconly/Iconly/Curved/Outline/Arrow - Right.svg" sx={{ width: 16, height: 16 }} />}
               onClick={(e) => { e.stopPropagation(); handleEnrollClick(course); }}
+              disabled={blocked}
               sx={{ 
                 borderRadius: 30,
                 px: 2,
                 boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.24)}`
               }}
             >
-              {t('courses.enrollCourse')}
+              {blocked ? 'Enrolled' : t('courses.enrollCourse')}
             </Button>
           </Box>
         </CardContent>
@@ -449,6 +469,7 @@ export function CoursesListView() {
 
   const renderCourseListCard = (course: Course) => {
     const levelColors = getLevelColor(course.level);
+    const blocked = isBlockedFromApplying(course.id);
 
     return (
     <Card
@@ -582,9 +603,10 @@ export function CoursesListView() {
             variant="contained"
             endIcon={<SvgColor src="/assets/icons/Iconly/Iconly/Curved/Outline/Arrow - Right.svg" sx={{ width: 16, height: 16 }} />}
             onClick={(e) => { e.stopPropagation(); handleEnrollClick(course); }}
+            disabled={blocked}
             sx={{ borderRadius: 30, px: 3 }}
           >
-            {t('courses.enrollCourse')}
+            {blocked ? 'Enrolled' : t('courses.enrollCourse')}
           </Button>
         </Box>
       </Box>

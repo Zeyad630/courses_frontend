@@ -35,12 +35,12 @@ import {
   Typography,
 } from '@mui/material';
 
+import { courseApi } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
+import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
 import { useApplicationsContext } from 'src/contexts/applications-context';
 import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
-import { courseApi } from 'src/api';
-import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -457,6 +457,21 @@ export function InstructorCoursesView() {
                     )}
 
                     <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="warning"
+                        onClick={async () => {
+                          try {
+                            await updateRound(selectedRound.id, { status: 'scheduled' });
+                          } catch (error: any) {
+                            alert(error?.message || 'Failed to update status');
+                          }
+                        }}
+                      >
+                        {t('courses.markScheduled')}
+                      </Button>
 
                       <Button
                         size="small"

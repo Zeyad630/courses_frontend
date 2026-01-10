@@ -5,8 +5,8 @@ import type { CourseRoundStudentDto } from 'src/api/models/course-round-student'
 import { useMemo, useEffect, useContext, useReducer, useCallback, createContext, useState } from 'react';
 
 import { ApiError } from 'src/api/errors';
-import { courseRoundApi, courseRoundStudentApi } from 'src/api';
 import { useAuth } from 'src/contexts/simple-auth-context';
+import { courseRoundApi, courseRoundStudentApi } from 'src/api';
 
 type CourseRoundStatus = 'scheduled' | 'active' | 'finished' | 'cancelled';
 
@@ -191,8 +191,8 @@ export function CourseRoundsProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const mapStudentAssignments = useCallback(
-    (dtos: CourseRoundStudentDto[], rounds: CourseRound[]): RoundAssignment[] => {
-      return dtos
+    (dtos: CourseRoundStudentDto[], rounds: CourseRound[]): RoundAssignment[] =>
+      dtos
         .map((dto) => {
           const roundId = String(dto.courseRoundId);
           const round = rounds.find((r) => r.id === roundId);
@@ -204,8 +204,7 @@ export function CourseRoundsProvider({ children }: { children: React.ReactNode }
             assignedAt: dto.assignedAt,
           };
         })
-        .filter((a) => a.courseId !== '');
-    },
+        .filter((a) => a.courseId !== ''),
     []
   );
 
@@ -267,7 +266,7 @@ export function CourseRoundsProvider({ children }: { children: React.ReactNode }
         startDate: toDateOnly(input.startDate),
         endDate: toDateOnly(input.endDate),
         mainInstructorId: userId,
-        statusId: 0, // Backend will use default status if 0
+        statusId: 7,
       };
 
       const response = await courseRoundApi.create(payload);
@@ -306,10 +305,10 @@ export function CourseRoundsProvider({ children }: { children: React.ReactNode }
       if (updates.status) {
         // Map frontend status to backend statusId (this is a simplification)
         const statusIdMap: Record<string, number> = {
-          'scheduled': 1,
-          'active': 2,
-          'finished': 3,
-          'cancelled': 4,
+          scheduled: 7,
+          active: 4,
+          finished: 5,
+          cancelled: 6,
         };
         await courseRoundApi.patch(roundId, { statusId: statusIdMap[updates.status] || 1 });
       }

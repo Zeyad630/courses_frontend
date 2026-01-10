@@ -1,38 +1,39 @@
+import type { MaterialDto } from 'src/api/models/material';
 import type { Lesson, CourseModule } from 'src/types/course';
 import type { Assignment, CourseMaterial } from 'src/types/user';
-import type { MaterialDto } from 'src/api/models/material';
 import type { ZoomMeetingDto } from 'src/api/models/zoom-meeting';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
+import Tabs from '@mui/material/Tabs';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
-import Tabs from '@mui/material/Tabs';
 import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
+import InputLabel from '@mui/material/InputLabel';
 import Typography from '@mui/material/Typography';
-import DialogTitle from '@mui/material/DialogTitle';
-import FormControl from '@mui/material/FormControl';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import Select from '@mui/material/Select';
+import DialogTitle from '@mui/material/DialogTitle';
+import FormControl from '@mui/material/FormControl';
 import { alpha, useTheme } from '@mui/material/styles';
-import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import LinearProgress from '@mui/material/LinearProgress';
 
-import { courseApi, materialApi, zoomMeetingApi } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
+import { courseApi, materialApi, zoomMeetingApi } from 'src/api';
 import { useCoursesContext } from 'src/contexts/courses-context';
 import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
 import { useApplicationsContext } from 'src/contexts/applications-context';
@@ -221,6 +222,11 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     [activeRoundId, roundsForCourse]
   );
 
+  const headerRound = useMemo(
+    () => (hasRole('student') ? assignedRound : activeRound),
+    [activeRound, assignedRound, hasRole]
+  );
+
   const { courses } = useCoursesContext();
   const courseFromContext = useMemo(() => courses.find((c) => c.id === courseId), [courses, courseId]);
   const [courseFromApi, setCourseFromApi] = useState<ReturnType<typeof mapCourseDtoToCourse> | null>(null);
@@ -295,14 +301,17 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const assignments = useMemo(() => mockAssignments.map((a) => ({ ...a, courseId })), [courseId]);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (!activeRoundId) {
       setMaterials([]);
       setZoomMeetings([]);
       setRoundDataError('');
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
-    let cancelled = false;
     setRoundDataError('');
 
     Promise.all([
@@ -311,8 +320,9 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     ])
       .then(([mats, zooms]) => {
         if (cancelled) return;
-        setMaterials(mats);
-        setZoomMeetings(zooms);
+        const showOnlyActive = hasRole('student');
+        setMaterials(showOnlyActive ? mats.filter((m) => m.isActive !== false) : mats);
+        setZoomMeetings(showOnlyActive ? zooms.filter((z) => z.isActive !== false) : zooms);
       })
       .catch((error: any) => {
         if (cancelled) return;
@@ -324,10 +334,20 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [activeRoundId]);
+  }, [activeRoundId, hasRole]);
 
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
   const [zoomDialogOpen, setZoomDialogOpen] = useState(false);
+
+  const [editMaterialDialogOpen, setEditMaterialDialogOpen] = useState(false);
+  const [editMaterialId, setEditMaterialId] = useState<number | null>(null);
+  const [editMaterialForm, setEditMaterialForm] = useState({
+    title: '',
+    description: '',
+    link: '',
+    materialType: 'link',
+    isActive: true,
+  });
 
   const [materialForm, setMaterialForm] = useState({ title: '', description: '', link: '', materialType: 'link' });
   const [zoomForm, setZoomForm] = useState({
@@ -348,12 +368,21 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
         materialApi.getByCourseRoundId(Number(activeRoundId)),
         zoomMeetingApi.getByCourseRoundId(Number(activeRoundId)),
       ]);
-      setMaterials(mats);
-      setZoomMeetings(zooms);
+      const showOnlyActive = hasRole('student');
+      setMaterials(showOnlyActive ? mats.filter((m) => m.isActive !== false) : mats);
+      setZoomMeetings(showOnlyActive ? zooms.filter((z) => z.isActive !== false) : zooms);
     } catch (error: any) {
       setRoundDataError(error?.message || 'Failed to load round materials/zoom meetings');
     }
-  }, [activeRoundId]);
+  }, [activeRoundId, hasRole]);
+
+  const progressPercent = useMemo(() => {
+    const total = Number(displayCourse.totalLessons);
+    const done = Number(displayCourse.completedLessons);
+    if (!Number.isFinite(total) || total <= 0) return 0;
+    if (!Number.isFinite(done) || done < 0) return 0;
+    return Math.max(0, Math.min(100, (done / total) * 100));
+  }, [displayCourse.completedLessons, displayCourse.totalLessons]);
 
   const handleCreateMaterial = useCallback(async () => {
     if (!activeRoundId) return;
@@ -386,6 +415,37 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     },
     [reloadRoundData]
   );
+
+  const handleOpenEditMaterial = useCallback((material: MaterialDto) => {
+    setEditMaterialId(material.id);
+    setEditMaterialForm({
+      title: material.title ?? '',
+      description: material.description ?? '',
+      link: material.link ?? '',
+      materialType: material.materialType ?? 'link',
+      isActive: Boolean(material.isActive),
+    });
+    setEditMaterialDialogOpen(true);
+  }, []);
+
+  const handleUpdateMaterial = useCallback(async () => {
+    if (!editMaterialId) return;
+    if (!editMaterialForm.title.trim() || !editMaterialForm.link.trim()) return;
+    try {
+      await materialApi.update(editMaterialId, {
+        title: editMaterialForm.title.trim(),
+        description: editMaterialForm.description.trim() || undefined,
+        link: editMaterialForm.link.trim(),
+        materialType: editMaterialForm.materialType,
+        isActive: Boolean(editMaterialForm.isActive),
+      });
+      setEditMaterialDialogOpen(false);
+      setEditMaterialId(null);
+      await reloadRoundData();
+    } catch (error: any) {
+      setRoundDataError(error?.message || 'Failed to update material');
+    }
+  }, [editMaterialForm, editMaterialId, reloadRoundData]);
 
   const handleCreateZoomMeeting = useCallback(async () => {
     if (!activeRoundId) return;
@@ -438,6 +498,31 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
       .sort((a, b) => a.t - b.t);
     return upcoming[0]?.m;
   }, [zoomMeetings]);
+
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTick(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const nextZoomCountdown = useMemo(() => {
+    if (!nextZoomMeeting) return '';
+    const start = new Date(nextZoomMeeting.meetingDateTime).getTime();
+    if (!Number.isFinite(start)) return '';
+    const diffMs = start - nowTick;
+    if (diffMs <= 0) return 'Starting now';
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (days > 0) return `Starts in ${days}d ${hours}h`;
+    if (hours > 0) return `Starts in ${hours}h ${minutes}m`;
+    if (minutes > 0) return `Starts in ${minutes}m ${seconds}s`;
+    return `Starts in ${seconds}s`;
+  }, [nextZoomMeeting, nowTick]);
 
   // Simple content management state (Weeks/Modules & Lessons)
   const [modules, setModules] = useState<CourseModule[]>([]);
@@ -761,29 +846,29 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
 
                 {(assignedRound || (hasRole('instructor') && roundsCount > 0)) && (
                   <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', opacity: 0.95 }}>
-                    {assignedRound && (
+                    {headerRound && (
                       <>
                         <Chip
-                          label={`Round: ${assignedRound.name}`}
+                          label={`Round: ${headerRound.name}`}
                           size="small"
-                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700 }}
+                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700, borderRadius: 999 }}
                         />
                         <Chip
-                          label={String(assignedRound.status).toUpperCase()}
+                          label={String(headerRound.status).toUpperCase()}
                           size="small"
-                          sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 700 }}
+                          sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 700, borderRadius: 999 }}
                         />
                         <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                          {new Date(assignedRound.startDate).toLocaleDateString()} - {new Date(assignedRound.endDate).toLocaleDateString()}
+                          {new Date(headerRound.startDate).toLocaleDateString()} - {new Date(headerRound.endDate).toLocaleDateString()}
                         </Typography>
                       </>
                     )}
 
-                    {hasRole('instructor') && roundsCount > 0 && !assignedRound && (
+                    {hasRole('instructor') && roundsCount > 0 && !headerRound && (
                       <Chip
                         label={`Rounds: ${roundsCount}`}
                         size="small"
-                        sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 700 }}
+                        sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 700, borderRadius: 999 }}
                       />
                     )}
                   </Box>
@@ -797,12 +882,12 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                     <Box sx={{ flexGrow: 1 }}>
                          <LinearProgress 
                             variant="determinate" 
-                            value={(displayCourse.completedLessons / displayCourse.totalLessons) * 100}
+                            value={progressPercent}
                             sx={{ height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.2)', '& .MuiLinearProgress-bar': { bgcolor: 'white' } }} 
                          />
                     </Box>
                     <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                        {Math.round((displayCourse.completedLessons / displayCourse.totalLessons) * 100)}%
+                        {Math.round(progressPercent)}%
                     </Typography>
                  </Box>
                  <Typography variant="caption" sx={{ opacity: 0.8, mt: 0.5, display: 'block' }}>
@@ -907,40 +992,119 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
               <Grid size={{ xs: 12, md: 4 }}>
                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {/* Next Class */}
-                    <Card sx={{ p: 3, bgcolor: alpha(theme.palette.info.lighter, 0.4), border: `1px solid ${alpha(theme.palette.info.main, 0.2)}` }}>
-                      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Iconify icon="solar:calendar-mark-bold-duotone" sx={{ color: 'info.main' }} />
-                        Next Live Session
-                      </Typography>
-                      
-                      <Box sx={{ mt: 2, mb: 3 }}>
-                        {nextZoomMeeting ? (
-                          <>
-                            <Typography variant="h6" sx={{ color: 'info.darker', mb: 0.5, fontWeight: 800 }}>
-                              {nextZoomMeeting.topic}
-                            </Typography>
-                            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-                              {new Date(nextZoomMeeting.meetingDateTime).toLocaleString()}
-                            </Typography>
-                          </>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                            No zoom sessions scheduled yet.
+                    <Card
+                      sx={{
+                        p: 3,
+                        borderRadius: 2,
+                        background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.14)} 0%, ${alpha(theme.palette.primary.main, 0.10)} 100%)`,
+                        border: `1px solid ${alpha(theme.palette.info.main, 0.22)}`,
+                        overflow: 'hidden',
+                        position: 'relative',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 800 }}>
+                            <Iconify icon="solar:videocamera-record-bold-duotone" sx={{ color: 'info.main' }} />
+                            Next Live Session
                           </Typography>
-                        )}
+
+                          <Box sx={{ mt: 2 }}>
+                            {nextZoomMeeting ? (
+                              <>
+                                <Typography variant="h6" sx={{ color: 'info.darker', mb: 0.75, fontWeight: 900 }} noWrap>
+                                  {nextZoomMeeting.topic}
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                                  <Chip
+                                    size="small"
+                                    icon={<Iconify icon="solar:calendar-mark-bold" width={16} />}
+                                    label={new Date(nextZoomMeeting.meetingDateTime).toLocaleString()}
+                                    sx={{ borderRadius: 999, bgcolor: alpha(theme.palette.common.white, 0.5) }}
+                                  />
+                                  <Chip
+                                    size="small"
+                                    icon={<Iconify icon="solar:hourglass-line-bold" width={16} />}
+                                    label={nextZoomCountdown || 'Upcoming'}
+                                    sx={{ borderRadius: 999, bgcolor: alpha(theme.palette.common.white, 0.5) }}
+                                  />
+                                  <Chip
+                                    size="small"
+                                    icon={<Iconify icon="solar:clock-circle-bold" width={16} />}
+                                    label={`${nextZoomMeeting.durationMinutes} min`}
+                                    sx={{ borderRadius: 999, bgcolor: alpha(theme.palette.common.white, 0.5) }}
+                                  />
+                                </Box>
+                              </>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                No zoom sessions scheduled yet.
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+
+                        <Box
+                          sx={{
+                            width: 52,
+                            height: 52,
+                            borderRadius: 2,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            bgcolor: alpha(theme.palette.info.main, 0.12),
+                            color: 'info.main',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Iconify icon="solar:videocamera-bold-duotone" width={26} />
+                        </Box>
                       </Box>
 
-                      <Button
-                        variant="contained"
-                        color="info"
-                        fullWidth
-                        startIcon={<Iconify icon="solar:videocamera-bold" />}
-                        href={nextZoomMeeting?.meetingLink}
-                        target="_blank"
-                        disabled={!nextZoomMeeting?.meetingLink}
-                      >
-                        Join Zoom
-                      </Button>
+                      <Box sx={{ mt: 2.5, display: 'flex', gap: 1.25 }}>
+                        <Button
+                          variant="contained"
+                          color="info"
+                          fullWidth
+                          startIcon={<Iconify icon="solar:play-circle-bold" />}
+                          href={nextZoomMeeting?.meetingLink}
+                          target="_blank"
+                          disabled={!nextZoomMeeting?.meetingLink}
+                          sx={{ borderRadius: 1.5 }}
+                        >
+                          Join Zoom
+                        </Button>
+                        <IconButton
+                          disabled={!nextZoomMeeting?.meetingLink}
+                          onClick={async () => {
+                            if (!nextZoomMeeting?.meetingLink) return;
+                            try {
+                              await navigator.clipboard.writeText(nextZoomMeeting.meetingLink);
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                          sx={{
+                            borderRadius: 1.5,
+                            border: `1px solid ${alpha(theme.palette.info.main, 0.28)}`,
+                            bgcolor: alpha(theme.palette.common.white, 0.35),
+                          }}
+                        >
+                          <Iconify icon="solar:copy-bold" width={20} />
+                        </IconButton>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: -70,
+                          right: -70,
+                          width: 180,
+                          height: 180,
+                          borderRadius: '50%',
+                          background: `radial-gradient(circle, ${alpha(theme.palette.info.main, 0.22)} 0%, ${alpha(theme.palette.info.main, 0)} 70%)`,
+                        }}
+                      />
                     </Card>
 
                     {/* Stats */}
@@ -1209,6 +1373,87 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                 </Button>
               </DialogActions>
             </Dialog>
+
+            <Dialog
+              open={editMaterialDialogOpen}
+              onClose={() => {
+                setEditMaterialDialogOpen(false);
+                setEditMaterialId(null);
+              }}
+              maxWidth="sm"
+              fullWidth
+            >
+              <DialogTitle>Edit Material</DialogTitle>
+              <DialogContent>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                  <TextField
+                    label="Title"
+                    value={editMaterialForm.title}
+                    onChange={(e) => setEditMaterialForm({ ...editMaterialForm, title: e.target.value })}
+                    required
+                    fullWidth
+                  />
+                  <TextField
+                    label="Description"
+                    value={editMaterialForm.description}
+                    onChange={(e) => setEditMaterialForm({ ...editMaterialForm, description: e.target.value })}
+                    multiline
+                    rows={3}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Link"
+                    value={editMaterialForm.link}
+                    onChange={(e) => setEditMaterialForm({ ...editMaterialForm, link: e.target.value })}
+                    required
+                    fullWidth
+                  />
+                  <FormControl fullWidth>
+                    <InputLabel>Material Type</InputLabel>
+                    <Select
+                      value={editMaterialForm.materialType}
+                      onChange={(e) => setEditMaterialForm({ ...editMaterialForm, materialType: String(e.target.value) })}
+                      label="Material Type"
+                    >
+                      <MenuItem value="link">Link</MenuItem>
+                      <MenuItem value="pdf">PDF</MenuItem>
+                      <MenuItem value="video">Video</MenuItem>
+                      <MenuItem value="document">Document</MenuItem>
+                      <MenuItem value="zoom">Zoom</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth>
+                    <InputLabel>Active</InputLabel>
+                    <Select
+                      value={editMaterialForm.isActive ? 'true' : 'false'}
+                      onChange={(e) => setEditMaterialForm({ ...editMaterialForm, isActive: e.target.value === 'true' })}
+                      label="Active"
+                    >
+                      <MenuItem value="true">Active</MenuItem>
+                      <MenuItem value="false">Inactive</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button
+                  onClick={() => {
+                    setEditMaterialDialogOpen(false);
+                    setEditMaterialId(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleUpdateMaterial}
+                  disabled={!editMaterialForm.title.trim() || !editMaterialForm.link.trim()}
+                >
+                  Save
+                </Button>
+              </DialogActions>
+            </Dialog>
           </Box>
         )}
 
@@ -1315,6 +1560,11 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                     </CardContent>
 
                     <CardActions sx={{ p: 2, pt: 0 }}>
+                      {hasRole('instructor') && (
+                        <IconButton onClick={() => handleOpenEditMaterial(material)} aria-label="Edit material">
+                          <Iconify icon="solar:pen-bold" width={20} />
+                        </IconButton>
+                      )}
                       {hasRole('instructor') && (
                         <IconButton color="error" onClick={() => handleDeleteMaterial(material.id)} aria-label="Delete material">
                           <Iconify icon="solar:trash-bin-trash-bold" width={20} />
