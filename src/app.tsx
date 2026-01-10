@@ -10,6 +10,7 @@ import { AuthProvider } from 'src/contexts/simple-auth-context';
 import { ApplicationsProvider } from 'src/contexts/applications-context';
 import { CourseRoundsProvider } from 'src/contexts/course-rounds-context';
 
+import { trackPageView } from './firebase';
 
 type AppProps = {
   children: React.ReactNode;
@@ -38,6 +39,7 @@ function useScrollToTop() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    trackPageView(pathname);
   }, [pathname]);
 
   return null;

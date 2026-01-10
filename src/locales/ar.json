@@ -66,7 +66,16 @@
     "admin": "المسؤول",
     "instructor": "المدرب",
     "student": "الطالب",
-    "demo": "عرض توضيحي"
+    "demo": "عرض توضيحي",
+    "continueWithGoogle": "المتابعة باستخدام Google",
+    "signingInWithGoogle": "جاري تسجيل الدخول باستخدام Google...",
+    "orContinueWith": "أو",
+    "forgotPasswordDescription": "أدخل عنوان بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة المرور الخاصة بك.",
+    "sendResetLink": "إرسال رابط إعادة التعيين",
+    "sending": "جاري الإرسال...",
+    "rememberPassword": "تذكرت كلمة المرور؟",
+    "passwordResetEmailSent": "إذا كان البريد الإلكتروني موجودًا، تم إرسال رابط إعادة تعيين كلمة المرور. يرجى التحقق من صندوق الوارد الخاص بك.",
+    "backToSignIn": "العودة لتسجيل الدخول"
   },
   "dashboard": {
     "dashboard": "لوحة التحكم",

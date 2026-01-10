@@ -1,4 +1,5 @@
 import 'src/locales/i18n';
+import './firebase';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

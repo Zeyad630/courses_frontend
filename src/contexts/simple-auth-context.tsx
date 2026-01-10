@@ -2,6 +2,8 @@ import type { User, UserRole, AuthState } from 'src/types/user';
 
 import { useMemo, useEffect, useContext, useReducer, useCallback, createContext } from 'react';
 
+import { storage } from 'src/utils/storage';
+
 import { authApi } from 'src/api';
 
 // ----------------------------------------------------------------------
@@ -14,7 +16,16 @@ type AuthAction =
 
 type AuthContextValue = AuthState & {
   login: (email: string, password: string) => Promise<void>;
-  register: (params: { email: string; name: string; password: string }) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
+  register: (params: {
+    email: string;
+    otpCode: string;
+    password: string;
+    nationalId: string;
+    fullNameEn: string;
+    fullNameAr: string;
+    phone?: string;
+  }) => Promise<void>;
   logout: () => void;
   updateUser: (updates: Partial<User>) => void;
   hasRole: (role: UserRole) => boolean;
@@ -179,10 +190,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         .then((userInfo) => {
           if (userInfo.accountId && userInfo.email) {
             const user: User = {
-              id: userInfo.accountId,
+              id: String(userInfo.accountId),
               name: userInfo.email.split('@')[0], // Use email prefix as name fallback
               email: userInfo.email,
-              role: mapRoleIdToRole(Number(userInfo.roleId || '3')),
+              role: mapRoleIdToRole(Number(userInfo.roleId ?? 3)),
               isActive: true,
               createdAt: new Date(),
               updatedAt: new Date(),
@@ -206,86 +217,113 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = useCallback(async (email: string, password: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
-    
+
     try {
-      // Call backend API
       const response = await authApi.login({ email, password });
-      
-      // Store token
-      localStorage.setItem('accessToken', response.accessToken);
-      
-      // Fetch user info to get role
-      const userInfo = await authApi.getMe();
-      
-      // Build user object
+
+      storage.setToken(response.accessToken);
+
       const user: User = {
         id: String(response.accountId),
-        name: email.split('@')[0], // Use email prefix as name fallback
+        name: email.split('@')[0],
         email: response.email,
         role: mapRoleIdToRole(response.roleId),
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      
+
+      storage.setUser(user);
       dispatch({ type: 'LOGIN', payload: user });
-    } catch (error: any) {
+    } catch (error: unknown) {
       dispatch({ type: 'SET_LOADING', payload: false });
-      // Extract error message
-      const errorMessage = error?.response?.data?.message || error?.message || 'Login failed';
-      throw new Error(errorMessage);
+      if (error instanceof Error) throw error;
+      throw new Error('Login failed');
     }
   }, []);
 
-  const register = useCallback(async (params: { email: string; name: string; password: string }) => {
+  const loginWithGoogle = useCallback(async (idToken: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
 
     try {
-      const { email, name, password } = params;
+      const response = await authApi.googleAuth({ idToken });
+      storage.setToken(response.accessToken);
 
-      // Call backend API
-      const response = await authApi.register({
-        email,
-        password,
-        fullNameEn: name,
-        // Add other fields if needed
-      });
-      
-      // Store token
-      localStorage.setItem('accessToken', response.accessToken);
-      
-      // Fetch user info to get role
-      const userInfo = await authApi.getMe();
-      
-      // Build user object
+      // Fetch user profile to get full name
+      let userName = response.email.split('@')[0];
+      try {
+        const profile = await authApi.getProfile();
+        userName = profile.fullNameEn || userName;
+      } catch {
+        // Use email if profile fetch fails
+      }
+
       const user: User = {
         id: String(response.accountId),
-        name: name || email.split('@')[0],
+        name: userName,
         email: response.email,
         role: mapRoleIdToRole(response.roleId),
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      
+
+      storage.setUser(user);
       dispatch({ type: 'LOGIN', payload: user });
-    } catch (error: any) {
+    } catch (error: unknown) {
       dispatch({ type: 'SET_LOADING', payload: false });
-      // Extract error message
-      const errorMessage = error?.response?.data?.message || error?.message || 'Registration failed';
-      throw new Error(errorMessage);
+      if (error instanceof Error) throw error;
+      throw new Error('Google authentication failed');
     }
   }, []);
 
+  const register = useCallback(
+    async (params: {
+      email: string;
+      otpCode: string;
+      password: string;
+      nationalId: string;
+      fullNameEn: string;
+      fullNameAr: string;
+      phone?: string;
+    }) => {
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      try {
+        const response = await authApi.verifyOtpAndRegister(params);
+        storage.setToken(response.accessToken);
+
+        const user: User = {
+          id: String(response.accountId),
+          name: params.fullNameEn || params.email.split('@')[0],
+          email: response.email,
+          role: mapRoleIdToRole(response.roleId),
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          phone: params.phone,
+        };
+
+        storage.setUser(user);
+        dispatch({ type: 'LOGIN', payload: user });
+      } catch (error: unknown) {
+        dispatch({ type: 'SET_LOADING', payload: false });
+        if (error instanceof Error) throw error;
+        throw new Error('Registration failed');
+      }
+    },
+    []
+  );
+
   const logout = useCallback(() => {
-    // Clear token and user data
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('auth_user');
+    storage.clear();
     dispatch({ type: 'LOGOUT' });
   }, []);
 
-  const updateUser = useCallback((updates: Partial<User>) => dispatch({ type: 'UPDATE_USER', payload: updates }), []);
-
+  const updateUser = useCallback(
+    (updates: Partial<User>) => dispatch({ type: 'UPDATE_USER', payload: updates }),
+    []
+  );
   const hasRole = useCallback((role: UserRole) => state.user?.role === role, [state.user?.role]);
 
   const hasAnyRole = useCallback((roles: UserRole[]) => state.user ? roles.includes(state.user.role) : false, [state.user]);
@@ -294,13 +332,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     () => ({
       ...state,
       login,
+      loginWithGoogle,
       register,
       logout,
       updateUser,
       hasRole,
       hasAnyRole,
     }),
-    [state, login, register, logout, updateUser, hasRole, hasAnyRole]
+    [state, login, loginWithGoogle, register, logout, updateUser, hasRole, hasAnyRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -21,6 +21,13 @@ http.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Add CSRF protection headers if needed
+    const csrfToken = localStorage.getItem('csrfToken');
+    if (csrfToken && config.headers) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+    
     return config;
   },
   (error: unknown) => Promise.reject(toApiError(error))
@@ -28,14 +35,37 @@ http.interceptors.request.use(
 
 // Response interceptor to handle errors
 http.interceptors.response.use(
-  (response: AxiosResponse) => response,
+  (response: AxiosResponse) => {
+    // Extract CSRF token from response headers if present
+    const csrfToken = response.headers['x-csrf-token'];
+    if (csrfToken) {
+      localStorage.setItem('csrfToken', csrfToken);
+    }
+    return response;
+  },
   (error: unknown) => {
     // Handle 401 Unauthorized - clear token and redirect to login
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('user');
-      // Optionally redirect to login page
-      // window.location.href = '/login';
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('auth_user');
+        // Redirect to login if not already there
+        if (window.location.pathname !== '/sign-in' && window.location.pathname !== '/sign-up') {
+          window.location.href = '/sign-in';
+        }
+      }
+      
+      // Handle 429 Too Many Requests
+      if (error.response?.status === 429) {
+        const retryAfter = error.response.headers['retry-after'];
+        console.warn(`Rate limited. Retry after ${retryAfter} seconds`);
+      }
+      
+      // Handle 423 Locked (Account locked)
+      if (error.response?.status === 423) {
+        console.error('Account is locked. Please try again later.');
+      }
     }
     return Promise.reject(toApiError(error));
   }

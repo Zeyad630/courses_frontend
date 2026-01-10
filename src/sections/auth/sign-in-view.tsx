@@ -18,6 +18,8 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { useGoogleAuth } from 'src/hooks/use-google-auth';
+
 import { useAuth } from 'src/contexts/simple-auth-context';
 
 import { Iconly } from 'src/components/iconly';
@@ -28,17 +30,55 @@ import { Iconify } from 'src/components/iconify';
 export function SignInView() {
   const router = useRouter();
   const theme = useTheme();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const { t } = useTranslation();
 
   const brandGradient = `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
 
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('admin@school.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+
+  // Google OAuth handler
+  const handleGoogleSuccess = useCallback(
+    async (token: string) => {
+      setGoogleLoading(false);
+      router.push('/dashboard');
+    },
+    [router]
+  );
+
+  const handleGoogleError = useCallback(
+    (err: Error) => {
+      setGoogleLoading(false);
+      setError(err.message || 'Google authentication failed');
+    },
+    []
+  );
+
+  const { signInWithGoogle, isGoogleLoaded } = useGoogleAuth(handleGoogleSuccess, handleGoogleError);
+
+  const handleGoogleSignIn = useCallback(async () => {
+    if (!isGoogleLoaded) {
+      setError('Google authentication is loading. Please try again in a moment.');
+      return;
+    }
+
+    setGoogleLoading(true);
+    setError('');
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      setGoogleLoading(false);
+      if (err instanceof Error) {
+        setError(err.message);
+      }
+    }
+  }, [signInWithGoogle, isGoogleLoaded]);
 
   const handleSignIn = useCallback(async () => {
     if (!email || !password) {
@@ -118,7 +158,8 @@ export function SignInView() {
             {t('auth.password')}
           </Typography>
           <Link
-            href="#"
+            component={RouterLink}
+            href="/forgot-password"
             variant="caption"
             sx={{
               color: 'primary.main',
@@ -292,74 +333,40 @@ export function SignInView() {
             letterSpacing: 0.5,
           }}
         >
-          {t('auth.continueWith')}
+          {t('auth.orContinueWith') || 'OR'}
         </Typography>
       </Divider>
 
-      {/* Social Login Buttons */}
-      <Box
+      {/* Google Sign In Button */}
+      <Button
+        fullWidth
+        variant="outlined"
+        size="large"
+        onClick={handleGoogleSignIn}
+        disabled={loading || googleLoading}
+        startIcon={<Iconify width={24} icon="flat-color-icons:google" />}
         sx={{
-          gap: 1.5,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          mb: 3,
+          py: 1.5,
+          fontSize: '0.95rem',
+          fontWeight: 600,
+          textTransform: 'none',
+          border: '2px solid',
+          borderColor: 'divider',
+          color: 'text.primary',
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            borderColor: 'primary.main',
+            bgcolor: alpha(theme.palette.primary.main, 0.08),
+            transform: 'translateY(-2px)',
+            boxShadow: `0 8px 20px ${alpha(theme.palette.primary.main, 0.15)}`,
+          },
+          '&:disabled': {
+            opacity: 0.6,
+          },
         }}
       >
-        <Button
-          fullWidth
-          variant="outlined"
-          sx={{
-            py: 1.2,
-            transition: 'all 0.3s ease',
-            border: '1px solid',
-            borderColor: 'divider',
-            '&:hover': {
-              borderColor: 'primary.main',
-              bgcolor: alpha(theme.palette.primary.main, 0.06),
-              transform: 'translateY(-2px)',
-              boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
-            },
-          }}
-        >
-          <Iconify width={24} icon="socials:google" />
-        </Button>
-        <Button
-          fullWidth
-          variant="outlined"
-          sx={{
-            py: 1.2,
-            transition: 'all 0.3s ease',
-            border: '1px solid',
-            borderColor: 'divider',
-            '&:hover': {
-              borderColor: 'primary.main',
-              bgcolor: alpha(theme.palette.primary.main, 0.06),
-              transform: 'translateY(-2px)',
-              boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
-            },
-          }}
-        >
-          <Iconify width={24} icon="socials:github" />
-        </Button>
-        <Button
-          fullWidth
-          variant="outlined"
-          sx={{
-            py: 1.2,
-            transition: 'all 0.3s ease',
-            border: '1px solid',
-            borderColor: 'divider',
-            '&:hover': {
-              borderColor: 'primary.main',
-              bgcolor: alpha(theme.palette.primary.main, 0.06),
-              transform: 'translateY(-2px)',
-              boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.12)}`,
-            },
-          }}
-        >
-          <Iconify width={24} icon="socials:twitter" />
-        </Button>
-      </Box>
+        {googleLoading ? t('auth.signingInWithGoogle') : t('auth.continueWithGoogle')}
+      </Button>
 
       {/* Sign Up Link */}
       <Box sx={{ textAlign: 'center' }}>
@@ -380,35 +387,6 @@ export function SignInView() {
         </Typography>
       </Box>
 
-      {/* Demo Credentials Info */}
-      <Box
-        sx={{
-          mt: 4,
-          p: 2,
-          borderRadius: 1.5,
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.16)}`,
-          bgcolor: alpha(theme.palette.primary.main, 0.06),
-        }}
-      >
-        <Typography
-          variant="caption"
-          sx={{ display: 'block', mb: 1, fontWeight: 700, color: 'text.secondary' }}
-        >
-          {t('auth.demoCredentials')}
-        </Typography>
-        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-          • {t('auth.admin')}: admin@school.com / admin123
-        </Typography>
-        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-          • {t('auth.instructor')}: instructor@school.com / instructor123
-        </Typography>
-        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-          • {t('auth.student')}: student@school.com / student123
-        </Typography>
-        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mt: 1 }}>
-          • {t('auth.demo')}: hello@gmail.com / @demo1234
-        </Typography>
-      </Box>
     </Box>
   );
 }

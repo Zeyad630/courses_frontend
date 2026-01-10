@@ -18,6 +18,8 @@ export const DashboardPage = lazy(() => import('src/pages/dashboard'));
 export const LandingPage = lazy(() => import('src/pages/landing'));
 export const SignInPage = lazy(() => import('src/pages/sign-in'));
 export const SignUpPage = lazy(() => import('src/pages/sign-up'));
+export const ForgotPasswordPage = lazy(() => import('src/pages/forgot-password'));
+export const ResetPasswordPage = lazy(() => import('src/pages/reset-password'));
 export const CoursesPage = lazy(() => import('src/pages/courses'));
 export const MyApplicationsPage = lazy(() => import('src/pages/my-applications'));
 export const AdminDashboardPage = lazy(() => import('src/pages/admin/dashboard'));
@@ -109,6 +111,26 @@ export const routesSection: RouteObject[] = [
       <AuthLayout>
         <Suspense fallback={renderFallback()}>
           <SignUpPage />
+        </Suspense>
+      </AuthLayout>
+    ),
+  },
+  {
+    path: 'forgot-password',
+    element: (
+      <AuthLayout>
+        <Suspense fallback={renderFallback()}>
+          <ForgotPasswordPage />
+        </Suspense>
+      </AuthLayout>
+    ),
+  },
+  {
+    path: 'reset-password',
+    element: (
+      <AuthLayout>
+        <Suspense fallback={renderFallback()}>
+          <ResetPasswordPage />
         </Suspense>
       </AuthLayout>
     ),

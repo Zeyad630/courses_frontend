@@ -66,7 +66,16 @@
     "admin": "Admin",
     "instructor": "Instructor",
     "student": "Student",
-    "demo": "Demo"
+    "demo": "Demo",
+    "continueWithGoogle": "Continue with Google",
+    "signingInWithGoogle": "Signing in with Google...",
+    "orContinueWith": "OR",
+    "forgotPasswordDescription": "Enter your email address and we will send you a link to reset your password.",
+    "sendResetLink": "Send Reset Link",
+    "sending": "Sending...",
+    "rememberPassword": "Remember your password?",
+    "passwordResetEmailSent": "If the email exists, a password reset link has been sent. Please check your inbox.",
+    "backToSignIn": "Back to Sign In"
   },
   "dashboard": {
     "dashboard": "Dashboard",

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { OTPInput, REGEXP_ONLY_DIGITS, type SlotProps } from 'input-otp';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -15,9 +16,13 @@ import InputAdornment from '@mui/material/InputAdornment';
 import { useRouter } from 'src/routes/hooks';
 import { RouterLink } from 'src/routes/components';
 
+import { validatePassword } from 'src/utils/password-strength';
+
+import { authApi } from 'src/api';
 import { useAuth } from 'src/contexts/simple-auth-context';
 
 import { Iconly } from 'src/components/iconly';
+import { PasswordStrengthIndicator } from 'src/components/password-strength-indicator';
 
 type Step = 'form' | 'otp';
 
@@ -31,8 +36,11 @@ export function SignUpView() {
 
   const [step, setStep] = useState<Step>('form');
 
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [fullNameEn, setFullNameEn] = useState('');
+  const [fullNameAr, setFullNameAr] = useState('');
+  const [nationalId, setNationalId] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
@@ -40,10 +48,10 @@ export function SignUpView() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [otp, setOtp] = useState('');
-  const [otpToken, setOtpToken] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState(() => validatePassword(''));
 
   const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -58,14 +66,23 @@ export function SignUpView() {
   };
 
   const validateForm = useCallback(() => {
-    if (!name.trim()) return t('validation.required');
-    if (!email.trim()) return t('validation.required');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return t('validation.invalidEmail');
-    if (!password) return t('validation.required');
-    if (password.length < 8) return t('validation.passwordTooShort');
-    if (password !== confirmPassword) return t('validation.passwordMismatch');
+    if (!fullNameEn.trim()) return t('validation.fullNameEnRequired') || 'Full name (English) is required';
+    if (!fullNameAr.trim()) return t('validation.fullNameArRequired') || 'Full name (Arabic) is required';
+    if (!email.trim()) return t('validation.emailRequired') || 'Email is required';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return t('validation.invalidEmail') || 'Invalid email format';
+    if (!nationalId.trim()) return t('validation.nationalIdRequired') || 'National ID is required';
+    if (!phone.trim()) return t('validation.phoneRequired') || 'Phone is required';
+    if (!password) return t('validation.passwordRequired') || 'Password is required';
+    
+    // Use password strength validator
+    const strength = validatePassword(password);
+    if (!strength.isValid) {
+      return strength.feedback[0] || 'Password does not meet requirements';
+    }
+    
+    if (password !== confirmPassword) return t('validation.passwordMismatch') || 'Passwords do not match';
     return '';
-  }, [confirmPassword, email, name, password, t]);
+  }, [confirmPassword, email, fullNameAr, fullNameEn, nationalId, password, phone, t]);
 
   const sendOtp = useCallback(async () => {
     const validationError = validateForm();
@@ -79,41 +96,20 @@ export function SignUpView() {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name }),
-      });
-
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as { message?: string } | null;
-        throw new Error(data?.message || t('messages.savingError'));
-      }
-
-      const data = (await res.json()) as { token: string };
-      setOtpToken(data.token);
+      await authApi.sendOtp({ email });
       setStep('otp');
     } catch (err) {
       if (err instanceof Error) {
-        if (err.message === 'Failed to send email') {
-          setError(t('auth.otpSendFailed'));
-        } else {
-          setError(err.message);
-        }
+        setError(err.message);
       } else {
         setError(t('messages.savingError'));
       }
     } finally {
       setLoading(false);
     }
-  }, [email, name, t, validateForm]);
+  }, [email, t, validateForm]);
 
   const verifyOtpAndCreateAccount = useCallback(async () => {
-    if (!otpToken) {
-      setError(t('messages.savingError'));
-      return;
-    }
-
     if (!otp.trim()) {
       setError(t('validation.required'));
       return;
@@ -123,37 +119,125 @@ export function SignUpView() {
     setError('');
 
     try {
-      const res = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: otpToken, otp }),
+      await register({
+        email,
+        otpCode: otp,
+        password,
+        nationalId,
+        fullNameEn,
+        fullNameAr,
+        phone,
       });
-
-      if (!res.ok) {
-        const data = (await res.json().catch(() => null)) as { message?: string } | null;
-        throw new Error(data?.message || t('auth.otpInvalid'));
-      }
-
-      await register({ email, name, password });
       router.push('/dashboard');
     } catch (err) {
       if (err instanceof Error) {
-        if (err.message === 'Email is already registered') {
-          setError(t('auth.emailAlreadyRegistered'));
-        } else if (err.message === 'OTP expired') {
-          setError(t('auth.otpExpired'));
-        } else if (err.message === 'Invalid OTP') {
-          setError(t('auth.otpInvalid'));
-        } else {
-          setError(err.message);
-        }
+        setError(err.message);
       } else {
         setError(t('messages.savingError'));
       }
     } finally {
       setLoading(false);
     }
-  }, [email, name, otp, otpToken, password, register, router, t]);
+  }, [email, fullNameAr, fullNameEn, nationalId, otp, password, phone, register, router, t]);
+
+  const renderOtpSlots = useCallback(
+    ({ slots }: { slots: SlotProps[] }) => (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex' }}>
+          {slots.slice(0, 3).map((slot, idx) => (
+            <OtpSlot key={idx} slot={slot} index={idx} />
+          ))}
+        </Box>
+
+        <Box sx={{ width: 24, display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ width: 10, height: 4, borderRadius: 999, bgcolor: 'divider' }} />
+        </Box>
+
+        <Box sx={{ display: 'flex' }}>
+          {slots.slice(3).map((slot, idx) => (
+            <OtpSlot key={idx} slot={slot} index={idx + 3} />
+          ))}
+        </Box>
+      </Box>
+    ),
+    []
+  );
+
+  const OtpSlot = useCallback(
+    ({ slot }: { slot: SlotProps; index: number }) => {
+      const showPlaceholder = Boolean((slot as any).placeholderChar) && !(slot as any).char;
+
+      return (
+        <Box
+          sx={{
+            position: 'relative',
+            width: 44,
+            height: 56,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderTop: '1px solid',
+            borderBottom: '1px solid',
+            borderRight: '1px solid',
+            borderColor: (slot as any).isActive ? 'primary.main' : 'divider',
+            '&:first-of-type': {
+              borderLeft: '1px solid',
+              borderTopLeftRadius: 12,
+              borderBottomLeftRadius: 12,
+            },
+            '&:last-of-type': {
+              borderTopRightRadius: 12,
+              borderBottomRightRadius: 12,
+            },
+            bgcolor: alpha(theme.palette.background.paper, 0.6),
+            backdropFilter: 'blur(10px)',
+            transition: theme.transitions.create(['border-color', 'box-shadow', 'transform'], {
+              duration: theme.transitions.duration.shorter,
+            }),
+            ...(slot as any).isActive
+              ? {
+                  boxShadow: `0 0 0 4px ${alpha(theme.palette.primary.main, 0.18)}`,
+                  transform: 'translateY(-1px)',
+                }
+              : null,
+          }}
+        >
+          <Typography
+            variant="h5"
+            sx={{
+              fontWeight: 800,
+              letterSpacing: 0.5,
+              opacity: showPlaceholder ? 0.25 : 1,
+              color: 'text.primary',
+            }}
+          >
+            {(slot as any).char ?? (slot as any).placeholderChar ?? ''}
+          </Typography>
+
+          {(slot as any).hasFakeCaret && (
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                pointerEvents: 'none',
+                '@keyframes otp-caret': {
+                  '0%,70%,100%': { opacity: 1 },
+                  '20%,50%': { opacity: 0 },
+                },
+                animation: 'otp-caret 1.2s ease-out infinite',
+              }}
+            >
+              <Box sx={{ width: 2, height: 28, bgcolor: 'text.primary', borderRadius: 999 }} />
+            </Box>
+          )}
+        </Box>
+      );
+    },
+    [theme]
+  );
 
   const renderHeader = (
     <Box
@@ -196,11 +280,11 @@ export function SignUpView() {
 
       <TextField
         fullWidth
-        name="name"
-        label={t('auth.fullName')}
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder={t('auth.fullNamePlaceholder')}
+        name="fullNameEn"
+        label="Full name (English)"
+        value={fullNameEn}
+        onChange={(e) => setFullNameEn(e.target.value)}
+        placeholder="John Doe"
         sx={inputSx}
         slotProps={{
           inputLabel: { shrink: true },
@@ -212,6 +296,41 @@ export function SignUpView() {
             ),
           },
         }}
+      />
+
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+        <TextField
+          fullWidth
+          name="nationalId"
+          label="National ID"
+          value={nationalId}
+          onChange={(e) => setNationalId(e.target.value)}
+          placeholder="123456789"
+          sx={inputSx}
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+
+        <TextField
+          fullWidth
+          name="phone"
+          label="Phone"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="+1234567890"
+          sx={inputSx}
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+      </Box>
+
+      <TextField
+        fullWidth
+        name="fullNameAr"
+        label="Full name (Arabic)"
+        value={fullNameAr}
+        onChange={(e) => setFullNameAr(e.target.value)}
+        placeholder="جون دو"
+        sx={inputSx}
+        slotProps={{ inputLabel: { shrink: true } }}
       />
 
       <TextField
@@ -234,37 +353,43 @@ export function SignUpView() {
         }}
       />
 
-      <TextField
-        fullWidth
-        name="password"
-        label={t('auth.password')}
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        type={showPassword ? 'text' : 'password'}
-        placeholder="••••••••"
-        sx={inputSx}
-        slotProps={{
-          inputLabel: { shrink: true },
-          input: {
-            startAdornment: (
-              <InputAdornment position="start">
-                <Iconly name="Password" size={20} sx={{ mr: 1, color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton
-                  onClick={() => setShowPassword(!showPassword)}
-                  edge="end"
-                  sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                >
-                  <Iconly name={showPassword ? 'Show' : 'Hide'} size={20} />
-                </IconButton>
-              </InputAdornment>
-            ),
-          },
-        }}
-      />
+      <Box>
+        <TextField
+          fullWidth
+          name="password"
+          label={t('auth.password')}
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setPasswordStrength(validatePassword(e.target.value));
+          }}
+          type={showPassword ? 'text' : 'password'}
+          placeholder="••••••••"
+          sx={inputSx}
+          slotProps={{
+            inputLabel: { shrink: true },
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Iconly name="Password" size={20} sx={{ mr: 1, color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPassword(!showPassword)}
+                    edge="end"
+                    sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                  >
+                    <Iconly name={showPassword ? 'Show' : 'Hide'} size={20} />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+        {password && <PasswordStrengthIndicator strength={passwordStrength} />}
+      </Box>
 
       <TextField
         fullWidth
@@ -356,16 +481,16 @@ export function SignUpView() {
 
       <Alert severity="info">{t('auth.otpSent')}</Alert>
 
-      <TextField
-        fullWidth
-        name="otp"
-        label={t('auth.otpCode')}
-        value={otp}
-        onChange={(e) => setOtp(e.target.value)}
-        placeholder="123456"
-        sx={inputSx}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
+      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+        <OTPInput
+          maxLength={6}
+          value={otp}
+          onChange={setOtp}
+          inputMode="numeric"
+          pattern={REGEXP_ONLY_DIGITS}
+          render={renderOtpSlots}
+        />
+      </Box>
 
       <Button
         fullWidth
@@ -430,7 +555,6 @@ export function SignUpView() {
         onClick={() => {
           setStep('form');
           setOtp('');
-          setOtpToken(null);
           setError('');
         }}
         sx={{ textTransform: 'none', fontWeight: 600 }}
