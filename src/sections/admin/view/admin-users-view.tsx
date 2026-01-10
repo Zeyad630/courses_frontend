@@ -1,12 +1,13 @@
 import type { ApexOptions } from 'apexcharts';
 import type { User, UserRole } from 'src/types/user';
 
-import { useState } from 'react';
 import Chart from 'react-apexcharts';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import Table from '@mui/material/Table';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
@@ -85,25 +86,115 @@ const getRoleColor = (role: UserRole) => {
 
 export function AdminUsersView() {
   const theme = useTheme();
-  const [users, setUsers] = useState(mockUsers);
+  const [users, setUsers] = useState<User[]>(mockUsers);
   const [openDialog, setOpenDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'student' as UserRole });
+  const [query, setQuery] = useState('');
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
-  const handleAddUser = () => {
-    const user: User = {
-      id: `new_${Date.now()}`,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      avatar: `/assets/images/avatar/avatar-${Math.floor(Math.random() * 20) + 1}.webp`,
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+
+    const t = setTimeout(() => {
+      if (!active) return;
+      setIsLoading(false);
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(t);
     };
-    setUsers([...users, user]);
-    setOpenDialog(false);
+  }, []);
+
+  const filteredUsers = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return users;
+
+    return users.filter((u) => {
+      const name = u.name?.toLowerCase() ?? '';
+      const email = u.email?.toLowerCase() ?? '';
+      const role = u.role?.toLowerCase() ?? '';
+      return name.includes(q) || email.includes(q) || role.includes(q);
+    });
+  }, [query, users]);
+
+  const openCreateDialog = useCallback(() => {
+    setEditingUserId(null);
     setNewUser({ name: '', email: '', role: 'student' });
-  };
+    setOpenDialog(true);
+  }, []);
+
+  const openEditDialog = useCallback(
+    (user: User) => {
+      setEditingUserId(String(user.id));
+      setNewUser({ name: user.name ?? '', email: user.email ?? '', role: user.role ?? 'student' });
+      setOpenDialog(true);
+    },
+    []
+  );
+
+  const handleDeleteUser = useCallback((id: string) => {
+    setUsers((prev) => prev.filter((u) => String(u.id) !== id));
+  }, []);
+
+  const handleCloseDialog = useCallback(() => {
+    setOpenDialog(false);
+    setEditingUserId(null);
+    setNewUser({ name: '', email: '', role: 'student' });
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setIsLoading(true);
+
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 250);
+  }, []);
+
+  const handleSaveUser = useCallback(() => {
+    const name = newUser.name.trim();
+    const email = newUser.email.trim();
+
+    if (!name || !email) {
+      setError('Please provide name and email.');
+      return;
+    }
+
+    if (editingUserId) {
+      setUsers((prev) =>
+        prev.map((u) =>
+          String(u.id) === editingUserId
+            ? {
+                ...u,
+                name,
+                email,
+                role: newUser.role,
+                updatedAt: new Date(),
+              }
+            : u
+        )
+      );
+    } else {
+      const user: User = {
+        id: `new_${Date.now()}`,
+        name,
+        email,
+        role: newUser.role,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        avatar: `/assets/images/avatar/avatar-${Math.floor(Math.random() * 20) + 1}.webp`,
+      };
+      setUsers((prev) => [user, ...prev]);
+    }
+
+    setError(null);
+    handleCloseDialog();
+  }, [editingUserId, handleCloseDialog, newUser.email, newUser.name, newUser.role]);
 
   const chartOptions: ApexOptions = {
     chart: {
@@ -189,6 +280,31 @@ export function AdminUsersView() {
   return (
     <DashboardContent>
       <Container maxWidth="xl">
+        {error && (
+          <Box sx={{ mb: 3 }}>
+            <Alert
+              severity="error"
+              action={
+                <Button color="inherit" size="small" onClick={handleRetry}>
+                  Retry
+                </Button>
+              }
+            >
+              {error}
+            </Alert>
+          </Box>
+        )}
+
+        {isLoading && (
+          <Box sx={{ mb: 3 }}>
+            <Card sx={{ p: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+                Loading users...
+              </Typography>
+            </Card>
+          </Box>
+        )}
+
         <Box
           sx={{
             mb: 5,
@@ -231,9 +347,22 @@ export function AdminUsersView() {
           <Button
             variant="contained"
             startIcon={<Iconify icon="solar:user-plus-bold-duotone" />}
-            onClick={() => setOpenDialog(true)}
+            onClick={openCreateDialog}
           >
             New User
+          </Button>
+        </Box>
+
+        <Box sx={{ mb: 3, display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 260px' } }}>
+          <TextField
+            label="Search users"
+            placeholder="Search by name, email, or role"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            fullWidth
+          />
+          <Button variant="outlined" color="inherit" onClick={() => setQuery('')} sx={{ fontWeight: 800 }}>
+            Clear
           </Button>
         </Box>
 
@@ -319,58 +448,68 @@ export function AdminUsersView() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id} hover>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Avatar src={user.avatar} alt={user.name} />
-                        <Box>
-                          <Typography variant="subtitle2" noWrap>
-                            {user.name}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" noWrap>
-                            {user.email}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.role.toUpperCase()}
-                        color={getRoleColor(user.role)}
-                        size="small"
-                        variant="filled"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.isActive ? 'Active' : 'Inactive'}
-                        color={user.isActive ? 'success' : 'default'}
-                        size="small"
-                        variant="filled"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {user.createdAt.toLocaleDateString()}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Button size="small" color="inherit">
-                        <Iconify icon="solar:pen-bold-duotone" />
-                      </Button>
-                      <Button size="small" color="error">
-                        <Iconify icon="solar:trash-bin-trash-bold-duotone" />
-                      </Button>
+                {filteredUsers.length === 0 && !isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5}>
+                      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                        No users found.
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id} hover>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Avatar src={user.avatar} alt={user.name} />
+                          <Box>
+                            <Typography variant="subtitle2" noWrap>
+                              {user.name}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" noWrap>
+                              {user.email}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.role.toUpperCase()}
+                          color={getRoleColor(user.role)}
+                          size="small"
+                          variant="filled"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={user.isActive ? 'Active' : 'Inactive'}
+                          color={user.isActive ? 'success' : 'default'}
+                          size="small"
+                          variant="filled"
+                        />
+                      </TableCell>
+                      <TableCell>{user.createdAt.toLocaleDateString()}</TableCell>
+                      <TableCell align="right">
+                        <Button size="small" color="inherit" onClick={() => openEditDialog(user)}>
+                          <Iconify icon="solar:pen-bold-duotone" />
+                        </Button>
+                        <Button size="small" color="error" onClick={() => handleDeleteUser(String(user.id))}>
+                          <Iconify icon="solar:trash-bin-trash-bold-duotone" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
         </Card>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+        <Dialog open={openDialog} onClose={handleCloseDialog}>
           <Box sx={{ p: 3, minWidth: 400 }}>
-            <Typography variant="h6" sx={{ mb: 3 }}>Add New User</Typography>
+            <Typography variant="h6" sx={{ mb: 3 }}>
+              {editingUserId ? 'Edit User' : 'Add New User'}
+            </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField 
                 label="Name" 
@@ -397,8 +536,10 @@ export function AdminUsersView() {
                 <option value="admin">Admin</option>
               </TextField>
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-                <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-                <Button variant="contained" onClick={handleAddUser}>Add User</Button>
+                <Button onClick={handleCloseDialog}>Cancel</Button>
+                <Button variant="contained" onClick={handleSaveUser}>
+                  {editingUserId ? 'Save' : 'Add User'}
+                </Button>
               </Box>
             </Box>
           </Box>

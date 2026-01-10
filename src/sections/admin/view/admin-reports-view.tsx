@@ -1,9 +1,12 @@
 import type { ApexOptions } from 'apexcharts';
 
 import Chart from 'react-apexcharts';
+import { useCallback, useEffect, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
@@ -67,6 +70,29 @@ const mockPopularCourses = [
 
 export function AdminReportsView() {
   const theme = useTheme();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+
+    const t = setTimeout(() => {
+      if (!active) return;
+      setIsLoading(false);
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setIsLoading(true);
+    setTimeout(() => setIsLoading(false), 250);
+  }, []);
 
   const chartOptions: ApexOptions = {
     chart: {
@@ -151,6 +177,31 @@ export function AdminReportsView() {
   return (
     <DashboardContent>
       <Container maxWidth="xl">
+        {error && (
+          <Box sx={{ mb: 3 }}>
+            <Alert
+              severity="error"
+              action={
+                <Button color="inherit" size="small" onClick={handleRetry}>
+                  Retry
+                </Button>
+              }
+            >
+              {error}
+            </Alert>
+          </Box>
+        )}
+
+        {isLoading && (
+          <Box sx={{ mb: 3 }}>
+            <Card sx={{ p: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+                Loading reports...
+              </Typography>
+            </Card>
+          </Box>
+        )}
+
         <Box
           sx={{
             mb: 5,

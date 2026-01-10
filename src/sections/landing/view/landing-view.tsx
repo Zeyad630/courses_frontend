@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { Theme } from '@mui/material/styles';
 
 import { varAlpha } from 'minimal-shared/utils';
@@ -11,13 +12,10 @@ import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Toolbar from '@mui/material/Toolbar';
 import Container from '@mui/material/Container';
-import Accordion from '@mui/material/Accordion';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 import Card, { cardClasses } from '@mui/material/Card';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import AccordionSummary from '@mui/material/AccordionSummary';
 import { alpha, useTheme, keyframes } from '@mui/material/styles';
 
 import { RouterLink } from 'src/routes/components';
@@ -49,7 +47,7 @@ type Feature = {
   icon: string;
 };
 
-function Reveal({ children }: { children: React.ReactNode }) {
+function Reveal({ children }: { children: ReactNode }) {
   const { ref, isInView } = useInView<HTMLDivElement>({ threshold: 0.18 });
 
   return (
@@ -242,8 +240,8 @@ export function LandingView() {
               <Button color="inherit" onClick={() => scrollToId('workflow')} sx={{ fontWeight: 700 }}>
                 Workflow
               </Button>
-              <Button color="inherit" onClick={() => scrollToId('faq')} sx={{ fontWeight: 700 }}>
-                FAQ
+              <Button color="inherit" onClick={() => scrollToId('outcomes')} sx={{ fontWeight: 700 }}>
+                Outcomes
               </Button>
             </Stack>
 
@@ -899,68 +897,147 @@ export function LandingView() {
         </Container>
       </Box>
 
-      <Container id="faq" maxWidth="lg" sx={{ py: { xs: 8, md: 10 } }}>
-        <Reveal>
-          <Stack spacing={1} sx={{ mb: 4 }}>
-            <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 900 }}>
-              FAQ
-            </Typography>
-            <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: -0.8 }}>
-              Questions, answered
-            </Typography>
-          </Stack>
-        </Reveal>
+      <Box id="outcomes" sx={{ py: { xs: 8, md: 10 } }}>
+        <Container maxWidth="lg">
+          <Reveal>
+            <Stack spacing={1} sx={{ mb: 4 }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary', fontWeight: 900 }}>
+                OUTCOMES
+              </Typography>
+              <Typography variant="h3" sx={{ fontWeight: 900, letterSpacing: -0.8 }}>
+                A platform built for real results
+              </Typography>
+              <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 780, lineHeight: 1.8 }}>
+                Learn in structured rounds, stay on track with progress indicators, and build confidence with live sessions and
+                materials—all inside one modern experience.
+              </Typography>
+            </Stack>
+          </Reveal>
 
-        <Stack spacing={1.5}>
-          {[
-            {
-              q: 'Is the landing page theme consistent with the dashboard?',
-              a: 'Yes. It uses the same MUI theme variables and the same palette system you already have in the app.',
-            },
-            {
-              q: 'Can we add more advanced “React Bits” style interactions?',
-              a: 'Yes. We can progressively add more interactive blocks (hover effects, scroll effects, text animations) as standalone components while staying aligned with the theme.',
-            },
-            {
-              q: 'Will this affect protected routes?',
-              a: 'No. The dashboard pages remain protected by AuthGuard. The landing page is public and routes cleanly to sign-in/sign-up.',
-            },
-          ].map((item) => (
-            <Reveal key={item.q}>
-              <Accordion
-                disableGutters
-                elevation={0}
-                sx={{
-                  borderRadius: 2,
-                  border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.16)}`,
-                  bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.65),
-                  backdropFilter: 'blur(12px)',
-                  '&::before': { display: 'none' },
-                }}
-              >
-                <AccordionSummary
-                  expandIcon={<Iconly name="Arrow - Down 2" size={20} />}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+              gap: 2.25,
+            }}
+          >
+            {[
+              {
+                title: 'Student clarity',
+                icon: 'Folder',
+                description: 'Know exactly what to do next: materials, assignments, progress, and upcoming live sessions in one place.',
+              },
+              {
+                title: 'Instructor control',
+                icon: 'Paper',
+                description: 'Manage rounds, students, and content with a clean workflow designed for real teaching operations.',
+              },
+              {
+                title: 'Admin oversight',
+                icon: 'Chart',
+                description: 'Monitor the platform with dashboards and reports, and keep courses and operations moving smoothly.',
+              },
+              {
+                title: 'Secure by design',
+                icon: 'Shield Done',
+                description: 'Role-based dashboards and protected routes keep the right tools in the right hands.',
+              },
+            ].map((item) => (
+              <Reveal key={item.title}>
+                <Card
+                  variant="outlined"
                   sx={{
-                    px: 2,
-                    '& .MuiAccordionSummary-content': {
-                      my: 1.5,
+                    borderRadius: 3,
+                    borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.18),
+                    bgcolor: varAlpha(theme.vars.palette.background.paperChannel, 0.7),
+                    backdropFilter: 'blur(14px)',
+                    overflow: 'hidden',
+                    p: 1,
+                    transition: theme.transitions.create(['transform', 'box-shadow', 'border-color'], { duration: 220 }),
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      borderColor: varAlpha(theme.vars.palette.primary.mainChannel, 0.32),
+                      boxShadow: `0 18px 40px ${varAlpha(theme.vars.palette.common.blackChannel, 0.14)}`,
                     },
                   }}
                 >
-                  <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-                    {item.q}
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails sx={{ px: 2, pb: 2.25 }}>
-                  <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.8 }}>
-                    {item.a}
-                  </Typography>
-                </AccordionDetails>
-              </Accordion>
-            </Reveal>
-          ))}
-        </Stack>
-      </Container>
+                  <CardContent>
+                    <Stack spacing={1.25}>
+                      <Stack direction="row" spacing={1.25} alignItems="center">
+                        <Box
+                          sx={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 2,
+                            display: 'grid',
+                            placeItems: 'center',
+                            bgcolor: varAlpha(theme.vars.palette.primary.mainChannel, 0.10),
+                            border: `1px solid ${varAlpha(theme.vars.palette.primary.mainChannel, 0.18)}`,
+                          }}
+                        >
+                          <Iconly name={item.icon as any} size={22} sx={{ color: 'primary.main' }} />
+                        </Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                          {item.title}
+                        </Typography>
+                      </Stack>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.7 }}>
+                        {item.description}
+                      </Typography>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Reveal>
+            ))}
+          </Box>
+
+          <Reveal>
+            <Stack
+              direction={{ xs: 'column', md: 'row' }}
+              spacing={2}
+              sx={{
+                mt: 4,
+                p: 3,
+                borderRadius: 3,
+                border: `1px solid ${varAlpha(theme.vars.palette.grey['500Channel'], 0.18)}`,
+                bgcolor: varAlpha(theme.vars.palette.background.defaultChannel, 0.7),
+                backdropFilter: 'blur(14px)',
+                alignItems: { md: 'center' },
+                justifyContent: 'space-between',
+              }}
+            >
+              <Stack spacing={0.75}>
+                <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                  Explore the platform today
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  Create an account and get your role-based dashboard instantly.
+                </Typography>
+              </Stack>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
+                <Button component={RouterLink} href="/sign-up" variant="contained" size="large" sx={{ fontWeight: 900, px: 3 }}>
+                  Create account
+                </Button>
+                <Button
+                  component={RouterLink}
+                  href="/sign-in"
+                  variant="outlined"
+                  color="inherit"
+                  size="large"
+                  sx={{
+                    fontWeight: 900,
+                    px: 3,
+                    borderColor: varAlpha(theme.vars.palette.grey['500Channel'], 0.22),
+                  }}
+                >
+                  Sign in
+                </Button>
+              </Stack>
+            </Stack>
+          </Reveal>
+        </Container>
+      </Box>
 
       <Box
         sx={{

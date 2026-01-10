@@ -1,7 +1,7 @@
 import type { ApexOptions } from 'apexcharts';
 
-import { useState } from 'react';
 import Chart from 'react-apexcharts';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -9,6 +9,7 @@ import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Tabs from '@mui/material/Tabs';
 import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
 import Table from '@mui/material/Table';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -132,11 +133,108 @@ function TabPanel(props: any) {
 export function AdminDashboardAdvanced() {
   const { user } = useAuth();
   const theme = useTheme();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
   const [analytics] = useState(mockAnalytics);
   const [recentApplications] = useState(mockRecentApplications);
   const [topCourses] = useState(mockTopCourses);
   const [systemMetrics] = useState(mockSystemMetrics);
+
+  const latestApplications = useMemo(
+    () =>
+      [...recentApplications]
+        .sort((a, b) => b.appliedAt.getTime() - a.appliedAt.getTime())
+        .slice(0, 3),
+    [recentApplications]
+  );
+
+  const rankedTopCourses = useMemo(
+    () => [...topCourses].sort((a, b) => b.revenue - a.revenue),
+    [topCourses]
+  );
+
+  const getSystemStatusMeta = useCallback(
+    (status: string) => {
+      switch (status) {
+        case 'excellent':
+          return {
+            color: 'success' as const,
+            icon: 'solar:shield-check-bold-duotone',
+            surface: alpha(theme.palette.success.lighter, 0.32),
+            border: alpha(theme.palette.success.main, 0.35),
+          };
+        case 'good':
+          return {
+            color: 'info' as const,
+            icon: 'solar:check-circle-bold-duotone',
+            surface: alpha(theme.palette.info.lighter, 0.28),
+            border: alpha(theme.palette.info.main, 0.3),
+          };
+        case 'warning':
+          return {
+            color: 'warning' as const,
+            icon: 'solar:danger-circle-bold-duotone',
+            surface: alpha(theme.palette.warning.lighter, 0.28),
+            border: alpha(theme.palette.warning.main, 0.3),
+          };
+        default:
+          return {
+            color: 'error' as const,
+            icon: 'solar:danger-triangle-bold-duotone',
+            surface: alpha(theme.palette.error.lighter, 0.24),
+            border: alpha(theme.palette.error.main, 0.32),
+          };
+      }
+    },
+    [theme]
+  );
+
+  const systemHealth = useMemo(() => {
+    const counts = systemMetrics.reduce(
+      (acc, m) => {
+        acc[m.status] = (acc[m.status] ?? 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    const score = systemMetrics.reduce((acc, m) => {
+      if (m.status === 'excellent') return acc + 100;
+      if (m.status === 'good') return acc + 85;
+      if (m.status === 'warning') return acc + 65;
+      return acc + 45;
+    }, 0);
+
+    const pct = systemMetrics.length ? Math.round(score / systemMetrics.length) : 0;
+    const isOperational = (counts.warning ?? 0) === 0 && (counts.error ?? 0) === 0 && (counts.critical ?? 0) === 0;
+
+    return { counts, pct, isOperational };
+  }, [systemMetrics]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+
+    const t = setTimeout(() => {
+      if (!active) return;
+      setIsLoading(false);
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setIsLoading(true);
+
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+  }, []);
 
   const statsCards = [
     {
@@ -241,6 +339,31 @@ export function AdminDashboardAdvanced() {
   return (
     <DashboardContent>
       <Container maxWidth="xl">
+        {error && (
+          <Box sx={{ mb: 3 }}>
+            <Alert
+              severity="error"
+              action={
+                <Button color="inherit" size="small" onClick={handleRetry}>
+                  Retry
+                </Button>
+              }
+            >
+              {error}
+            </Alert>
+          </Box>
+        )}
+
+        {isLoading && (
+          <Box sx={{ mb: 3 }}>
+            <Card sx={{ p: 2 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+                Loading dashboard...
+              </Typography>
+            </Card>
+          </Box>
+        )}
+
         {/* Header Section */}
         <Box
           sx={{
@@ -397,50 +520,70 @@ export function AdminDashboardAdvanced() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {recentApplications.map((app) => (
-                    <TableRow key={app.id} sx={{ '&:hover': { bgcolor: alpha(theme.palette.primary.lighter, 0.2) } }}>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Avatar sx={{ bgcolor: 'primary.lighter', color: 'primary.dark', width: 40, height: 40, fontWeight: 'bold' }}>
-                            {app.avatar}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{app.studentName}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {app.studentEmail}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell>{app.courseName}</TableCell>
-                      <TableCell>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'success.main' }}>
-                          ${app.coursePrice}
+                  {latestApplications.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5}>
+                        <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+                          No recent applications.
                         </Typography>
                       </TableCell>
-                      <TableCell>{app.appliedAt.toLocaleDateString()}</TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                          <Button
-                            variant="outlined"
-                            color="primary"
-                            size="small"
-                            startIcon={<Iconify icon="solar:eye-bold" width={16} />}
-                          >
-                            Review
-                          </Button>
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            size="small"
-                            startIcon={<Iconify icon="solar:trash-bin-trash-bold" width={16} />}
-                          >
-                            Reject
-                          </Button>
-                        </Stack>
-                      </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    latestApplications.map((app) => (
+                      <TableRow key={app.id} sx={{ '&:hover': { bgcolor: alpha(theme.palette.primary.lighter, 0.2) } }}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Avatar
+                              sx={{
+                                bgcolor: 'primary.lighter',
+                                color: 'primary.dark',
+                                width: 40,
+                                height: 40,
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              {app.avatar}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                {app.studentName}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {app.studentEmail}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{app.courseName}</TableCell>
+                        <TableCell>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'success.main' }}>
+                            ${app.coursePrice}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{app.appliedAt.toLocaleDateString()}</TableCell>
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Button
+                              variant="outlined"
+                              color="primary"
+                              size="small"
+                              startIcon={<Iconify icon="solar:eye-bold" width={16} />}
+                            >
+                              Review
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              size="small"
+                              startIcon={<Iconify icon="solar:trash-bin-trash-bold" width={16} />}
+                            >
+                              Reject
+                            </Button>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -449,8 +592,8 @@ export function AdminDashboardAdvanced() {
           {/* Top Courses Tab */}
           <TabPanel value={tabValue} index={1}>
             <Grid container spacing={3}>
-              {topCourses.map((course) => (
-                <Grid key={course.id} size={{ xs: 12, md: 4}}>
+              {rankedTopCourses.map((course, idx) => (
+                <Grid key={course.id} size={{ xs: 12, md: 4 }}>
                   <Paper
                     sx={{
                       p: 3,
@@ -466,9 +609,18 @@ export function AdminDashboardAdvanced() {
                       },
                     }}
                   >
-                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                      {course.title}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                        {course.title}
+                      </Typography>
+                      <Chip
+                        label={`#${idx + 1}`}
+                        size="small"
+                        color={idx === 0 ? 'success' : idx === 1 ? 'info' : 'default'}
+                        variant={idx === 0 ? 'filled' : 'outlined'}
+                        sx={{ fontWeight: 900 }}
+                      />
+                    </Box>
 
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 3 }}>
                       <Iconify icon="solar:user-circle-bold" width={14} />
@@ -506,6 +658,34 @@ export function AdminDashboardAdvanced() {
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           Completion
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr 1fr',
+                        gap: 1,
+                        mb: 2.5,
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Iconify icon="solar:users-group-rounded-bold" width={16} />
+                        <Typography variant="caption" color="text.secondary">
+                          {(course.revenue / Math.max(course.students, 1)).toFixed(0)} / student
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Iconify icon="solar:money-bag-bold-duotone" width={16} />
+                        <Typography variant="caption" color="text.secondary">
+                          ${(course.revenue / 1000).toFixed(1)}k gross
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Iconify icon="solar:star-bold" width={16} />
+                        <Typography variant="caption" color="text.secondary">
+                          {course.rating} avg
                         </Typography>
                       </Box>
                     </Box>
@@ -550,48 +730,98 @@ export function AdminDashboardAdvanced() {
 
           {/* System Health Tab */}
           <TabPanel value={tabValue} index={2}>
-            <Grid container spacing={3}>
-              {systemMetrics.map((metric, index) => (
-                <Grid key={index} size={{ xs: 12, sm: 6, md: 3}}>
-                  <Paper
+            <Card
+              sx={{
+                mb: 3,
+                p: 2.5,
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: systemHealth.isOperational
+                  ? alpha(theme.palette.success.main, 0.22)
+                  : alpha(theme.palette.warning.main, 0.22),
+                bgcolor: systemHealth.isOperational
+                  ? alpha(theme.palette.success.lighter, 0.22)
+                  : alpha(theme.palette.warning.lighter, 0.2),
+              }}
+            >
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ md: 'center' }} justifyContent="space-between">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Box
                     sx={{
-                      p: 3,
-                      textAlign: 'center',
-                      background: metric.status === 'excellent' 
-                        ? alpha(theme.palette.success.lighter, 0.3)
-                        : alpha(theme.palette.warning.lighter, 0.3),
-                      border: '1px solid',
-                      borderColor: metric.status === 'excellent' ? 'success.main' : 'warning.main',
-                      borderRadius: 2
+                      width: 44,
+                      height: 44,
+                      borderRadius: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      bgcolor: systemHealth.isOperational
+                        ? alpha(theme.palette.success.main, 0.14)
+                        : alpha(theme.palette.warning.main, 0.14),
+                      color: systemHealth.isOperational ? 'success.main' : 'warning.main',
                     }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                      <Iconify
-                        icon={metric.status === 'excellent' ? 'solar:server-square-bold-duotone' : 'solar:danger-circle-bold-duotone'}
-                        width={40}
-                        color={metric.status === 'excellent' ? 'success.main' : 'warning.main'}
-                      />
-                    </Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-                      {metric.value}
-                      <Typography component="span" variant="body2" color="text.secondary">
-                        {' '}
-                        {metric.unit}
-                      </Typography>
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
-                      {metric.label}
-                    </Typography>
-                    <Chip
-                      label={metric.status.toUpperCase()}
-                      size="small"
-                      color={metric.status === 'excellent' ? 'success' : 'warning'}
-                      variant="outlined"
-                      sx={{ mt: 2, fontWeight: 'bold' }}
+                    <Iconify
+                      icon={systemHealth.isOperational ? 'solar:shield-check-bold-duotone' : 'solar:danger-circle-bold-duotone'}
+                      width={24}
                     />
-                  </Paper>
-                </Grid>
-              ))}
+                  </Box>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                      {systemHealth.isOperational ? 'All systems operational' : 'Attention needed'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Health score: {systemHealth.pct}%
+                    </Typography>
+                  </Box>
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Chip label={`Excellent: ${systemHealth.counts.excellent ?? 0}`} size="small" color="success" variant="outlined" />
+                  <Chip label={`Good: ${systemHealth.counts.good ?? 0}`} size="small" color="info" variant="outlined" />
+                  <Chip label={`Warnings: ${systemHealth.counts.warning ?? 0}`} size="small" color="warning" variant="outlined" />
+                </Stack>
+              </Stack>
+            </Card>
+
+            <Grid container spacing={3}>
+              {systemMetrics.map((metric, index) => {
+                const meta = getSystemStatusMeta(metric.status);
+
+                return (
+                  <Grid key={index} size={{ xs: 12, sm: 6, md: 3 }}>
+                    <Paper
+                      sx={{
+                        p: 3,
+                        textAlign: 'center',
+                        background: meta.surface,
+                        border: '1px solid',
+                        borderColor: meta.border,
+                        borderRadius: 2,
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                        <Iconify icon={meta.icon} width={40} color={`${meta.color}.main`} />
+                      </Box>
+                      <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+                        {metric.value}
+                        <Typography component="span" variant="body2" color="text.secondary">
+                          {' '}
+                          {metric.unit}
+                        </Typography>
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                        {metric.label}
+                      </Typography>
+                      <Chip
+                        label={metric.status.toUpperCase()}
+                        size="small"
+                        color={meta.color}
+                        variant="outlined"
+                        sx={{ mt: 2, fontWeight: 'bold' }}
+                      />
+                    </Paper>
+                  </Grid>
+                );
+              })}
             </Grid>
           </TabPanel>
         </Card>

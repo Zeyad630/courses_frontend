@@ -1,8 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
+import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
 import Avatar from '@mui/material/Avatar';
 import Divider from '@mui/material/Divider';
@@ -23,6 +24,9 @@ import { Iconify } from 'src/components/iconify';
 export function ProfileView() {
   const theme = useTheme();
   const { user, hasRole } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -35,13 +39,40 @@ export function ProfileView() {
     github: 'https://github.com/johndoe',
   });
 
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+
+    const t = setTimeout(() => {
+      if (!active) return;
+      setIsLoading(false);
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, []);
+
+  const handleRetry = useCallback(() => {
+    setError(null);
+    setIsLoading(true);
+    setTimeout(() => setIsLoading(false), 250);
+  }, []);
+
   const handleSave = useCallback(() => {
-    console.log('Saving profile:', formData);
-    setIsEditing(false);
-    // TODO: Implement profile update API call
+    setError(null);
+    setIsSaving(true);
+
+    setTimeout(() => {
+      setIsSaving(false);
+      setIsEditing(false);
+      // TODO: Implement profile update API call
+    }, 450);
   }, [formData]);
 
   const handleCancel = useCallback(() => {
+    setError(null);
     setFormData({
       name: user?.name || '',
       email: user?.email || '',
@@ -93,6 +124,31 @@ export function ProfileView() {
   return (
     <DashboardContent>
       <Container maxWidth="lg">
+        {error && (
+          <Box sx={{ mb: 3 }}>
+            <Alert
+              severity="error"
+              action={
+                <Button color="inherit" size="small" onClick={handleRetry}>
+                  Retry
+                </Button>
+              }
+            >
+              {error}
+            </Alert>
+          </Box>
+        )}
+
+        {isLoading && (
+          <Box sx={{ mb: 3 }}>
+            <Card sx={{ p: 2 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
+                Loading profile...
+              </Typography>
+            </Card>
+          </Box>
+        )}
+
         {/* Header */}
         <Box
           sx={{
@@ -147,6 +203,7 @@ export function ProfileView() {
                 variant={isEditing ? 'outlined' : 'contained'}
                 startIcon={<Iconify icon={isEditing ? 'solar:close-circle-bold-duotone' : 'solar:pen-new-square-bold-duotone'} />}
                 onClick={() => setIsEditing(!isEditing)}
+                disabled={isLoading || isSaving}
                 sx={{
                   fontWeight: 800,
                   textTransform: 'none',
@@ -377,6 +434,7 @@ export function ProfileView() {
                     <Button
                       variant="outlined"
                       onClick={handleCancel}
+                      disabled={isSaving}
                       sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
                     >
                       Cancel
@@ -385,9 +443,10 @@ export function ProfileView() {
                       variant="contained"
                       onClick={handleSave}
                       startIcon={<Iconify icon="solar:pen-bold" />}
+                      disabled={isSaving}
                       sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5, boxShadow: 'none' }}
                     >
-                      Save Changes
+                      {isSaving ? 'Saving…' : 'Save Changes'}
                     </Button>
                   </CardActions>
                 )}
