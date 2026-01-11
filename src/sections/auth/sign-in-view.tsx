@@ -34,16 +34,7 @@ export function SignInView() {
   const { login, loginWithGoogle } = useAuth();
   const { t } = useTranslation();
 
-  const getPostAuthPath = useCallback(() => {
-    try {
-      const raw = localStorage.getItem('auth_user');
-      if (!raw) return '/dashboard';
-      const parsed = JSON.parse(raw) as { role?: string };
-      return parsed?.role === 'student' ? '/courses' : '/dashboard';
-    } catch {
-      return '/dashboard';
-    }
-  }, []);
+  const getPostAuthPath = useCallback(() => '/courses', []);
 
   const brandGradient = `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
 
