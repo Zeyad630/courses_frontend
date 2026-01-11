@@ -50,8 +50,10 @@ http.interceptors.response.use(
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         localStorage.removeItem('auth_user');
-        // Redirect to login if not already there
-        if (window.location.pathname !== '/sign-in' && window.location.pathname !== '/sign-up') {
+        // Redirect to login if not already on auth pages or reset password page
+        const currentPath = window.location.pathname;
+        const authPaths = ['/sign-in', '/sign-up', '/forgot-password', '/reset-password'];
+        if (!authPaths.includes(currentPath)) {
           window.location.href = '/sign-in';
         }
       }
