@@ -100,6 +100,10 @@ export const toApiError = (error: unknown): ApiError => {
     return new ValidationError('Validation error', { status, data, errors: {} });
   }
 
+  if (typeof status === 'number' && status >= 500) {
+    return new ApiError('Server error. Please try again later.', { status, data });
+  }
+
   if (typeof status === 'number') {
     const problem = extractProblemMessage(data);
     const message =

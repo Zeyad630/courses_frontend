@@ -171,7 +171,9 @@
     "phone": "رقم الهاتف",
     "experience": "مستوى الخبرة",
     "motivation": "لماذا تريد أن تأخذ هذه الدورة؟",
-    "searchPlaceholder": "ابحث عن الدورات..."
+    "searchPlaceholder": "ابحث عن الدورات...",
+    "priceRange": "نطاق السعر",
+    "minRating": "أقل تقييم"
   },
   "admin": {
     "admin": "المسؤول",
@@ -229,9 +231,16 @@
   },
   "validation": {
     "required": "هذا الحقل مطلوب",
+    "fullNameEnRequired": "الاسم الكامل (بالإنجليزية) مطلوب",
+    "fullNameArRequired": "الاسم الكامل (بالعربية) مطلوب",
     "invalidEmail": "يرجى إدخال عنوان بريد إلكتروني صحيح",
+    "nationalIdRequired": "الرقم القومي مطلوب",
+    "invalidNationalId": "يرجى إدخال رقم قومي صحيح",
+    "phoneRequired": "رقم الهاتف مطلوب",
     "passwordTooShort": "يجب أن تكون كلمة المرور 8 أحرف على الأقل",
     "passwordMismatch": "كلمات المرور غير متطابقة",
+    "invalidFullNameEn": "يرجى استخدام أحرف إنجليزية فقط",
+    "invalidFullNameAr": "يرجى استخدام أحرف عربية فقط",
     "invalidPhone": "يرجى إدخال رقم هاتف صحيح",
     "invalidUrl": "يرجى إدخال عنوان URL صحيح"
   },

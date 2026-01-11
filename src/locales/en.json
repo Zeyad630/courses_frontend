@@ -156,7 +156,9 @@
     "experience": "Experience Level",
     "motivation": "Why do you want to take this course?",
     "searchPlaceholder": "Search courses...",
-    "searchCourses": "Search courses..."
+    "searchCourses": "Search courses...",
+    "priceRange": "Price range",
+    "minRating": "Minimum rating"
   },
   "admin": {
     "admin": "Admin",
@@ -214,9 +216,16 @@
   },
   "validation": {
     "required": "This field is required",
+    "fullNameEnRequired": "Full name (English) is required",
+    "fullNameArRequired": "Full name (Arabic) is required",
     "invalidEmail": "Please enter a valid email address",
+    "nationalIdRequired": "National ID is required",
+    "invalidNationalId": "Please enter a valid national ID",
+    "phoneRequired": "Phone number is required",
     "passwordTooShort": "Password must be at least 8 characters",
     "passwordMismatch": "Passwords do not match",
+    "invalidFullNameEn": "Please use English letters only",
+    "invalidFullNameAr": "Please use Arabic letters only",
     "invalidPhone": "Please enter a valid phone number",
     "invalidUrl": "Please enter a valid URL"
   },

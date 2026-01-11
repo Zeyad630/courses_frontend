@@ -19,6 +19,7 @@ import { RouterLink } from 'src/routes/components';
 import { validatePassword } from 'src/utils/password-strength';
 
 import { authApi } from 'src/api';
+import { ApiError, ValidationError } from 'src/api/errors';
 import { useAuth } from 'src/contexts/simple-auth-context';
 
 import { Iconly } from 'src/components/iconly';
@@ -51,6 +52,7 @@ export function SignUpView() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>({});
   const [passwordStrength, setPasswordStrength] = useState(() => validatePassword(''));
 
   const inputSx = {
@@ -66,31 +68,51 @@ export function SignUpView() {
   };
 
   const validateForm = useCallback(() => {
-    if (!fullNameEn.trim()) return t('validation.fullNameEnRequired') || 'Full name (English) is required';
-    if (!fullNameAr.trim()) return t('validation.fullNameArRequired') || 'Full name (Arabic) is required';
-    if (!email.trim()) return t('validation.emailRequired') || 'Email is required';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return t('validation.invalidEmail') || 'Invalid email format';
-    if (!nationalId.trim()) return t('validation.nationalIdRequired') || 'National ID is required';
-    if (!phone.trim()) return t('validation.phoneRequired') || 'Phone is required';
-    if (!password) return t('validation.passwordRequired') || 'Password is required';
-    
-    // Use password strength validator
-    const strength = validatePassword(password);
-    if (!strength.isValid) {
-      return strength.feedback[0] || 'Password does not meet requirements';
+    const next: Partial<Record<string, string>> = {};
+
+    const emailTrimmed = email.trim();
+    const fullNameEnTrimmed = fullNameEn.trim();
+    const fullNameArTrimmed = fullNameAr.trim();
+    const nationalIdTrimmed = nationalId.trim();
+    const phoneTrimmed = phone.trim();
+
+    const englishNameRegex = /^[A-Za-z\s.'-]+$/;
+    const arabicNameRegex = /^[\u0600-\u06FF\s]+$/;
+    const nationalIdRegex = /^\d{14}$/;
+    const phoneRegex = /^\+?\d{10,15}$/;
+
+    if (!fullNameEnTrimmed) next.fullNameEn = t('validation.fullNameEnRequired');
+    else if (!englishNameRegex.test(fullNameEnTrimmed)) next.fullNameEn = t('validation.invalidFullNameEn');
+
+    if (!fullNameArTrimmed) next.fullNameAr = t('validation.fullNameArRequired');
+    else if (!arabicNameRegex.test(fullNameArTrimmed)) next.fullNameAr = t('validation.invalidFullNameAr');
+
+    if (!emailTrimmed) next.email = t('validation.required');
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) next.email = t('validation.invalidEmail');
+
+    if (!nationalIdTrimmed) next.nationalId = t('validation.nationalIdRequired');
+    else if (!nationalIdRegex.test(nationalIdTrimmed)) next.nationalId = t('validation.invalidNationalId');
+
+    if (!phoneTrimmed) next.phone = t('validation.phoneRequired');
+    else if (!phoneRegex.test(phoneTrimmed)) next.phone = t('validation.invalidPhone');
+
+    if (!password) next.password = t('validation.required');
+    else {
+      const strength = validatePassword(password);
+      if (!strength.isValid) next.password = strength.feedback[0] || t('validation.passwordTooShort');
     }
-    
-    if (password !== confirmPassword) return t('validation.passwordMismatch') || 'Passwords do not match';
-    return '';
+
+    if (!confirmPassword) next.confirmPassword = t('validation.required');
+    else if (password !== confirmPassword) next.confirmPassword = t('validation.passwordMismatch');
+
+    setFieldErrors(next);
+    return Object.keys(next).length === 0;
   }, [confirmPassword, email, fullNameAr, fullNameEn, nationalId, password, phone, t]);
 
   const sendOtp = useCallback(async () => {
-    const validationError = validateForm();
-
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
+    setError('');
+    const isValid = validateForm();
+    if (!isValid) return;
 
     setLoading(true);
     setError('');
@@ -98,7 +120,24 @@ export function SignUpView() {
     try {
       await authApi.sendOtp({ email });
       setStep('otp');
+      setFieldErrors({});
     } catch (err) {
+      if (err instanceof ValidationError) {
+        const next: Partial<Record<string, string>> = {};
+        Object.entries(err.errors).forEach(([key, values]) => {
+          next[key] = values?.[0] || t('messages.savingError');
+        });
+        setFieldErrors(next);
+        setError(t('messages.savingError'));
+        return;
+      }
+
+      if (err instanceof ApiError) {
+        if (err.status === 401) setError(t('auth.invalidCredentials'));
+        else setError(err.message || t('messages.savingError'));
+        return;
+      }
+
       if (err instanceof Error) {
         setError(err.message);
       } else {
@@ -130,6 +169,22 @@ export function SignUpView() {
       });
       router.push('/dashboard');
     } catch (err) {
+      if (err instanceof ValidationError) {
+        const next: Partial<Record<string, string>> = {};
+        Object.entries(err.errors).forEach(([key, values]) => {
+          next[key] = values?.[0] || t('messages.savingError');
+        });
+        setFieldErrors(next);
+        setError(t('messages.savingError'));
+        return;
+      }
+
+      if (err instanceof ApiError) {
+        if (err.status === 401) setError(t('auth.invalidCredentials'));
+        else setError(err.message || t('messages.savingError'));
+        return;
+      }
+
       if (err instanceof Error) {
         setError(err.message);
       } else {
@@ -283,8 +338,13 @@ export function SignUpView() {
         name="fullNameEn"
         label="Full name (English)"
         value={fullNameEn}
-        onChange={(e) => setFullNameEn(e.target.value)}
+        onChange={(e) => {
+          setFullNameEn(e.target.value);
+          if (fieldErrors.fullNameEn) setFieldErrors((prev) => ({ ...prev, fullNameEn: '' }));
+        }}
         placeholder="John Doe"
+        error={Boolean(fieldErrors.fullNameEn)}
+        helperText={fieldErrors.fullNameEn || ''}
         sx={inputSx}
         slotProps={{
           inputLabel: { shrink: true },
@@ -304,8 +364,13 @@ export function SignUpView() {
           name="nationalId"
           label="National ID"
           value={nationalId}
-          onChange={(e) => setNationalId(e.target.value)}
+          onChange={(e) => {
+            setNationalId(e.target.value);
+            if (fieldErrors.nationalId) setFieldErrors((prev) => ({ ...prev, nationalId: '' }));
+          }}
           placeholder="123456789"
+          error={Boolean(fieldErrors.nationalId)}
+          helperText={fieldErrors.nationalId || ''}
           sx={inputSx}
           slotProps={{ inputLabel: { shrink: true } }}
         />
@@ -315,8 +380,13 @@ export function SignUpView() {
           name="phone"
           label="Phone"
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e) => {
+            setPhone(e.target.value);
+            if (fieldErrors.phone) setFieldErrors((prev) => ({ ...prev, phone: '' }));
+          }}
           placeholder="+1234567890"
+          error={Boolean(fieldErrors.phone)}
+          helperText={fieldErrors.phone || ''}
           sx={inputSx}
           slotProps={{ inputLabel: { shrink: true } }}
         />
@@ -327,8 +397,13 @@ export function SignUpView() {
         name="fullNameAr"
         label="Full name (Arabic)"
         value={fullNameAr}
-        onChange={(e) => setFullNameAr(e.target.value)}
+        onChange={(e) => {
+          setFullNameAr(e.target.value);
+          if (fieldErrors.fullNameAr) setFieldErrors((prev) => ({ ...prev, fullNameAr: '' }));
+        }}
         placeholder="جون دو"
+        error={Boolean(fieldErrors.fullNameAr)}
+        helperText={fieldErrors.fullNameAr || ''}
         sx={inputSx}
         slotProps={{ inputLabel: { shrink: true } }}
       />
@@ -338,8 +413,13 @@ export function SignUpView() {
         name="email"
         label={t('auth.email')}
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: '' }));
+        }}
         placeholder="you@example.com"
+        error={Boolean(fieldErrors.email)}
+        helperText={fieldErrors.email || ''}
         sx={inputSx}
         slotProps={{
           inputLabel: { shrink: true },
@@ -362,9 +442,12 @@ export function SignUpView() {
           onChange={(e) => {
             setPassword(e.target.value);
             setPasswordStrength(validatePassword(e.target.value));
+            if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: '' }));
           }}
           type={showPassword ? 'text' : 'password'}
           placeholder="••••••••"
+          error={Boolean(fieldErrors.password)}
+          helperText={fieldErrors.password || ''}
           sx={inputSx}
           slotProps={{
             inputLabel: { shrink: true },
@@ -396,9 +479,14 @@ export function SignUpView() {
         name="confirmPassword"
         label={t('auth.confirmPassword')}
         value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
+        onChange={(e) => {
+          setConfirmPassword(e.target.value);
+          if (fieldErrors.confirmPassword) setFieldErrors((prev) => ({ ...prev, confirmPassword: '' }));
+        }}
         type={showConfirmPassword ? 'text' : 'password'}
         placeholder="••••••••"
+        error={Boolean(fieldErrors.confirmPassword)}
+        helperText={fieldErrors.confirmPassword || ''}
         sx={inputSx}
         slotProps={{
           inputLabel: { shrink: true },

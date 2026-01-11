@@ -1,7 +1,7 @@
 import type { ApexOptions } from 'apexcharts';
 
-import { useMemo } from 'react';
 import Chart from 'react-apexcharts';
+import { useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -17,10 +17,12 @@ import CardContent from '@mui/material/CardContent';
 import { alpha, useTheme } from '@mui/material/styles';
 import LinearProgress from '@mui/material/LinearProgress';
 
+import { zoomMeetingApi } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
 import { useCoursesContext } from 'src/contexts/courses-context';
 import { useApplicationsContext } from 'src/contexts/applications-context';
+import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
 
 import { Iconly } from 'src/components/iconly';
 import { Iconify } from 'src/components/iconify';
@@ -131,6 +133,23 @@ const getEventIcon = (type: string) => {
   }
 };
 
+type EnrolledCourse = {
+  id: string;
+  title: string;
+  instructor: string;
+  progress: number;
+  totalLessons: number;
+  completedLessons: number;
+  nextLesson: string;
+  dueAssignment: string;
+  dueDate: Date;
+  grade: string;
+  coverUrl: string;
+  roundId?: string;
+  nextZoomLink?: string;
+  nextZoomTime?: string;
+};
+
 export function StudentDashboardView() {
   const { user } = useAuth();
   const theme = useTheme();
@@ -138,7 +157,10 @@ export function StudentDashboardView() {
   const { courses } = useCoursesContext();
   const { applications } = useApplicationsContext();
 
-  const enrolledCoursesData = useMemo(() => {
+  const { getRoundForStudent } = useCourseRoundsContext();
+  const [nextZoomByCourseId, setNextZoomByCourseId] = useState<Record<string, { meetingLink: string; meetingDateTime: string }>>({});
+
+  const enrolledCoursesData: EnrolledCourse[] = useMemo(() => {
     const userId = user?.id;
     if (!userId) return [];
 
@@ -148,6 +170,9 @@ export function StudentDashboardView() {
       const course = courses.find((c) => c.id === app.courseId);
       const title = course?.name ?? app.metadata?.courseName ?? 'Course';
       const instructor = course?.instructor ?? '';
+
+      const round = getRoundForStudent(app.courseId, userId);
+      const zoom = nextZoomByCourseId[app.courseId];
 
       return {
         id: app.courseId,
@@ -161,9 +186,72 @@ export function StudentDashboardView() {
         dueDate: new Date(Date.now() + (index + 3) * 24 * 60 * 60 * 1000),
         grade: '—',
         coverUrl: '/assets/school/course.webp',
+        roundId: round?.id,
+        nextZoomLink: zoom?.meetingLink ?? '',
+        nextZoomTime: zoom?.meetingDateTime ?? '',
       };
     });
-  }, [applications, courses, user?.id]);
+  }, [applications, courses, getRoundForStudent, nextZoomByCourseId, user?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      const userId = user?.id;
+      if (!userId) return;
+
+      const accepted = applications.filter((a) => a.studentId === userId && a.status === 'accepted');
+      if (accepted.length === 0) {
+        setNextZoomByCourseId({});
+        return;
+      }
+
+      const roundPairs = accepted
+        .map((a) => ({ courseId: a.courseId, roundId: getRoundForStudent(a.courseId, userId)?.id }))
+        .filter((x): x is { courseId: string; roundId: string } => Boolean(x.roundId));
+
+      if (roundPairs.length === 0) {
+        setNextZoomByCourseId({});
+        return;
+      }
+
+      try {
+        const now = Date.now();
+        const results = await Promise.all(
+          roundPairs.map(async ({ courseId, roundId }) => {
+            const meetings = await zoomMeetingApi.getByCourseRoundId(Number(roundId));
+            const next = meetings
+              .filter((m) => m.isActive !== false)
+              .map((m) => ({ meetingLink: m.meetingLink, meetingDateTime: m.meetingDateTime }))
+              .filter((m) => {
+                const ts = new Date(m.meetingDateTime).getTime();
+                return Number.isFinite(ts) && ts >= now;
+              })
+              .sort((a, b) => new Date(a.meetingDateTime).getTime() - new Date(b.meetingDateTime).getTime())[0];
+
+            return next ? { courseId, next } : null;
+          })
+        );
+
+        if (cancelled) return;
+
+        const map: Record<string, { meetingLink: string; meetingDateTime: string }> = {};
+        results.forEach((r) => {
+          if (!r) return;
+          map[r.courseId] = r.next;
+        });
+        setNextZoomByCourseId(map);
+      } catch {
+        if (cancelled) return;
+        setNextZoomByCourseId({});
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [applications, getRoundForStudent, user?.id]);
 
   const studentData = useMemo(
     () => ({
@@ -411,25 +499,6 @@ export function StudentDashboardView() {
         <Grid container spacing={3}>
           {/* Main Content: Courses & Chart */}
           <Grid size={{ xs: 12, lg: 8 }}>
-            
-             {/* Activity Chart */}
-             <Card sx={{ mb: 3, p: 3, boxShadow: theme.shadows[2] }}>
-              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>Learning Activity</Typography>
-                <Button endIcon={<Iconify icon="solar:alt-arrow-right-line-duotone" />} size="small">
-                  View Full Report
-                </Button>
-              </Stack>
-              <Box sx={{ height: 350, width: '100%' }}>
-                <Chart
-                  options={chartOptions}
-                  series={chartSeries}
-                  type="area"
-                  height={350}
-                />
-              </Box>
-            </Card>
-
             <Stack
               direction={{ xs: 'column', sm: 'row' }}
               alignItems={{ xs: 'flex-start', sm: 'center' }}
@@ -535,6 +604,19 @@ export function StudentDashboardView() {
               </Grid>
             </Card>
 
+            {/* Activity Chart */}
+            <Card sx={{ mb: 3, p: 3, boxShadow: theme.shadows[2] }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>Learning Activity</Typography>
+                <Button endIcon={<Iconify icon="solar:alt-arrow-right-line-duotone" />} size="small">
+                  View Full Report
+                </Button>
+              </Stack>
+              <Box sx={{ height: 350, width: '100%' }}>
+                <Chart options={chartOptions} series={chartSeries} type="area" height={350} />
+              </Box>
+            </Card>
+
             <Stack spacing={2.5}>
               {enrolledCourses.map((course) => (
                 <Card
@@ -606,6 +688,16 @@ export function StudentDashboardView() {
                               color="info"
                               sx={{ fontWeight: 700 }}
                             />
+                            {course.nextZoomLink ? (
+                              <Chip
+                                icon={<Iconify icon="solar:videocamera-bold-duotone" />}
+                                label="Next live session"
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                                sx={{ fontWeight: 700 }}
+                              />
+                            ) : null}
                             <Chip
                               label={`Grade: ${course.grade}`}
                               size="small"
@@ -680,7 +772,7 @@ export function StudentDashboardView() {
                           </Box>
 
                           <IconButton
-                            href={`/course-room/${course.id}`}
+                            href={course.roundId ? `/course-room/${course.id}?roundId=${course.roundId}` : `/course-room/${course.id}`}
                             color="primary"
                             sx={{
                               width: 52,
@@ -695,6 +787,20 @@ export function StudentDashboardView() {
                             <Iconly name="Play" size={24} sx={{ color: 'common.white' }} />
                           </IconButton>
                         </Box>
+
+                        {course.nextZoomLink ? (
+                          <Button
+                            fullWidth
+                            variant="outlined"
+                            href={course.nextZoomLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            startIcon={<Iconify icon="solar:videocamera-bold-duotone" />}
+                            sx={{ mt: 1.5, borderRadius: 2, fontWeight: 800 }}
+                          >
+                            Join next live session
+                          </Button>
+                        ) : null}
                       </Grid>
                     </Grid>
                   </CardContent>

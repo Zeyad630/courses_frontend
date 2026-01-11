@@ -10,6 +10,7 @@ import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
 import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
+import { alpha, useTheme } from '@mui/material/styles';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
@@ -24,12 +25,12 @@ import { Iconify } from 'src/components/iconify';
 const getStatusColor = (status: ApplicationStatus) => {
   switch (status) {
     case 'accepted':
-      return 'success';
-    case 'rejected':
       return 'error';
+    case 'rejected':
+      return 'default';
     case 'pending':
     default:
-      return 'warning';
+      return 'info';
   }
 };
 
@@ -38,7 +39,7 @@ const getStatusIcon = (status: ApplicationStatus) => {
     case 'accepted':
       return 'solar:check-circle-bold';
     case 'rejected':
-      return 'solar:pen-bold';
+      return 'solar:close-circle-bold';
     case 'pending':
     default:
       return 'solar:clock-circle-outline';
@@ -47,6 +48,7 @@ const getStatusIcon = (status: ApplicationStatus) => {
 
 export function MyApplicationsView() {
   const { user } = useAuth();
+  const theme = useTheme();
   const { applications } = useApplicationsContext();
   const myApplications = useMemo(
     () => applications.filter((a) => a.studentId === user?.id),
@@ -88,12 +90,27 @@ export function MyApplicationsView() {
                     label={application.status.toUpperCase()}
                     color={getStatusColor(application.status)}
                     variant="filled"
+                    sx={
+                      application.status === 'rejected'
+                        ? {
+                            bgcolor: alpha(theme.palette.grey[600], 0.12),
+                            color: theme.palette.text.secondary,
+                            '& .MuiChip-icon': { color: theme.palette.text.secondary },
+                          }
+                        : application.status === 'accepted'
+                          ? {
+                              bgcolor: alpha(theme.palette.error.main, 0.12),
+                              color: theme.palette.error.main,
+                              '& .MuiChip-icon': { color: theme.palette.error.main },
+                            }
+                          : undefined
+                    }
                   />
                 </Box>
 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" color="primary">
-                    Course Fee: ${application.metadata?.coursePrice ?? ''}
+                    Course Fee: {application.metadata?.coursePrice ?? ''} EGP
                   </Typography>
                   
                   {application.reviewedAt && (
@@ -112,7 +129,7 @@ export function MyApplicationsView() {
                 )}
               </CardContent>
 
-              <CardActions sx={{ p: 2, pt: 0 }}>
+              {/* <CardActions sx={{ p: 2, pt: 0 }}>
                 {application.status === 'accepted' && (
                   <Button
                     variant="contained"
@@ -120,7 +137,7 @@ export function MyApplicationsView() {
                     startIcon={<Iconify icon="solar:cart-3-bold" />}
                     onClick={() => handlePayment(application.id, application.metadata?.coursePrice || 0)}
                   >
-                    Pay ${application.metadata?.coursePrice ?? ''} & Access Course
+                    Pay {application.metadata?.coursePrice ?? ''} EGP & Access Course
                   </Button>
                 )}
                 
@@ -137,14 +154,17 @@ export function MyApplicationsView() {
                 {application.status === 'rejected' && (
                   <Button
                     variant="outlined"
-                    color="error"
-                    startIcon={<Iconify icon="solar:pen-bold" />}
+                    sx={{
+                      borderColor: alpha(theme.palette.grey[600], 0.35),
+                      color: theme.palette.text.secondary,
+                    }}
+                    startIcon={<Iconify icon="solar:close-circle-bold" />}
                     disabled
                   >
-                    Application Rejected
+                    Application Declined
                   </Button>
                 )}
-              </CardActions>
+              </CardActions> */}
             </Card>
           ))}
         </Box>

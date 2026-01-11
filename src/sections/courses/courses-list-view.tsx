@@ -1,4 +1,6 @@
 import type { Course } from 'src/types/course';
+import type { WeekDto } from 'src/api/models/week';
+import type { InstructorDto } from 'src/api/services/account.api';
 
 import { useTranslation } from 'react-i18next';
 import { useMemo, useState, useEffect } from 'react';
@@ -9,7 +11,6 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
-import Rating from '@mui/material/Rating';
 import Select from '@mui/material/Select';
 import Slider from '@mui/material/Slider';
 import MenuItem from '@mui/material/MenuItem';
@@ -28,6 +29,7 @@ import DialogContent from '@mui/material/DialogContent';
 import InputAdornment from '@mui/material/InputAdornment';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 
+import { weekApi, accountApi } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
 import { useCoursesContext } from 'src/contexts/courses-context';
@@ -45,7 +47,7 @@ export function CoursesListView() {
   const { courses } = useCoursesContext();
   const { user, hasRole } = useAuth();
   const { createApplication } = useApplicationsContext();
-  const { getRoundForStudent } = useCourseRoundsContext();
+  const { getRoundForStudent, getRoundsByCourse } = useCourseRoundsContext();
 
   const isBlockedFromApplying = useMemo(() => {
     if (!hasRole('student')) return () => false;
@@ -64,12 +66,10 @@ export function CoursesListView() {
   }, [courses]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('popular');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid'); // Default to grid for better aesthetics
   const [priceRange, setPriceRange] = useState<[number, number]>([minPrice, maxPrice]);
-  const [ratingMin, setRatingMin] = useState<number>(0);
 
   useEffect(() => {
     const saved = localStorage.getItem('courses_view_mode');
@@ -99,6 +99,86 @@ export function CoursesListView() {
   // Details dialog state
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [detailsCourse, setDetailsCourse] = useState<Course | null>(null);
+  const [detailsWeeks, setDetailsWeeks] = useState<WeekDto[]>([]);
+  const [detailsSelectedRoundId, setDetailsSelectedRoundId] = useState<string>('');
+  const [instructors, setInstructors] = useState<InstructorDto[]>([]);
+
+  const isEnrolledInDetailsCourse = useMemo(() => {
+    if (!hasRole('student')) return false;
+    if (!user?.id) return false;
+    if (!detailsCourse?.id) return false;
+    return Boolean(getRoundForStudent(detailsCourse.id, user.id));
+  }, [detailsCourse?.id, getRoundForStudent, hasRole, user?.id]);
+
+  const detailsRoundId = useMemo(() => {
+    if (!hasRole('student')) return undefined;
+    if (!user?.id) return undefined;
+    if (!detailsCourse?.id) return undefined;
+    return getRoundForStudent(detailsCourse.id, user.id)?.id;
+  }, [detailsCourse?.id, getRoundForStudent, hasRole, user?.id]);
+
+  const detailsAllRounds = useMemo(() => {
+    if (!detailsCourse?.id) return [];
+    return getRoundsByCourse(detailsCourse.id);
+  }, [detailsCourse?.id, getRoundsByCourse]);
+
+  useEffect(() => {
+    const preferred = detailsRoundId || detailsAllRounds[0]?.id || '';
+    setDetailsSelectedRoundId(preferred);
+  }, [detailsAllRounds, detailsRoundId]);
+
+  const detailsInstructorName = useMemo(() => {
+    const fallback = detailsCourse?.instructor ?? '';
+    if (fallback.trim()) return fallback;
+    const id = detailsCourse?.instructorId;
+    if (!id) return '';
+    const inst = instructors.find((i) => String(i.id) === String(id));
+    return inst?.fullNameEn ?? '';
+  }, [detailsCourse?.instructor, detailsCourse?.instructorId, instructors]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadInstructors = async () => {
+      try {
+        const data = await accountApi.getInstructors();
+        if (cancelled) return;
+        setInstructors(data);
+      } catch {
+        if (cancelled) return;
+        setInstructors([]);
+      }
+    };
+
+    loadInstructors();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadWeeks = async () => {
+      if (!detailsSelectedRoundId) {
+        setDetailsWeeks([]);
+        return;
+      }
+      try {
+        const ws = await weekApi.getByCourseRoundId(Number(detailsSelectedRoundId));
+        if (cancelled) return;
+        setDetailsWeeks(ws);
+      } catch {
+        if (cancelled) return;
+        setDetailsWeeks([]);
+      }
+    };
+
+    loadWeeks();
+    return () => {
+      cancelled = true;
+    };
+  }, [detailsSelectedRoundId]);
 
   const sampleSyllabus = [
     'Introduction to Programming Concepts',
@@ -110,12 +190,6 @@ export function CoursesListView() {
     'Error Handling and Debugging',
     'Final Project Development',
   ];
-
-  // Get unique categories
-  const categories = useMemo(() => {
-    const uniqueCategories = Array.from(new Set(courses.map((c) => c.category)));
-    return uniqueCategories;
-  }, [courses]);
 
   // Filter and sort courses
   const filteredCourses = useMemo(() => {
@@ -132,11 +206,6 @@ export function CoursesListView() {
       );
     }
 
-    // Category filter
-    if (selectedCategory !== 'all') {
-      result = result.filter((course) => course.category === selectedCategory);
-    }
-
     // Level filter
     if (selectedLevel !== 'all') {
       result = result.filter((course) => course.level === selectedLevel);
@@ -145,18 +214,11 @@ export function CoursesListView() {
     // Price range filter
     result = result.filter((course) => course.price >= priceRange[0] && course.price <= priceRange[1]);
 
-    // Rating filter
-    if (ratingMin > 0) {
-      result = result.filter((course) => course.rating >= ratingMin);
-    }
-
     // Sorting
     if (sortBy === 'popular') {
       result.sort((a, b) => b.students - a.students);
     } else if (sortBy === 'trending') {
       result.sort((a, b) => b.students * b.rating - a.students * a.rating);
-    } else if (sortBy === 'rating') {
-      result.sort((a, b) => b.rating - a.rating);
     } else if (sortBy === 'price-low') {
       result.sort((a, b) => a.price - b.price);
     } else if (sortBy === 'price-high') {
@@ -166,7 +228,7 @@ export function CoursesListView() {
     }
 
     return result;
-  }, [courses, searchQuery, selectedCategory, selectedLevel, sortBy, priceRange, ratingMin]);
+  }, [courses, searchQuery, selectedLevel, sortBy, priceRange]);
 
   // Enrollment handlers
   const handleEnrollClick = (course: Course) => {
@@ -202,11 +264,9 @@ export function CoursesListView() {
 
   const clearFilters = () => {
     setSearchQuery('');
-    setSelectedCategory('all');
     setSelectedLevel('all');
     setSortBy('popular');
     setPriceRange([minPrice, maxPrice]);
-    setRatingMin(0);
   };
 
   const validateEnrollmentForm = () => {
@@ -399,9 +459,6 @@ export function CoursesListView() {
 
         <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', pt: 3, pb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-             <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-               {course.category}
-             </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <SvgColor src="/assets/icons/Iconly/Iconly/Curved/Outline/Star.svg" sx={{ width: 14, height: 14, color: 'warning.main' }} />
                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -444,7 +501,7 @@ export function CoursesListView() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto', pt: 2, borderTop: `1px dashed ${theme.palette.divider}` }}>
             <Box>
                <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                 ${course.price}
+                 {course.price} EGP
                </Typography>
             </Box>
               <Button
@@ -568,7 +625,7 @@ export function CoursesListView() {
               </Box>
             </Box>
             <Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main', ml: 2 }}>
-              ${course.price}
+              {course.price} EGP
             </Typography>
           </Box>
 
@@ -711,30 +768,10 @@ export function CoursesListView() {
               }}
             />
 
-            {/* Category Filter */}
-            <FormControl size="medium" sx={{ minWidth: 160 }}>
-              <InputLabel>{t('courses.category')}</InputLabel>
-              <Select
-                value={selectedCategory}
-                label={t('courses.category')}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                sx={{ borderRadius: 1.5 }}
-              >
-                <MenuItem value="all">{t('courses.allCategories')}</MenuItem>
-                {categories.map((category) => (
-                  <MenuItem key={category} value={category}>
-                    {category}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
             {/* Level Filter */}
             <FormControl size="medium" sx={{ minWidth: 140 }}>
-              <InputLabel>{t('courses.level')}</InputLabel>
               <Select
                 value={selectedLevel}
-                label={t('courses.level')}
                 onChange={(e) => setSelectedLevel(e.target.value)}
                 sx={{ borderRadius: 1.5 }}
               >
@@ -747,16 +784,13 @@ export function CoursesListView() {
 
             {/* Sort Dropdown */}
             <FormControl size="medium" sx={{ minWidth: 160 }}>
-              <InputLabel>{t('courses.sortBy')}</InputLabel>
               <Select
                 value={sortBy}
-                label={t('courses.sortBy')}
                 onChange={(e) => setSortBy(e.target.value)}
                 sx={{ borderRadius: 1.5 }}
               >
                 <MenuItem value="popular">{t('courses.popular') || 'Popular'}</MenuItem>
                 <MenuItem value="trending">{t('common.trending') || 'Trending'}</MenuItem>
-                <MenuItem value="rating">{t('courses.rating')}</MenuItem>
                 <MenuItem value="price-low">{t('courses.priceLow') || 'Price: Low to High'}</MenuItem>
                 <MenuItem value="price-high">{t('courses.priceHigh') || 'Price: High to Low'}</MenuItem>
                 <MenuItem value="newest">{t('courses.newest') || 'Newest'}</MenuItem>
@@ -779,7 +813,7 @@ export function CoursesListView() {
             </ToggleButtonGroup>
           </Box>
 
-          {/* Row 2: Price Range and Rating */}
+          {/* Row 2: Price Range */}
           <Box
             sx={{
               display: 'flex',
@@ -794,14 +828,14 @@ export function CoursesListView() {
             {/* Price Range Slider */}
             <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 3 }}>
               <Typography variant="subtitle2" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                {t('courses.priceRange')}: <strong>${priceRange[0]} - ${priceRange[1]}</strong>
+                {t('courses.priceRange')}: <strong>{priceRange[0]} EGP - {priceRange[1]} EGP</strong>
               </Typography>
               <Slider
                 value={priceRange}
                 onChange={(event, newValue) => setPriceRange(newValue as [number, number])}
                 valueLabelDisplay="auto"
                 min={0}
-                max={500}
+                max={maxPrice}
                 step={10}
                 sx={{
                   flexGrow: 1,
@@ -812,24 +846,6 @@ export function CoursesListView() {
                   },
                 }}
               />
-            </Box>
-
-            {/* Minimum Rating Filter */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography variant="subtitle2" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                {t('courses.minRating')}:
-              </Typography>
-              <Rating
-                value={ratingMin}
-                onChange={(event, newValue) => setRatingMin(newValue || 0)}
-                precision={0.5}
-                sx={{ color: 'warning.main' }}
-              />
-              {ratingMin > 0 && (
-                <IconButton size="small" onClick={() => setRatingMin(0)}>
-                  <SvgColor src="/assets/icons/Iconly/Iconly/Curved/Outline/Close Square.svg" sx={{ width: 16, height: 16 }} />
-                </IconButton>
-              )}
             </Box>
 
             <Button
@@ -849,22 +865,16 @@ export function CoursesListView() {
         </Typography>
 
         {/* Active Filters Chips */}
-        {(searchQuery || selectedCategory !== 'all' || selectedLevel !== 'all' || ratingMin > 0 || priceRange[0] !== minPrice || priceRange[1] !== maxPrice || sortBy !== 'popular') && (
+        {(searchQuery || selectedLevel !== 'all' || priceRange[0] !== minPrice || priceRange[1] !== maxPrice || sortBy !== 'popular') && (
           <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
             {searchQuery && (
               <Chip label={`Search: ${searchQuery}`} onDelete={() => setSearchQuery('')} />
             )}
-            {selectedCategory !== 'all' && (
-              <Chip label={`Category: ${selectedCategory}`} onDelete={() => setSelectedCategory('all')} />
-            )}
             {selectedLevel !== 'all' && (
               <Chip label={`Level: ${selectedLevel}`} onDelete={() => setSelectedLevel('all')} />
             )}
-            {ratingMin > 0 && (
-              <Chip label={`Rating ≥ ${ratingMin}`} onDelete={() => setRatingMin(0)} />
-            )}
             {(priceRange[0] !== minPrice || priceRange[1] !== maxPrice) && (
-              <Chip label={`Price: $${priceRange[0]} - $${priceRange[1]}`} onDelete={() => setPriceRange([minPrice, maxPrice])} />
+              <Chip label={`Price: ${priceRange[0]} EGP - ${priceRange[1]} EGP`} onDelete={() => setPriceRange([minPrice, maxPrice])} />
             )}
             {sortBy !== 'popular' && (
               <Chip label={`Sort: ${sortBy}`} onDelete={() => setSortBy('popular')} />
@@ -890,16 +900,6 @@ export function CoursesListView() {
             onClick={() => setSelectedLevel('all')}
           />
 
-          {/* Categories */}
-          {categories.map((category) => (
-            <Chip
-              key={category}
-              label={category}
-              variant={selectedCategory === category ? 'filled' : 'outlined'}
-              color={selectedCategory === category ? 'primary' : 'default'}
-              onClick={() => setSelectedCategory(category)}
-            />
-          ))}
         </Box>
 
         {/* Courses Display */}
@@ -1089,13 +1089,13 @@ export function CoursesListView() {
             >
               <Box>
                 <Typography variant="overline" sx={{ color: 'primary.main', fontWeight: 700, letterSpacing: 0.6 }}>
-                  {detailsCourse?.category}
+                  Instructor: {detailsInstructorName || '—'}
                 </Typography>
                 <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5 }}>
                   {detailsCourse?.name}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Iconly name="Profile" size={16} /> {detailsCourse?.instructor}
+                  <Iconly name="Profile" size={16} /> {detailsInstructorName || '—'}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
                   <Chip size="small" label={t(`courses.${detailsCourse?.level || 'beginner'}`)} />
@@ -1118,15 +1118,16 @@ export function CoursesListView() {
               </Box>
               <Box sx={{ textAlign: 'right', minWidth: 200 }}>
                 <Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                  ${detailsCourse?.price}
+                  {detailsCourse?.price} EGP
                 </Typography>
                 <Button
                   variant="contained"
                   size="small"
                   onClick={() => { if (detailsCourse) handleEnrollClick(detailsCourse); handleCloseDetails(); }}
+                  disabled={isEnrolledInDetailsCourse}
                   sx={{ mt: 1, borderRadius: 30 }}
                 >
-                  {t('courses.enrollCourse')}
+                  {isEnrolledInDetailsCourse ? 'Enrolled' : t('courses.enrollCourse')}
                 </Button>
               </Box>
             </Box>
@@ -1140,6 +1141,31 @@ export function CoursesListView() {
               </Typography>
             </Box>
 
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                Course rounds
+              </Typography>
+              {detailsAllRounds.length === 0 ? (
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  No rounds available.
+                </Typography>
+              ) : (
+                <FormControl fullWidth size="small">
+                  <Select
+                    value={detailsSelectedRoundId}
+                    onChange={(e) => setDetailsSelectedRoundId(String(e.target.value))}
+                    sx={{ borderRadius: 1.5 }}
+                  >
+                    {detailsAllRounds.map((r) => (
+                      <MenuItem key={r.id} value={r.id}>
+                        {r.name} ({r.startDate} → {r.endDate})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+            </Box>
+
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 3 }}>
               <Card variant="outlined">
                 <CardContent>
@@ -1147,7 +1173,7 @@ export function CoursesListView() {
                     What you&apos;ll learn
                   </Typography>
                   <Box component="ul" sx={{ pl: 2.5, m: 0, typography: 'body2', color: 'text.secondary', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {sampleSyllabus.map((topic, i) => (
+                    {(detailsWeeks.length > 0 ? detailsWeeks.map((w) => w.title) : sampleSyllabus).map((topic, i) => (
                       <li key={i}>{topic}</li>
                     ))}
                   </Box>
@@ -1158,12 +1184,11 @@ export function CoursesListView() {
                 <CardContent>
                   <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>Course details</Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Typography variant="body2"><strong>Category:</strong> {detailsCourse?.category}</Typography>
-                    <Typography variant="body2"><strong>Instructor:</strong> {detailsCourse?.instructor}</Typography>
+                    <Typography variant="body2"><strong>Instructor:</strong> {detailsInstructorName || '—'}</Typography>
                     <Typography variant="body2"><strong>Duration:</strong> {detailsCourse?.duration}h</Typography>
                     <Typography variant="body2"><strong>Students:</strong> {detailsCourse?.students}</Typography>
                     <Typography variant="body2"><strong>Rating:</strong> {detailsCourse?.rating}</Typography>
-                    <Typography variant="body2"><strong>Price:</strong> ${detailsCourse?.price}</Typography>
+                    <Typography variant="body2"><strong>Price:</strong> {detailsCourse?.price} EGP</Typography>
                   </Box>
                 </CardContent>
               </Card>
@@ -1171,8 +1196,15 @@ export function CoursesListView() {
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
             <Button onClick={handleCloseDetails}>Close</Button>
-            <Button variant="contained" onClick={() => { if (detailsCourse) handleEnrollClick(detailsCourse); handleCloseDetails(); }}>
-              {t('courses.enrollCourse')}
+            <Button
+              variant="contained"
+              disabled={isEnrolledInDetailsCourse}
+              onClick={() => {
+                if (detailsCourse) handleEnrollClick(detailsCourse);
+                handleCloseDetails();
+              }}
+            >
+              {isEnrolledInDetailsCourse ? 'Enrolled' : t('courses.enrollCourse')}
             </Button>
           </DialogActions>
         </Dialog>

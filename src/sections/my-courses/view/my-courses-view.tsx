@@ -94,7 +94,7 @@ const mockEnrolledCourses = [
 const getStatusLabel = (status: string) => {
   switch (status) {
     case 'active':
-      return 'In Progress';
+      return 'Continue learning';
     case 'completed':
       return 'Completed';
     case 'paused':
@@ -381,7 +381,7 @@ export function MyCoursesView() {
                       overflow: 'hidden'
                     }}
                   >
-                     <Iconify icon="solar:programming-bold-duotone" width={80} sx={{ color: 'primary.main', opacity: 0.6 }} />
+                     <Iconify icon="solar:play-circle-bold-duotone" width={80} sx={{ color: 'primary.main', opacity: 0.6 }} />
                      <Chip
                         label={getStatusLabel(course.status)}
                         color="primary"
@@ -404,6 +404,16 @@ export function MyCoursesView() {
                            {course.instructor}
                         </Typography>
                     </Box>
+
+                    {course.description && (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                      >
+                        {course.description}
+                      </Typography>
+                    )}
 
                     {course.round && (
                       <Box
@@ -469,20 +479,6 @@ export function MyCoursesView() {
                         <Typography variant="body2" fontWeight={600} sx={{ display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                            {course.nextLesson}
                         </Typography>
-                      </Box>
-                    )}
-
-                    {course.whatYouWillLearn && (
-                      <Box sx={{ mb: 3, p: 2, bgcolor: alpha(theme.palette.background.neutral, 0.5), borderRadius: 2 }}>
-                         <Typography variant="subtitle2" sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Iconify icon="solar:star-bold-duotone" color="warning.main" width={18} />
-                            Key Takeaways
-                         </Typography>
-                         <Box component="ul" sx={{ pl: 2.5, m: 0, typography: 'caption', color: 'text.secondary', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            {course.whatYouWillLearn.map((item: string, i: number) => (
-                              <li key={i}>{item}</li>
-                            ))}
-                         </Box>
                       </Box>
                     )}
 

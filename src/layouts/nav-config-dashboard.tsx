@@ -102,12 +102,12 @@ const studentNavItems: NavItem[] = [
     icon: icon('Bookmark'),
     roles: ['student'],
   },
-  {
-    title: 'Assignments',
-    path: '/assignments',
-    icon: icon('Document'),
-    roles: ['student'],
-  },
+  // {
+  //   title: 'Assignments',
+  //   path: '/assignments',
+  //   icon: icon('Document'),
+  //   roles: ['student'],
+  // },
   {
     title: "Playground",
     path: '/playground',

@@ -20,6 +20,7 @@ import { RouterLink } from 'src/routes/components';
 
 import { useGoogleAuth } from 'src/hooks/use-google-auth';
 
+import { ApiError } from 'src/api/errors';
 import { useAuth } from 'src/contexts/simple-auth-context';
 
 import { Iconly } from 'src/components/iconly';
@@ -115,15 +116,33 @@ export function SignInView() {
       await login(email, password);
       router.push('/dashboard');
     } catch (err) {
-      if (err instanceof Error) {
-        if (err.message === 'Email is not verified') {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setError(t('auth.invalidCredentials'));
+        } else if (err.message.includes('Email is not verified')) {
           setError(t('auth.emailNotVerified'));
         } else {
-          setError(err.message);
+          setError(err.message || t('messages.savingError'));
         }
-      } else {
-        setError(t('auth.invalidCredentials'));
+        return;
       }
+
+      if (err instanceof Error) {
+        if (err.message.includes('Email is not verified')) {
+          setError(t('auth.emailNotVerified'));
+          return;
+        }
+
+        if (err.message.toLowerCase().includes('network')) {
+          setError(t('messages.loadingError'));
+          return;
+        }
+
+        setError(err.message);
+        return;
+      }
+
+      setError(t('auth.invalidCredentials'));
     } finally {
       setLoading(false);
     }

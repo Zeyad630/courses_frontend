@@ -1,6 +1,6 @@
+import type { WeekDto } from 'src/api/models/week';
 import type { MaterialDto } from 'src/api/models/material';
 import type { Lesson, CourseModule } from 'src/types/course';
-import type { Assignment, CourseMaterial } from 'src/types/user';
 import type { ZoomMeetingDto } from 'src/api/models/zoom-meeting';
 
 import { useSearchParams } from 'react-router-dom';
@@ -33,9 +33,9 @@ import LinearProgress from '@mui/material/LinearProgress';
 
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
-import { courseApi, materialApi, zoomMeetingApi } from 'src/api';
 import { useCoursesContext } from 'src/contexts/courses-context';
 import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
+import { courseApi, materialApi, weekApi, zoomMeetingApi } from 'src/api';
 import { useApplicationsContext } from 'src/contexts/applications-context';
 import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
 
@@ -57,100 +57,6 @@ const safeParseModules = (raw: string | null): CourseModule[] => {
     return [];
   }
 };
-
-// Enhanced mock course data
-const mockCourse = {
-  id: '1',
-  title: 'Introduction to Programming',
-  description: 'Learn the fundamentals of programming with Python. This comprehensive course covers variables, functions, loops, and object-oriented programming concepts.',
-  instructor: 'Dr. Smith',
-  instructorId: 'inst_1',
-  duration: '12 weeks',
-  level: 'Beginner',
-  language: 'English',
-  price: 299,
-  students: 25,
-  rating: 4.8,
-  totalLessons: 24,
-  completedLessons: 8,
-  nextClass: new Date('2024-01-25T14:00:00'),
-  zoomLink: 'https://zoom.us/j/123456789?pwd=abcd1234',
-  syllabus: [
-    'Introduction to Programming Concepts',
-    'Variables and Data Types',
-    'Control Structures (if/else, loops)',
-    'Functions and Methods',
-    'Object-Oriented Programming',
-    'File Handling and I/O',
-    'Error Handling and Debugging',
-    'Final Project Development'
-  ],
-};
-
-// Mock materials
-const mockMaterials: CourseMaterial[] = [
-  {
-    id: 'mat_1',
-    courseId: '1',
-    title: 'Course Introduction Video',
-    description: 'Welcome to the course! This video covers what you will learn.',
-    type: 'video',
-    url: 'https://example.com/video1.mp4',
-    uploadedBy: 'inst_1',
-    uploadedAt: new Date('2024-01-15'),
-    isVisible: true,
-  },
-  {
-    id: 'mat_2',
-    courseId: '1',
-    title: 'Python Basics PDF',
-    description: 'Comprehensive guide to Python syntax and basic concepts.',
-    type: 'pdf',
-    url: 'https://example.com/python-basics.pdf',
-    uploadedBy: 'inst_1',
-    uploadedAt: new Date('2024-01-16'),
-    isVisible: true,
-  },
-  {
-    id: 'mat_3',
-    courseId: '1',
-    title: 'Live Coding Session',
-    description: 'Join us for live coding every Tuesday at 2 PM EST',
-    type: 'zoom',
-    url: 'https://zoom.us/j/123456789',
-    uploadedBy: 'inst_1',
-    uploadedAt: new Date('2024-01-17'),
-    isVisible: true,
-  },
-];
-
-// Mock assignments
-const mockAssignments: Assignment[] = [
-  {
-    id: 'assign_1',
-    courseId: '1',
-    title: 'Hello World Program',
-    description: 'Create your first Python program that prints "Hello, World!" to the console.',
-    dueDate: new Date('2024-02-01'),
-    maxPoints: 10,
-    createdBy: 'inst_1',
-    createdAt: new Date('2024-01-18'),
-    isVisible: true,
-  },
-  {
-    id: 'assign_2',
-    courseId: '1',
-    title: 'Variables and Data Types',
-    description: 'Write a program demonstrating different data types in Python.',
-    dueDate: new Date('2024-02-08'),
-    maxPoints: 20,
-    createdBy: 'inst_1',
-    createdAt: new Date('2024-01-20'),
-    isVisible: true,
-  },
-];
-
-
 
 const getMaterialIcon = (type: string) => {
   const lower = type.toLowerCase();
@@ -176,6 +82,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const { user, hasRole } = useAuth();
   const theme = useTheme();
   const [currentTab, setCurrentTab] = useState(0);
+  const [successMessage, setSuccessMessage] = useState<string>('');
 
   const [searchParams] = useSearchParams();
   const roundIdFromQuery = useMemo(() => searchParams.get('roundId') ?? '', [searchParams]);
@@ -216,6 +123,11 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     if (hasRole('instructor')) return selectedRoundId || roundsForCourse[0]?.id;
     return undefined;
   }, [assignedRound?.id, hasRole, roundsForCourse, selectedRoundId]);
+
+  const dataRoundId = useMemo(() => {
+    if (activeRoundId) return activeRoundId;
+    return roundsForCourse[0]?.id;
+  }, [activeRoundId, roundsForCourse]);
 
   const activeRound = useMemo(
     () => (activeRoundId ? roundsForCourse.find((r) => r.id === activeRoundId) : undefined),
@@ -275,37 +187,45 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const displayCourse = useMemo(
     () => ({
       id: courseId,
-      title: resolvedCourse?.name ?? mockCourse.title,
-      description: resolvedCourse?.description ?? mockCourse.description,
-      instructor: resolvedCourse?.instructor ?? mockCourse.instructor,
-      instructorId: resolvedCourse?.instructorId ?? mockCourse.instructorId,
-      duration: resolvedCourse ? `${resolvedCourse.duration} hours` : mockCourse.duration,
-      level: resolvedCourse ? `${resolvedCourse.level.charAt(0).toUpperCase()}${resolvedCourse.level.slice(1)}` : mockCourse.level,
-      language: mockCourse.language,
-      price: resolvedCourse?.price ?? mockCourse.price,
-      students: resolvedCourse?.students ?? mockCourse.students,
-      rating: resolvedCourse?.rating ?? mockCourse.rating,
-      totalLessons: mockCourse.totalLessons,
-      completedLessons: mockCourse.completedLessons,
-      nextClass: mockCourse.nextClass,
-      zoomLink: mockCourse.zoomLink,
-      syllabus: mockCourse.syllabus,
+      title: resolvedCourse?.name ?? '',
+      description: resolvedCourse?.description ?? '',
+      instructor: resolvedCourse?.instructor ?? '',
+      instructorId: resolvedCourse?.instructorId ?? '',
+      duration: resolvedCourse ? `${resolvedCourse.duration} hours` : '',
+      level: resolvedCourse
+        ? `${resolvedCourse.level.charAt(0).toUpperCase()}${resolvedCourse.level.slice(1)}`
+        : '',
+      language: '',
+      price: resolvedCourse?.price ?? 0,
+      students: resolvedCourse?.students ?? 0,
+      rating: resolvedCourse?.rating ?? 0,
+      totalLessons: resolvedCourse?.content?.totalLessons ?? 0,
+      completedLessons: 0,
+      nextClass: null as Date | null,
+      zoomLink: '',
+      syllabus: [] as string[],
     }),
     [courseId, resolvedCourse]
   );
 
   const [materials, setMaterials] = useState<MaterialDto[]>([]);
   const [zoomMeetings, setZoomMeetings] = useState<ZoomMeetingDto[]>([]);
+  const [weeks, setWeeks] = useState<WeekDto[]>([]);
   const [roundDataError, setRoundDataError] = useState<string>('');
 
-  const assignments = useMemo(() => mockAssignments.map((a) => ({ ...a, courseId })), [courseId]);
+  useEffect(() => {
+    if (!successMessage) return undefined;
+    const tmr = setTimeout(() => setSuccessMessage(''), 3500);
+    return () => clearTimeout(tmr);
+  }, [successMessage]);
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!activeRoundId) {
+    if (!dataRoundId) {
       setMaterials([]);
       setZoomMeetings([]);
+      setWeeks([]);
       setRoundDataError('');
       return () => {
         cancelled = true;
@@ -313,28 +233,32 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     }
 
     setRoundDataError('');
+    setSuccessMessage('');
 
     Promise.all([
-      materialApi.getByCourseRoundId(Number(activeRoundId)),
-      zoomMeetingApi.getByCourseRoundId(Number(activeRoundId)),
+      materialApi.getByCourseRoundId(Number(dataRoundId)),
+      zoomMeetingApi.getByCourseRoundId(Number(dataRoundId)),
+      weekApi.getByCourseRoundId(Number(dataRoundId)),
     ])
-      .then(([mats, zooms]) => {
+      .then(([mats, zooms, ws]) => {
         if (cancelled) return;
         const showOnlyActive = hasRole('student');
         setMaterials(showOnlyActive ? mats.filter((m) => m.isActive !== false) : mats);
         setZoomMeetings(showOnlyActive ? zooms.filter((z) => z.isActive !== false) : zooms);
+        setWeeks(ws);
       })
       .catch((error: any) => {
         if (cancelled) return;
         setMaterials([]);
         setZoomMeetings([]);
+        setWeeks([]);
         setRoundDataError(error?.message || 'Failed to load round materials/zoom meetings');
       });
 
     return () => {
       cancelled = true;
     };
-  }, [activeRoundId, hasRole]);
+  }, [dataRoundId, hasRole]);
 
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
   const [zoomDialogOpen, setZoomDialogOpen] = useState(false);
@@ -364,17 +288,28 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     if (!activeRoundId) return;
     setRoundDataError('');
     try {
-      const [mats, zooms] = await Promise.all([
+      const [mats, zooms, ws] = await Promise.all([
         materialApi.getByCourseRoundId(Number(activeRoundId)),
         zoomMeetingApi.getByCourseRoundId(Number(activeRoundId)),
+        weekApi.getByCourseRoundId(Number(activeRoundId)),
       ]);
       const showOnlyActive = hasRole('student');
       setMaterials(showOnlyActive ? mats.filter((m) => m.isActive !== false) : mats);
       setZoomMeetings(showOnlyActive ? zooms.filter((z) => z.isActive !== false) : zooms);
+      setWeeks(ws);
     } catch (error: any) {
       setRoundDataError(error?.message || 'Failed to load round materials/zoom meetings');
     }
   }, [activeRoundId, hasRole]);
+
+  const isValidHttpUrl = useCallback((value: string) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }, []);
 
   const progressPercent = useMemo(() => {
     const total = Number(displayCourse.totalLessons);
@@ -387,6 +322,10 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const handleCreateMaterial = useCallback(async () => {
     if (!activeRoundId) return;
     if (!materialForm.title.trim() || !materialForm.link.trim()) return;
+    if (!isValidHttpUrl(materialForm.link.trim())) {
+      setRoundDataError('Please enter a valid URL for the material link.');
+      return;
+    }
     try {
       await materialApi.create({
         courseRoundId: Number(activeRoundId),
@@ -397,11 +336,13 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
       });
       setMaterialDialogOpen(false);
       setMaterialForm({ title: '', description: '', link: '', materialType: 'link' });
+      setSuccessMessage('Material uploaded successfully.');
       await reloadRoundData();
     } catch (error: any) {
+      setSuccessMessage('');
       setRoundDataError(error?.message || 'Failed to upload material');
     }
-  }, [activeRoundId, materialForm, reloadRoundData]);
+  }, [activeRoundId, isValidHttpUrl, materialForm, reloadRoundData]);
 
   const handleDeleteMaterial = useCallback(
     async (id: number) => {
@@ -450,6 +391,10 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const handleCreateZoomMeeting = useCallback(async () => {
     if (!activeRoundId) return;
     if (!zoomForm.topic.trim() || !zoomForm.meetingLink.trim()) return;
+    if (!isValidHttpUrl(zoomForm.meetingLink.trim())) {
+      setRoundDataError('Please enter a valid URL for the Zoom meeting link.');
+      return;
+    }
     try {
       await zoomMeetingApi.create({
         courseRoundId: Number(activeRoundId),
@@ -471,11 +416,13 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
         meetingDateTime: new Date().toISOString().slice(0, 16),
         durationMinutes: 60,
       });
+      setSuccessMessage('Zoom session created successfully.');
       await reloadRoundData();
     } catch (error: any) {
+      setSuccessMessage('');
       setRoundDataError(error?.message || 'Failed to add zoom meeting');
     }
-  }, [activeRoundId, reloadRoundData, zoomForm]);
+  }, [activeRoundId, isValidHttpUrl, reloadRoundData, zoomForm]);
 
   const handleDeleteZoomMeeting = useCallback(
     async (id: number) => {
@@ -568,22 +515,87 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     setCurrentTab(newValue);
   }, []);
 
-  const handleSubmitAssignment = useCallback((assignment: Assignment) => {
-    // setSelectedAssignment(assignment);
-    // setSubmissionDialog(true);
-  }, []);
-
 
 
   const tabs = [
     { label: 'Overview', value: 0, icon: 'solar:info-circle-bold-duotone' },
     { label: 'Materials', value: 1, icon: 'solar:folder-with-files-bold-duotone' },
-    { label: 'Assignments', value: 2, icon: 'solar:documents-minimalistic-bold-duotone' },
-    { label: 'Zoom Sessions', value: 3, icon: 'solar:videocamera-bold-duotone' },
-    { label: 'Grades', value: 4, icon: 'solar:diploma-bold-duotone' },
-    { label: 'Curriculum', value: 5, icon: 'solar:checklist-minimalistic-bold-duotone' },
-    ...(hasRole('instructor') ? [{ label: 'Edit Content', value: 6, icon: 'solar:pen-new-square-bold-duotone' }] : []),
+    { label: 'Zoom Sessions', value: 2, icon: 'solar:videocamera-bold-duotone' },
+    { label: 'Curriculum', value: 3, icon: 'solar:checklist-minimalistic-bold-duotone' },
+    ...(hasRole('instructor')
+      ? [
+          { label: 'Weeks', value: 4, icon: 'solar:calendar-mark-bold-duotone' },
+          { label: 'Edit Content', value: 5, icon: 'solar:pen-new-square-bold-duotone' },
+        ]
+      : []),
   ];
+
+  const weeksSorted = useMemo(
+    () => weeks.slice().sort((a, b) => a.startDate.localeCompare(b.startDate)),
+    [weeks]
+  );
+
+  const [weekDialogOpen, setWeekDialogOpen] = useState(false);
+  const [editWeekId, setEditWeekId] = useState<number | null>(null);
+  const [weekForm, setWeekForm] = useState({ title: '', startDate: '', endDate: '' });
+
+  const openCreateWeekDialog = useCallback(() => {
+    setEditWeekId(null);
+    setWeekForm({ title: '', startDate: '', endDate: '' });
+    setWeekDialogOpen(true);
+  }, []);
+
+  const openEditWeekDialog = useCallback((w: WeekDto) => {
+    setEditWeekId(w.id);
+    setWeekForm({ title: w.title, startDate: w.startDate, endDate: w.endDate });
+    setWeekDialogOpen(true);
+  }, []);
+
+  const saveWeek = useCallback(async () => {
+    if (!activeRoundId) return;
+    if (!weekForm.title.trim() || !weekForm.startDate || !weekForm.endDate) return;
+    if (weekForm.endDate < weekForm.startDate) {
+      setRoundDataError('End date must be after start date.');
+      return;
+    }
+    try {
+      if (editWeekId) {
+        await weekApi.update(editWeekId, {
+          title: weekForm.title.trim(),
+          startDate: weekForm.startDate,
+          endDate: weekForm.endDate,
+        });
+        setSuccessMessage('Week updated successfully.');
+      } else {
+        await weekApi.create({
+          courseRoundId: Number(activeRoundId),
+          title: weekForm.title.trim(),
+          startDate: weekForm.startDate,
+          endDate: weekForm.endDate,
+        });
+        setSuccessMessage('Week created successfully.');
+      }
+
+      setWeekDialogOpen(false);
+      await reloadRoundData();
+    } catch (error: any) {
+      setRoundDataError(error?.message || 'Failed to save week');
+    }
+  }, [activeRoundId, editWeekId, reloadRoundData, weekForm]);
+
+  const deleteWeek = useCallback(
+    async (id: number) => {
+      if (!confirm('Delete this week?')) return;
+      try {
+        await weekApi.delete(id);
+        setSuccessMessage('Week deleted successfully.');
+        await reloadRoundData();
+      } catch (error: any) {
+        setRoundDataError(error?.message || 'Failed to delete week');
+      }
+    },
+    [reloadRoundData]
+  );
 
   const handleAddWeek = useCallback(() => {
     setNewWeekTitle('');
@@ -814,6 +826,17 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   return (
     <DashboardContent>
       <Container maxWidth="xl">
+        {successMessage && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage('')}>
+            {successMessage}
+          </Alert>
+        )}
+
+        {roundDataError && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setRoundDataError('')}>
+            {roundDataError}
+          </Alert>
+        )}
         {/* Glassmorphism Header */}
         <Box
           sx={{
@@ -977,14 +1000,16 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                       What you&apos;ll learn
                     </Typography>
                     <Grid container spacing={2}>
-                        {displayCourse.syllabus.map((topic, index) => (
-                          <Grid size={{ xs: 12, sm: 6 }} key={index}>
+                        {(weeksSorted.length > 0 ? weeksSorted : displayCourse.syllabus.map((t, idx) => ({ id: idx, title: t } as any))).map(
+                          (item: any, index: number) => (
+                            <Grid size={{ xs: 12, sm: 6 }} key={item.id ?? index}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                  <Iconify icon="solar:check-circle-bold" width={20} sx={{ color: 'success.main' }} />
-                                  <Typography variant="body2">{topic}</Typography>
+                                <Iconify icon="solar:check-circle-bold" width={20} sx={{ color: 'success.main' }} />
+                                <Typography variant="body2">{item.title}</Typography>
                               </Box>
-                          </Grid>
-                        ))}
+                            </Grid>
+                          )
+                        )}
                     </Grid>
                 </Card>
               </Grid>
@@ -1136,22 +1161,50 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
         )}
 
         {/* Curriculum Tab (Student view) */}
-        {currentTab === 5 && (
+        {currentTab === 3 && (
           <Box>
             <Typography variant="h5" sx={{ mb: 3, fontWeight: 700 }}>
               Curriculum
             </Typography>
 
-            {modules.length > 0 ? (
+            {weeksSorted.length > 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {weeksSorted.map((w, idx) => (
+                  <Card key={w.id} sx={{ transition: 'all 0.3s', '&:hover': { boxShadow: theme.shadows[4] } }}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 700 }} noWrap>
+                            Week {idx + 1}: {w.title}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {new Date(w.startDate).toLocaleDateString()} - {new Date(w.endDate).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+                        <Chip label="Week" color="primary" variant="outlined" />
+                      </Box>
+
+                      <Typography variant="body2" color="text.secondary">
+                        Lessons will appear here.
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            ) : modules.length > 0 ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {modules.map((module, idx) => (
                   <Card key={module.id} sx={{ transition: 'all 0.3s', '&:hover': { boxShadow: theme.shadows[4] } }}>
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                         <Box>
-                          <Typography variant="h6" sx={{ fontWeight: 700 }}>Week {idx + 1}: {module.title}</Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            Week {idx + 1}: {module.title}
+                          </Typography>
                           {module.description && (
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{module.description}</Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                              {module.description}
+                            </Typography>
                           )}
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1167,10 +1220,22 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
 
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                         {module.lessons.length === 0 ? (
-                          <Typography variant="body2" color="text.secondary">No lessons added yet.</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            No lessons added yet.
+                          </Typography>
                         ) : (
                           module.lessons.map((lesson) => (
-                            <Box key={lesson.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.5, bgcolor: 'background.neutral', borderRadius: 1 }}>
+                            <Box
+                              key={lesson.id}
+                              sx={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                p: 1.5,
+                                bgcolor: 'background.neutral',
+                                borderRadius: 1,
+                              }}
+                            >
                               <Typography variant="body2" fontWeight={600}>
                                 {lesson.order}. {lesson.title}
                               </Typography>
@@ -1185,22 +1250,120 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
               </Box>
             ) : (
               <Card sx={{ p: 3 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>Course Outline</Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {mockCourse.syllabus.map((topic, index) => (
-                    <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Iconify icon="solar:check-circle-bold" width={18} sx={{ color: 'success.main' }} />
-                      <Typography variant="body2">{topic}</Typography>
-                    </Box>
-                  ))}
-                </Box>
+                <Typography variant="body2" color="text.secondary">
+                  No curriculum has been published yet.
+                </Typography>
               </Card>
             )}
           </Box>
         )}
 
+        {/* Weeks Tab - Instructor only (backend weeks) */}
+        {hasRole('instructor') && currentTab === 4 && (
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+              <Typography variant="h5">Weeks</Typography>
+              <Button
+                variant="contained"
+                startIcon={<Iconify icon="solar:add-circle-bold-duotone" />}
+                onClick={openCreateWeekDialog}
+                disabled={!activeRoundId}
+              >
+                Add Week
+              </Button>
+            </Box>
+
+            {!activeRoundId && (
+              <Card sx={{ p: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Select a course round to manage weeks.
+                </Typography>
+              </Card>
+            )}
+
+            {activeRoundId && weeksSorted.length === 0 && (
+              <Card sx={{ p: 3 }}>
+                <Typography variant="body2" color="text.secondary">
+                  No weeks created yet.
+                </Typography>
+              </Card>
+            )}
+
+            {weeksSorted.length > 0 && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {weeksSorted.map((w, idx) => (
+                  <Card key={w.id} sx={{ transition: 'all 0.3s', '&:hover': { boxShadow: theme.shadows[4] } }}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 800 }} noWrap>
+                            Week {idx + 1}: {w.title}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {new Date(w.startDate).toLocaleDateString()} - {new Date(w.endDate).toLocaleDateString()}
+                          </Typography>
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <IconButton size="small" onClick={() => openEditWeekDialog(w)} aria-label="Edit week">
+                            <Iconify icon="solar:pen-bold" width={18} />
+                          </IconButton>
+                          <IconButton size="small" color="error" onClick={() => deleteWeek(w.id)} aria-label="Delete week">
+                            <Iconify icon="solar:trash-bin-trash-bold" width={18} />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            )}
+
+            <Dialog open={weekDialogOpen} onClose={() => setWeekDialogOpen(false)} maxWidth="sm" fullWidth>
+              <DialogTitle>{editWeekId ? 'Edit Week' : 'Add Week'}</DialogTitle>
+              <DialogContent>
+                <TextField
+                  fullWidth
+                  label="Title"
+                  sx={{ mt: 1 }}
+                  value={weekForm.title}
+                  onChange={(e) => setWeekForm((prev) => ({ ...prev, title: e.target.value }))}
+                />
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mt: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="Start Date"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                    value={weekForm.startDate}
+                    onChange={(e) => setWeekForm((prev) => ({ ...prev, startDate: e.target.value }))}
+                  />
+                  <TextField
+                    fullWidth
+                    label="End Date"
+                    type="date"
+                    InputLabelProps={{ shrink: true }}
+                    value={weekForm.endDate}
+                    onChange={(e) => setWeekForm((prev) => ({ ...prev, endDate: e.target.value }))}
+                  />
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setWeekDialogOpen(false)}>Cancel</Button>
+                <Button
+                  variant="contained"
+                  onClick={saveWeek}
+                  disabled={!weekForm.title.trim() || !weekForm.startDate || !weekForm.endDate}
+                >
+                  Save
+                </Button>
+              </DialogActions>
+            </Dialog>
+          </Box>
+        )}
+
         {/* Content (Weeks) Tab - Instructor only */}
-        {hasRole('instructor') && currentTab === 6 && (
+        {hasRole('instructor') && currentTab === 5 && (
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
               <Typography variant="h5">Course Content (Weeks)</Typography>
@@ -1638,87 +1801,8 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
           </Box>
         )}
 
-        {/* Assignments Tab */}
-        {currentTab === 2 && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>Assignments</Typography>
-              {hasRole('instructor') && (
-                <Button
-                  variant="contained"
-                  startIcon={<Iconify icon="solar:add-circle-bold-duotone" />}
-                >
-                  Create Assignment
-                </Button>
-              )}
-            </Box>
-
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {assignments.map((assignment) => (
-                <Card key={assignment.id} sx={{ transition: 'all 0.3s', '&:hover': { boxShadow: theme.shadows[4] } }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Box>
-                        <Typography variant="h6" gutterBottom sx={{ fontWeight: 700 }}>
-                          {assignment.title}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {assignment.description}
-                        </Typography>
-                      </Box>
-                      <Chip
-                        label={`${assignment.maxPoints} Points`}
-                        color="primary"
-                        variant="filled"
-                        sx={{ borderRadius: 1, fontWeight: 700 }}
-                      />
-                    </Box>
-
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3, pt: 2, borderTop: `1px dashed ${theme.palette.divider}` }}>
-                       <Box sx={{ display: 'flex', gap: 3 }}>
-                          <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                             <Iconify icon="solar:calendar-date-bold" width={16} sx={{ color: 'error.main' }} />
-                            Due: {assignment.dueDate.toLocaleDateString()}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                             <Iconify icon="solar:clock-circle-bold" width={16} />
-                            Created: {assignment.createdAt.toLocaleDateString()}
-                          </Typography>
-                       </Box>
-                       
-                       <Box>
-                          {hasRole('student') && (
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<Iconify icon="solar:upload-bold-duotone" />}
-                              onClick={() => handleSubmitAssignment(assignment)}
-                              sx={{ borderRadius: 30 }}
-                            >
-                              Submit
-                            </Button>
-                          )}
-                          {hasRole('instructor') && (
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<Iconify icon="solar:eye-bold-duotone" />}
-                              sx={{ borderRadius: 30 }}
-                            >
-                              View Submissions
-                            </Button>
-                          )}
-                       </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-          </Box>
-        )}
-
         {/* Zoom Sessions Tab */}
-        {currentTab === 3 && (
+        {currentTab === 2 && (
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h5" sx={{ fontWeight: 700 }}>Zoom Sessions</Typography>
@@ -1904,21 +1988,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
           </Box>
         )}
 
-        {/* Grades Tab */}
-        {currentTab === 4 && (
-          <Box>
-            <Typography variant="h5" sx={{ mb: 3, fontWeight: 700 }}>
-              My Grades
-            </Typography>
-            
-            <Card>
-               <Typography variant="caption" sx={{ p: 2, display: 'block', color: 'text.secondary', textAlign: 'center' }}>
-                  Grades will appear here once assignments are graded by the instructor.
-               </Typography>
-               {/* Refined grades list logic can go here */}
-            </Card>
-          </Box>
-        )}
+ 
 
       </Container>
     </DashboardContent>

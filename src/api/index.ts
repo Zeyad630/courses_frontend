@@ -12,5 +12,6 @@ export { applicationApi } from './services/application.api';
 export { materialApi } from './services/material.api';
 
 export { zoomMeetingApi } from './services/zoom-meeting.api';
+export { weekApi } from './services/week.api';
 export { courseRoundApi } from './services/course-round.api';
 export { courseRoundStudentApi } from './services/course-round-student.api';
