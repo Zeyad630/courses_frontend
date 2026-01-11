@@ -43,15 +43,7 @@ export function SignInView() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Google OAuth handler
-  const handleGoogleSuccess = useCallback(
-    async (token: string) => {
-      setGoogleLoading(false);
-      router.push('/dashboard');
-    },
-    [router]
-  );
-
+  // Google OAuth error handler
   const handleGoogleError = useCallback(
     (err: Error) => {
       setGoogleLoading(false);
@@ -60,7 +52,37 @@ export function SignInView() {
     []
   );
 
-  const { signInWithGoogle, isGoogleLoaded } = useGoogleAuth(handleGoogleSuccess, handleGoogleError);
+  // Google OAuth success callback - receives the idToken (credential) from Google
+  const handleGoogleCallback = useCallback(
+    async (credential: string) => {
+      try {
+        setGoogleLoading(true);
+        setError('');
+        
+        // Use the auth context's loginWithGoogle method which handles:
+        // 1. Sending idToken to backend
+        // 2. Getting access token and user info
+        // 3. Fetching full profile
+        // 4. Updating auth context state
+        await loginWithGoogle(credential);
+        
+        setGoogleLoading(false);
+        
+        // Redirect after successful login
+        router.push('/dashboard');
+      } catch (err) {
+        setGoogleLoading(false);
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('Google authentication failed');
+        }
+      }
+    },
+    [loginWithGoogle, router]
+  );
+
+  const { signInWithGoogle, isGoogleLoaded } = useGoogleAuth(handleGoogleCallback, handleGoogleError);
 
   const handleGoogleSignIn = useCallback(async () => {
     if (!isGoogleLoaded) {

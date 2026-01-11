@@ -140,29 +140,6 @@ export function SignUpView() {
     }
   }, [email, fullNameAr, fullNameEn, nationalId, otp, password, phone, register, router, t]);
 
-  const renderOtpSlots = useCallback(
-    ({ slots }: { slots: SlotProps[] }) => (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
-        <Box sx={{ display: 'flex' }}>
-          {slots.slice(0, 3).map((slot, idx) => (
-            <OtpSlot key={idx} slot={slot} index={idx} />
-          ))}
-        </Box>
-
-        <Box sx={{ width: 24, display: 'flex', justifyContent: 'center' }}>
-          <Box sx={{ width: 10, height: 4, borderRadius: 999, bgcolor: 'divider' }} />
-        </Box>
-
-        <Box sx={{ display: 'flex' }}>
-          {slots.slice(3).map((slot, idx) => (
-            <OtpSlot key={idx} slot={slot} index={idx + 3} />
-          ))}
-        </Box>
-      </Box>
-    ),
-    []
-  );
-
   const OtpSlot = useCallback(
     ({ slot }: { slot: SlotProps; index: number }) => {
       const showPlaceholder = Boolean((slot as any).placeholderChar) && !(slot as any).char;
@@ -237,6 +214,29 @@ export function SignUpView() {
       );
     },
     [theme]
+  );
+
+  const renderOtpSlots = useCallback(
+    ({ slots }: { slots: SlotProps[] }) => (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex' }}>
+          {slots.slice(0, 3).map((slot, idx) => (
+            <OtpSlot key={idx} slot={slot} index={idx} />
+          ))}
+        </Box>
+
+        <Box sx={{ width: 24, display: 'flex', justifyContent: 'center' }}>
+          <Box sx={{ width: 10, height: 4, borderRadius: 999, bgcolor: 'divider' }} />
+        </Box>
+
+        <Box sx={{ display: 'flex' }}>
+          {slots.slice(3).map((slot, idx) => (
+            <OtpSlot key={idx} slot={slot} index={idx + 3} />
+          ))}
+        </Box>
+      </Box>
+    ),
+    [OtpSlot]
   );
 
   const renderHeader = (
@@ -565,7 +565,7 @@ export function SignUpView() {
   );
 
   return (
-    <Box sx={{ width: '100%' }}>
+    <Box sx={{ width: '100%', maxWidth: 680, mx: 'auto' }}>
       {renderHeader}
 
       <Card

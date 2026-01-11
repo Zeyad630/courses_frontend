@@ -1,7 +1,14 @@
 import type { ApexOptions } from 'apexcharts';
 
 import Chart from 'react-apexcharts';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type HTMLAttributes,
+  type ReactNode,
+} from 'react';
 
 import Box from '@mui/material/Box';
 import Tab from '@mui/material/Tab';
@@ -25,13 +32,13 @@ import { alpha, useTheme } from '@mui/material/styles';
 import LinearProgress from '@mui/material/LinearProgress';
 import TableContainer from '@mui/material/TableContainer';
 
+import { adminApi, type DashboardData } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
 
 import { Iconify } from 'src/components/iconify';
 
 // ----------------------------------------------------------------------
-
 const mockAnalytics = {
   totalCourses: 42,
   activeCourses: 28,
@@ -120,8 +127,14 @@ const mockSystemMetrics = [
   { label: 'Error Rate', value: 0.02, unit: '%', status: 'excellent' },
 ];
 
+type TabPanelProps = HTMLAttributes<HTMLDivElement> & {
+  children?: ReactNode;
+  index: number;
+  value: number;
+};
+
 // TabPanel Component
-function TabPanel(props: any) {
+function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
   return (
     <div role="tabpanel" hidden={value !== index} {...other}>
@@ -133,13 +146,57 @@ function TabPanel(props: any) {
 export function AdminDashboardAdvanced() {
   const { user } = useAuth();
   const theme = useTheme();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tabValue, setTabValue] = useState(0);
-  const [analytics] = useState(mockAnalytics);
-  const [recentApplications] = useState(mockRecentApplications);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [topCourses] = useState(mockTopCourses);
   const [systemMetrics] = useState(mockSystemMetrics);
+
+  const analytics = useMemo(() => {
+    if (!dashboardData?.summary) {
+      return mockAnalytics;
+    }
+    const summary = dashboardData.summary;
+    return {
+      totalCourses: summary.totalCourses,
+      activeCourses: summary.totalCourseRounds,
+      totalStudents: summary.totalStudents,
+      totalInstructors: summary.totalInstructors,
+      pendingApplications: summary.pendingApplications,
+      acceptedApplications: summary.totalApplications - summary.pendingApplications,
+      rejectedApplications: 0,
+      totalRevenue: 0,
+      monthlyRevenue: 0,
+      courseCompletionRate: 0,
+      studentSatisfaction: 0,
+      systemUptime: 99.9,
+      activeUsers: summary.activeUsers,
+      newRegistrations: summary.recentRegistrations,
+      coursesThisMonth: 0,
+    };
+  }, [dashboardData]);
+
+  const recentApplications = useMemo(() => {
+    if (!dashboardData?.recentApplications) {
+      return mockRecentApplications;
+    }
+    return dashboardData.recentApplications.map((app: DashboardData['recentApplications'][number]) => ({
+      id: app.id.toString(),
+      studentName: app.fullName,
+      studentEmail: '',
+      courseName: app.courseTitle,
+      coursePrice: 0,
+      appliedAt: new Date(app.applicationDate),
+      status: app.statusName.toLowerCase(),
+      avatar: app.fullName
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2),
+    }));
+  }, [dashboardData]);
 
   const latestApplications = useMemo(
     () =>
@@ -214,26 +271,47 @@ export function AdminDashboardAdvanced() {
 
   useEffect(() => {
     let active = true;
-    setIsLoading(true);
+    
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await adminApi.getDashboard();
+        if (active) {
+          setDashboardData(data);
+        }
+      } catch (err) {
+        if (active) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard data';
+          setError(errorMessage);
+          console.error('Failed to fetch dashboard data:', err);
+        }
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-    const t = setTimeout(() => {
-      if (!active) return;
-      setIsLoading(false);
-    }, 300);
+    fetchDashboardData();
 
     return () => {
       active = false;
-      clearTimeout(t);
     };
   }, []);
 
-  const handleRetry = useCallback(() => {
+  const handleRetry = useCallback(async () => {
     setError(null);
     setIsLoading(true);
-
-    setTimeout(() => {
+    try {
+      const data = await adminApi.getDashboard();
+      setDashboardData(data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load dashboard data';
+      setError(errorMessage);
+    } finally {
       setIsLoading(false);
-    }, 300);
+    }
   }, []);
 
   const statsCards = [
