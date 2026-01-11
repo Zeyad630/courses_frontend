@@ -34,6 +34,17 @@ export function SignInView() {
   const { login, loginWithGoogle } = useAuth();
   const { t } = useTranslation();
 
+  const getPostAuthPath = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('auth_user');
+      if (!raw) return '/dashboard';
+      const parsed = JSON.parse(raw) as { role?: string };
+      return parsed?.role === 'student' ? '/courses' : '/dashboard';
+    } catch {
+      return '/dashboard';
+    }
+  }, []);
+
   const brandGradient = `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
 
   const [showPassword, setShowPassword] = useState(false);
@@ -70,7 +81,7 @@ export function SignInView() {
         setGoogleLoading(false);
         
         // Redirect after successful login
-        router.push('/dashboard');
+        router.push(getPostAuthPath());
       } catch (err) {
         setGoogleLoading(false);
         if (err instanceof Error) {
@@ -80,7 +91,7 @@ export function SignInView() {
         }
       }
     },
-    [loginWithGoogle, router]
+    [getPostAuthPath, loginWithGoogle, router]
   );
 
   const { signInWithGoogle, isGoogleLoaded } = useGoogleAuth(handleGoogleCallback, handleGoogleError);
@@ -114,7 +125,7 @@ export function SignInView() {
 
     try {
       await login(email, password);
-      router.push('/dashboard');
+      router.push(getPostAuthPath());
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
@@ -146,7 +157,7 @@ export function SignInView() {
     } finally {
       setLoading(false);
     }
-  }, [email, password, login, router, t]);
+  }, [email, password, getPostAuthPath, login, router, t]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

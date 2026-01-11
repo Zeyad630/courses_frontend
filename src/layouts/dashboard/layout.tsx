@@ -97,11 +97,11 @@ export function DashboardLayout({
       rightArea: (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0, sm: 0.75 } }}>
           {/** @slot Searchbar */}
-          <Searchbar />
+          {user?.role === 'student' ? null : <Searchbar />}
 
 
           {/** @slot Notifications popover */}
-          <NotificationsPopover sx={{ width: 36, height: 36 }} />
+          {user?.role === 'student' ? null : <NotificationsPopover sx={{ width: 36, height: 36 }} />}
 
           {/** @slot Account drawer */}
           <AccountPopover data={_account} sx={{ width: 36, height: 36 }} />

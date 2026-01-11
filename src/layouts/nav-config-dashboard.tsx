@@ -139,6 +139,8 @@ export const getNavData = (userRole?: UserRole): NavItem[] => {
       roleSpecificItems = [];
   }
 
+  if (userRole === 'student') return roleSpecificItems;
+
   return [...commonNavItems, ...roleSpecificItems];
 };
 

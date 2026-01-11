@@ -33,6 +33,17 @@ export function SignUpView() {
   const { register } = useAuth();
   const { t } = useTranslation();
 
+  const getPostAuthPath = useCallback(() => {
+    try {
+      const raw = localStorage.getItem('auth_user');
+      if (!raw) return '/dashboard';
+      const parsed = JSON.parse(raw) as { role?: string };
+      return parsed?.role === 'student' ? '/courses' : '/dashboard';
+    } catch {
+      return '/dashboard';
+    }
+  }, []);
+
   const brandGradient = `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
 
   const [step, setStep] = useState<Step>('form');
@@ -167,7 +178,7 @@ export function SignUpView() {
         fullNameAr,
         phone,
       });
-      router.push('/dashboard');
+      router.push(getPostAuthPath());
     } catch (err) {
       if (err instanceof ValidationError) {
         const next: Partial<Record<string, string>> = {};
@@ -193,7 +204,7 @@ export function SignUpView() {
     } finally {
       setLoading(false);
     }
-  }, [email, fullNameAr, fullNameEn, nationalId, otp, password, phone, register, router, t]);
+  }, [email, fullNameAr, fullNameEn, getPostAuthPath, nationalId, otp, password, phone, register, router, t]);
 
   const OtpSlot = useCallback(
     ({ slot }: { slot: SlotProps; index: number }) => {
