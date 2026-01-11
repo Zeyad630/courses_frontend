@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+color { ReactNode } from 'react';
 import type { Theme } from '@mui/material/styles';
 
 import { varAlpha } from 'minimal-shared/utils';
@@ -349,9 +349,10 @@ export function LandingView() {
                 Launch careers.
               </Typography>
 
-              <Typography variant="h6" sx={{ color: 'text.secondary', lineHeight: 1.7, maxWidth: 560 }}>
-                A role-based experience for students, instructors, and admins—designed with smooth interactions,
-                strong UX, and a modern visual system.
+              <Typography variant="h6" sx={{ color: 'text.secondary', lineHeight: 1.7, maxWidth: 560 }}> 
+GenZCoders
+Learn to code the Gen Z way
+Practical programming courses that take you from beginner to pro.
               </Typography>
 
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }}>
