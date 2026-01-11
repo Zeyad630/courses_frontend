@@ -28,8 +28,10 @@ import { alpha, useTheme } from '@mui/material/styles';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 
+import { applicationApi } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
+import { mapApplicationDtoToUi } from 'src/api/mappers/application.mapper';
 import { useApplicationsContext } from 'src/contexts/applications-context';
 
 import { Iconify } from 'src/components/iconify';
@@ -143,58 +145,44 @@ export function AdminApplicationsView() {
     URL.revokeObjectURL(url);
   }, [acceptedApplications]);
 
-  const exportApplicationsXlsx = useCallback(() => {
-    // Group all applications by course (use course name when available)
-    const byCourse = new Map<string, (typeof applications)[number][]>();
-    applications.forEach((a) => {
-      const key = a.metadata?.courseName || a.courseId;
-      const arr = byCourse.get(key) || [];
-      arr.push(a);
-      byCourse.set(key, arr);
-    });
-
+  const exportApplicationsXlsx = useCallback((appsToExport: (typeof applications)[number][]) => {
     const wb = XLSX.utils.book_new();
 
-    byCourse.forEach((apps, courseName) => {
-      const rows = [
-        [
-          'Course ID',
-          'Course Name',
-          'Student ID',
-          'Student Name',
-          'Email',
-          'Phone',
-          'Experience',
-          'Motivation',
-          'Applied At',
-          'Reviewed At',
-          'Status',
-          'Admin Notes',
-        ],
-        ...apps.map((a) => [
-          a.courseId,
-          a.metadata?.courseName ?? '',
-          a.studentId,
-          a.metadata?.fullName ?? '',
-          a.metadata?.email ?? '',
-          a.metadata?.phone ?? '',
-          a.metadata?.experience ?? '',
-          a.metadata?.motivation ?? '',
-          a.appliedAt.toISOString(),
-          a.reviewedAt ? a.reviewedAt.toISOString() : '',
-          a.status,
-          a.notes ?? '',
-        ]),
-      ];
+    const rows = [
+      [
+        'Course ID',
+        'Course Name',
+        'Student ID',
+        'Student Name',
+        'Email',
+        'Phone',
+        'Experience',
+        'Motivation',
+        'Applied At',
+        'Reviewed At',
+        'Status',
+        'Admin Notes',
+      ],
+      ...appsToExport.map((a) => [
+        a.courseId,
+        a.metadata?.courseName ?? '',
+        a.studentId,
+        a.metadata?.fullName ?? '',
+        a.metadata?.email ?? '',
+        a.metadata?.phone ?? '',
+        a.metadata?.experience ?? '',
+        a.metadata?.motivation ?? '',
+        a.appliedAt.toISOString(),
+        a.reviewedAt ? a.reviewedAt.toISOString() : '',
+        a.status,
+        a.notes ?? '',
+      ]),
+    ];
 
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      // Excel sheet name max length is 31; sanitize forbidden characters
-      const safeName = (courseName || 'Course').toString().slice(0, 31).replace(/[\\/?*:[\]]/g, ' ');
-      XLSX.utils.book_append_sheet(wb, ws, safeName || 'Sheet');
-    });
-
-    XLSX.writeFile(wb, 'applications_by_course.xlsx');
-  }, [applications]);
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Applications');
+    XLSX.writeFile(wb, 'applications.xlsx');
+  }, []);
 
   const exportMenuOpen = Boolean(exportMenuAnchorEl);
   const canExportAll = applications.length > 0;
@@ -208,13 +196,21 @@ export function AdminApplicationsView() {
       setExportingFormat(format);
       try {
         if (format === 'xlsx') {
-          exportApplicationsXlsx();
+          const all = await applicationApi.getApplications();
+          const mapped = all.map(mapApplicationDtoToUi);
+
+          if (mapped.length === 0) {
+            setToast({ open: true, severity: 'error', message: 'No applications to export.' });
+            return;
+          }
+
+          exportApplicationsXlsx(mapped);
           setToast({ open: true, severity: 'success', message: 'Excel export downloaded.' });
         } else {
           exportAcceptedStudentsCsv();
           setToast({ open: true, severity: 'success', message: 'Accepted students CSV downloaded.' });
         }
-      } catch (err) {
+      } catch {
         setToast({ open: true, severity: 'error', message: 'Export failed. Please try again.' });
       } finally {
         setExportingFormat(null);
