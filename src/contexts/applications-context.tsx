@@ -3,6 +3,10 @@ import type { User, CourseApplication, ApplicationStatus } from 'src/types/user'
 import { useMemo, useEffect, useContext, useReducer, useCallback, createContext } from 'react';
 
 import { applicationApi } from 'src/api';
+import { useAuth } from 'src/contexts/simple-auth-context';
+import { useCoursesContext } from 'src/contexts/courses-context';
+import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
+import { paymentProofStorage } from 'src/utils/payment-proof-storage';
 import { attachReviewer, mapApplicationDtoToUi, mapCreateApplicationInputToRequest, mapUpdateStatusToRequest } from 'src/api/mappers/application.mapper';
 
 // ----------------------------------------------------------------------
@@ -36,8 +40,19 @@ interface ApplicationsState {
 }
 
 export type CreateApplicationInput = {
-  studentId: User['id'];
-  courseId: string;
+  courseRoundId: number;
+  answer1?: string | null;
+  answer2?: string | null;
+  answer3?: string | null;
+  answer4?: string | null;
+  answer5?: string | null;
+  answer6?: string | null;
+  answer7?: string | null;
+  answer8?: string | null;
+  answer9?: string | null;
+  answer10?: string | null;
+  studentId?: User['id'];
+  courseId?: string; // For UI purposes
   metadata?: ApplicationMetadata;
 };
 
@@ -106,6 +121,9 @@ type ApplicationsProviderProps = {
 };
 
 export function ApplicationsProvider({ children }: ApplicationsProviderProps) {
+  const { user, hasRole } = useAuth();
+  const { courses } = useCoursesContext();
+  const { rounds } = useCourseRoundsContext();
   const [state, dispatch] = useReducer(applicationsReducer, {
     applications: [],
     isLoading: false,
@@ -115,15 +133,47 @@ export function ApplicationsProvider({ children }: ApplicationsProviderProps) {
   const loadApplications = useCallback(() => {
     dispatch({ type: 'SET_LOADING', payload: true });
 
+    const accountId = !hasRole('admin') && user?.id ? Number(user.id) : undefined;
+
     applicationApi
-      .getApplications()
-      .then((items) => items.map(mapApplicationDtoToUi))
+      .getApplications(accountId)
+      .then((items) =>
+        items.map((item) => {
+          const mapped = mapApplicationDtoToUi(item);
+
+          const proof = paymentProofStorage.get(String(mapped.id));
+
+          const round = rounds.find((r) => String(r.id) === String(item.courseRoundId));
+          const derivedCourseId = round?.courseId;
+          const derivedCourse = derivedCourseId ? courses.find((c) => c.id === derivedCourseId) : undefined;
+
+          const nextCourseId = derivedCourseId ?? mapped.courseId;
+
+          return {
+            ...mapped,
+            studentId: mapped.studentId || (accountId ? String(accountId) : ''),
+            courseId: nextCourseId,
+            status: proof && mapped.status !== 'rejected' ? 'payed' : mapped.status,
+            paymentProofUrl: proof?.optimizedUrl,
+            metadata: {
+              ...(mapped.metadata ?? {}),
+              courseName: derivedCourse?.name ?? mapped.metadata?.courseName,
+              coursePrice: (round?.price ?? derivedCourse?.price ?? mapped.metadata?.coursePrice) as number | undefined,
+            },
+          };
+        })
+      )
       .then((apps) => dispatch({ type: 'SET_APPLICATIONS', payload: apps }))
       .catch((error) => {
         const errorMessage = error instanceof Error ? error.message : 'Failed to load applications';
-        dispatch({ type: 'SET_ERROR', payload: errorMessage });
+        // Show user-friendly error message
+        const friendlyMessage = errorMessage.includes('CORS') || errorMessage.includes('Network Error')
+          ? 'Unable to connect to the server. Please ensure the backend server is running at https://localhost:7248'
+          : errorMessage;
+        dispatch({ type: 'SET_ERROR', payload: friendlyMessage });
+        console.error('Failed to load applications:', error);
       });
-  }, []);
+  }, [courses, hasRole, rounds, user?.id]);
 
   useEffect(() => {
     loadApplications();
@@ -133,21 +183,40 @@ export function ApplicationsProvider({ children }: ApplicationsProviderProps) {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const request = mapCreateApplicationInputToRequest({
-        studentId: input.studentId,
-        fullName: input.metadata?.fullName ?? '',
-        courseId: input.courseId,
-        email: input.metadata?.email,
-        phone: input.metadata?.phone,
-        experience: input.metadata?.experience,
-        motivation: input.metadata?.motivation,
-        courseName: input.metadata?.courseName,
-        coursePrice: input.metadata?.coursePrice,
+        courseRoundId: input.courseRoundId,
+        answer1: input.answer1 ?? null,
+        answer2: input.answer2 ?? null,
+        answer3: input.answer3 ?? null,
+        answer4: input.answer4 ?? null,
+        answer5: input.answer5 ?? null,
+        answer6: input.answer6 ?? null,
+        answer7: input.answer7 ?? null,
+        answer8: input.answer8 ?? null,
+        answer9: input.answer9 ?? null,
+        answer10: input.answer10 ?? null,
       });
 
-      const created = await applicationApi.createApplication(request);
+      const accountId = input.studentId ? Number(input.studentId) : undefined;
+      const created = await applicationApi.createApplication(request, accountId);
+
+      // Auto-accept application
+      let finalDto = created;
+      try {
+        const updated = await applicationApi.updateApplicationStatus(created.id, { statusId: 3 });
+        if (updated) {
+          finalDto = updated;
+        } else {
+          finalDto = { ...created, statusId: 3, status: 'Accepted' };
+        }
+      } catch (err) {
+        console.error('Failed to auto-accept application:', err);
+      }
+
       const mapped: Application = {
-        ...mapApplicationDtoToUi(created),
-        studentId: input.studentId,
+        ...mapApplicationDtoToUi(finalDto, input.courseId),
+        studentId: input.studentId ?? '',
+        courseId: input.courseId ?? '',
+        courseRoundId: input.courseRoundId,
         metadata: {
           ...(input.metadata ?? {}),
         },
@@ -175,12 +244,16 @@ export function ApplicationsProvider({ children }: ApplicationsProviderProps) {
         const updated = await applicationApi.updateApplicationStatus(id, request);
         const next = updated ? mapApplicationDtoToUi(updated) : mapApplicationDtoToUi(await applicationApi.getApplicationById(id));
 
+        const current = state.applications.find((a) => a.id === id);
+
         const merged: Application = attachReviewer(
           {
             ...(next as Application),
+            courseId: current?.courseId ?? (next as Application).courseId,
+            studentId: current?.studentId ?? (next as Application).studentId,
             metadata: {
               ...(next.metadata ?? {}),
-              ...(state.applications.find((a) => a.id === id)?.metadata ?? {}),
+              ...(current?.metadata ?? {}),
             },
           },
           { reviewedBy, notes }

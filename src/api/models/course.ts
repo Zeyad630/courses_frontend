@@ -4,10 +4,10 @@ export type CourseDto = {
   id: number | string;
   title: string;
   description: string;
-  levelId: CourseLevelId;
+  levelStatusId: number;
   durationHours: number;
-  maxStudents: number;
-  price: number;
+  maxStudents?: number;
+  price?: number;
 
   code?: string;
   category?: string;
@@ -23,11 +23,19 @@ export type CourseDto = {
 export type CreateCourseRequest = {
   title: string;
   description: string;
-  levelId: CourseLevelId;
+  levelStatusId: number;
   durationHours: number;
   maxStudents?: number;
   price?: number;
   instructorIds?: number[];
 };
 
-export type UpdateCourseRequest = Partial<CreateCourseRequest>;
+export type UpdateCourseRequest = {
+  title?: string;
+  description?: string;
+  levelStatusId?: number;
+  durationHours?: number;
+  maxStudents?: number;
+  price?: number;
+  instructorIds?: number[];
+};

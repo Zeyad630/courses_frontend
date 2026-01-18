@@ -70,8 +70,8 @@ export function InstructorCourseRoundManagementView() {
         roundNumber: r.roundNumber,
         startDate: r.startDate,
         endDate: r.endDate,
-        status: r.status,
-        instructor: r.instructor,
+        status: r.status ?? String(r.statusId ?? ''),
+        instructor: r.instructor ?? '',
       })));
     } catch (error: any) {
       setToast({ open: true, severity: 'error', message: error?.message || 'Failed to load course rounds' });

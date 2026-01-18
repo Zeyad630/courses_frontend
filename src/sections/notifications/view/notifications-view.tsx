@@ -16,6 +16,14 @@ import { useAuth } from 'src/contexts/simple-auth-context';
 
 import { Iconify } from 'src/components/iconify';
 
+const premiumGlass = (theme: any) => ({
+  background: alpha(theme.palette.background.paper, 0.8),
+  backdropFilter: 'blur(20px)',
+  border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+  boxShadow: `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.05)}`,
+  borderRadius: 3,
+});
+
 // ----------------------------------------------------------------------
 
 // Enhanced notification types
@@ -308,78 +316,76 @@ export function NotificationsView() {
   return (
     <DashboardContent>
       <Container maxWidth="xl">
-        {/* Header */}
+        {/* Premium Header */}
         <Box
           sx={{
             mb: 4,
             p: 3,
-            borderRadius: 3,
+            borderRadius: 4,
             position: 'relative',
             overflow: 'hidden',
-            border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
-            bgcolor: alpha(theme.palette.background.paper, 0.7),
-            backdropFilter: 'blur(10px)',
-            boxShadow: theme.shadows[2],
+            boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)',
+            animation: 'fadeIn 0.8s ease-out',
           }}
         >
-          <Box
-            sx={{
+           {/* Background Mesh Gradient */}
+           <Box sx={{
               position: 'absolute',
-              inset: 0,
-              opacity: 0.9,
-              background: `radial-gradient(1200px circle at 0% 0%, ${alpha(theme.palette.primary.main, 0.16)} 0%, transparent 60%), radial-gradient(900px circle at 100% 10%, ${alpha(theme.palette.secondary.main, 0.12)} 0%, transparent 55%)`,
-              pointerEvents: 'none',
-            }}
-          />
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0,
+              background: `radial-gradient(at 0% 0%, ${alpha(theme.palette.secondary.dark, 0.8)} 0px, transparent 50%),
+                           radial-gradient(at 100% 0%, ${alpha(theme.palette.primary.main, 0.9)} 0px, transparent 50%),
+                           radial-gradient(at 100% 100%, ${alpha(theme.palette.info.main, 0.8)} 0px, transparent 50%),
+                           radial-gradient(at 0% 100%, ${alpha(theme.palette.success.dark, 0.5)} 0px, transparent 50%),
+                           linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)`, 
+              zIndex: 0
+           }} />
 
-          <Box sx={{ position: 'relative', zIndex: 1 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: { xs: 'flex-start', md: 'center' },
-                justifyContent: 'space-between',
-                flexDirection: { xs: 'column', md: 'row' },
-                gap: 2,
-              }}
-            >
-              <Box>
-                <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5 }}>
-                  Notifications
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Stay updated with your latest activities
-                </Typography>
-              </Box>
+           <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'center' }, gap: 2 }}>
+             <Box>
+               <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5, color: 'common.white', textShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                 Notifications
+               </Typography>
+               <Typography variant="body2" sx={{ color: 'common.white', opacity: 0.8, fontWeight: 500 }}>
+                 Stay updated with your latest activities
+               </Typography>
+             </Box>
 
-              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-                <Chip
-                  label={user?.role ? user.role.toUpperCase() : 'USER'}
-                  variant="outlined"
-                  sx={{ fontWeight: 800 }}
-                />
-                <Chip
-                  label={`${unreadCount} Unread`}
-                  color={unreadCount > 0 ? 'error' : 'default'}
-                  variant={unreadCount > 0 ? 'filled' : 'outlined'}
-                  sx={{ fontWeight: 800 }}
-                />
-                <Button
-                  variant={unreadCount > 0 ? 'contained' : 'outlined'}
+             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+               <Chip
+                 label={user?.role ? user.role.toUpperCase() : 'USER'}
+                 variant="filled"
+                 sx={{ fontWeight: 800, bgcolor: 'rgba(255,255,255,0.2)', color: 'white', backdropFilter: 'blur(10px)' }}
+               />
+               <Chip
+                 label={`${unreadCount} Unread`}
+                 color={unreadCount > 0 ? 'error' : 'default'}
+                 variant="filled"
+                 sx={{ fontWeight: 800, boxShadow: theme.shadows[4] }}
+               />
+               <Button
+                  variant="contained"
                   onClick={handleMarkAllAsRead}
                   disabled={unreadCount === 0}
-                  startIcon={<Iconify icon="eva:done-all-fill" />}
+                  startIcon={<Iconify icon="solar:check-read-bold" />}
                   sx={{
                     fontWeight: 800,
                     textTransform: 'none',
-                    boxShadow: 'none',
                     borderRadius: 1.5,
+                    bgcolor: 'white',
+                    color: 'primary.main',
+                    border: '1px solid transparent',
+                    boxShadow: theme.shadows[4],
+                    '&:hover': { bgcolor: 'grey.100', borderColor: 'white' },
+                    '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.5)' }
                   }}
                 >
                   Mark all as read
                 </Button>
-              </Box>
-            </Box>
-          </Box>
+             </Box>
+           </Box>
         </Box>
 
         {/* Filter Tabs */}
@@ -396,12 +402,16 @@ export function NotificationsView() {
                 sx={{
                   fontWeight: 800,
                   borderRadius: 1.5,
+                  transition: 'all 0.2s',
                   ...(filter === type.value
                     ? {
-                        boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.18)}`,
+                        boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.25)}`,
+                        transform: 'translateY(-2px)',
                       }
                     : {
-                        bgcolor: alpha(theme.palette.background.paper, 0.6),
+                        bgcolor: alpha(theme.palette.background.paper, 0.8),
+                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                        '&:hover': { bgcolor: alpha(theme.palette.background.paper, 1), transform: 'translateY(-1px)' }
                       }),
                 }}
               />
@@ -437,22 +447,16 @@ export function NotificationsView() {
                 key={notification.id}
                 sx={{
                   position: 'relative',
-                  overflow: 'hidden',
-                  borderRadius: 2,
-                  border: `1px solid ${notification.read ? alpha(theme.palette.divider, 0.12) : alpha(theme.palette.primary.main, 0.28)}`,
+                  overflow: 'visible',
+                  ...premiumGlass(theme),
                   bgcolor: notification.read
-                    ? alpha(theme.palette.background.paper, 0.7)
-                    : alpha(theme.palette.primary.main, 0.06),
-                  backdropFilter: 'blur(10px)',
-                  transition: theme.transitions.create(['transform', 'box-shadow', 'border-color'], {
-                    duration: theme.transitions.duration.shorter,
-                  }),
+                    ? alpha(theme.palette.background.paper, 0.8)
+                    : alpha(theme.palette.primary.main, 0.04), // Subtle tint for unread
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: theme.shadows[8],
-                    borderColor: notification.read
-                      ? alpha(theme.palette.divider, 0.2)
-                      : alpha(theme.palette.primary.main, 0.4),
+                    transform: 'translateY(-4px)',
+                    boxShadow: theme.shadows[16],
+                    zIndex: 1
                   },
                 }}
               >
@@ -463,118 +467,127 @@ export function NotificationsView() {
                       left: 0,
                       top: 0,
                       bottom: 0,
-                      width: 4,
-                      bgcolor: 'primary.main',
-                      boxShadow: `0 0 0 6px ${alpha(theme.palette.primary.main, 0.12)}`,
+                      width: 6,
+                      background: `linear-gradient(to bottom, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                      boxShadow: `4px 0 12px ${alpha(theme.palette.primary.main, 0.5)}`,
                     }}
                   />
                 )}
 
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3 }}>
                     {/* Icon */}
-                    <Avatar
-                      sx={{
-                        bgcolor: `${getNotificationColor(notification.type)}.main`,
-                        width: 48,
-                        height: 48,
-                        boxShadow: theme.shadows[3],
-                      }}
-                    >
-                      <Iconify 
-                        icon={getNotificationIcon(notification.type)} 
-                        width={24}
-                        color="white"
-                      />
-                    </Avatar>
+                    <Box sx={{ position: 'relative' }}>
+                        <Avatar
+                          sx={{
+                            background: `linear-gradient(135deg, ${(theme.palette as any)[getNotificationColor(notification.type)].main}, ${(theme.palette as any)[getNotificationColor(notification.type)].dark})`,
+                            width: 56,
+                            height: 56,
+                            boxShadow: `0 8px 16px ${alpha((theme.palette as any)[getNotificationColor(notification.type)].main, 0.4)}`,
+                            border: '2px solid white'
+                          }}
+                        >
+                          <Iconify 
+                            icon={getNotificationIcon(notification.type)} 
+                            width={28}
+                            color="white"
+                          />
+                        </Avatar>
+                        {!notification.read && (
+                             <Box sx={{ 
+                                 position: 'absolute', 
+                                 top: 0, 
+                                 right: 0, 
+                                 width: 14, 
+                                 height: 14, 
+                                 bgcolor: 'error.main', 
+                                 borderRadius: '50%', 
+                                 border: '2px solid white' 
+                             }} />
+                        )}
+                    </Box>
 
                     {/* Content */}
                     <Box sx={{ flexGrow: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
-                        <Typography variant="h6" gutterBottom sx={{ fontWeight: notification.read ? 700 : 900 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: notification.read ? 700 : 900, lineHeight: 1.3 }}>
                           {notification.title}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 1 }}>
-                          <Chip
-                            label={notification.priority}
-                            size="small"
-                            color={getPriorityColor(notification.priority)}
-                            variant={notification.read ? 'outlined' : 'filled'}
-                            sx={{ fontWeight: 800 }}
-                          />
-                          <Chip
-                            label={notification.type}
-                            size="small"
-                            color={getNotificationColor(notification.type)}
-                            variant="outlined"
-                            sx={{ fontWeight: 800 }}
-                          />
+                             {notification.priority === 'high' && (
+                                <Chip
+                                    label="HIGH PRIORITY"
+                                    size="small"
+                                    color="error"
+                                    sx={{ fontWeight: 800, borderRadius: 1, height: 24, fontSize: '0.7rem' }}
+                                />
+                             )}
+                             <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                                <Iconify icon="solar:clock-circle-outline" width={14} sx={{ mr: 0.5 }} />
+                                {notification.createdAt.toLocaleDateString()}
+                             </Typography>
                         </Box>
                       </Box>
 
-                      <Typography variant="body1" color="text.secondary" paragraph>
+                      <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500, mb: 2, lineHeight: 1.6 }}>
                         {notification.message}
                       </Typography>
 
                       {/* Related Info */}
                       {(notification.relatedUser || notification.relatedCourse) && (
-                        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                        <Box sx={{ display: 'flex', gap: 2, mb: 3, p: 1.5, borderRadius: 1.5, bgcolor: alpha(theme.palette.grey[500], 0.08), width: 'fit-content' }}>
                           {notification.relatedUser && (
-                            <Typography variant="caption" color="text.disabled">
-                              User: {notification.relatedUser}
+                            <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                              <Iconify icon="solar:user-bold-duotone" width={16} sx={{ mr: 0.5, color: 'primary.main' }} /> {notification.relatedUser}
                             </Typography>
                           )}
                           {notification.relatedCourse && (
-                            <Typography variant="caption" color="text.disabled">
-                              Course: {notification.relatedCourse}
+                            <Typography variant="caption" sx={{ color: 'text.primary', fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+                               <Iconify icon="solar:book-bold-duotone" width={16} sx={{ mr: 0.5, color: 'secondary.main' }} /> {notification.relatedCourse}
                             </Typography>
                           )}
                         </Box>
                       )}
 
-                      <Typography variant="caption" color="text.disabled">
-                        {notification.createdAt.toLocaleDateString()} at {notification.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 'auto', pt: 2, borderTop: `1px dashed ${alpha(theme.palette.divider, 0.5)}` }}>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            {notification.actionUrl && (
+                              <Button
+                                variant="contained"
+                                size="small"
+                                href={notification.actionUrl}
+                                startIcon={<Iconify icon="solar:eye-bold" />}
+                                sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 30, px: 2, boxShadow: theme.shadows[4] }}
+                              >
+                                {notification.actionText || 'View'}
+                              </Button>
+                            )}
+                            {!notification.read && (
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                onClick={() => handleMarkAsRead(notification.id)}
+                                startIcon={<Iconify icon="solar:check-read-bold" />}
+                                sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 30 }}
+                              >
+                                Mark as Read
+                              </Button>
+                            )}
+                          </Box>
+                          <Button
+                            variant="text"
+                            size="small"
+                            color="error"
+                            onClick={() => handleDeleteNotification(notification.id)}
+                            startIcon={<Iconify icon="solar:trash-bin-trash-bold" />}
+                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 30, opacity: 0.7, '&:hover': { opacity: 1, bgcolor: alpha(theme.palette.error.main, 0.1) } }}
+                          >
+                            Delete
+                          </Button>
+                        </Box>
                     </Box>
                   </Box>
                 </CardContent>
-
-                <CardActions sx={{ justifyContent: 'space-between' }}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    {notification.actionUrl && (
-                      <Button
-                        variant="contained"
-                        size="small"
-                        href={notification.actionUrl}
-                        startIcon={<Iconify icon="solar:eye-bold" />}
-                        sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
-                      >
-                        {notification.actionText || 'View'}
-                      </Button>
-                    )}
-                    {!notification.read && (
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => handleMarkAsRead(notification.id)}
-                        startIcon={<Iconify icon="solar:eye-bold" />}
-                        sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
-                      >
-                        Mark as Read
-                      </Button>
-                    )}
-                  </Box>
-                  <Button
-                    variant="text"
-                    size="small"
-                    color="error"
-                    onClick={() => handleDeleteNotification(notification.id)}
-                    startIcon={<Iconify icon="solar:pen-bold" />}
-                    sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 1.5 }}
-                  >
-                    Delete
-                  </Button>
-                </CardActions>
               </Card>
             ))
           )}

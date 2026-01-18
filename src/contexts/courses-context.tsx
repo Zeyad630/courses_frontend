@@ -100,12 +100,17 @@ export function CoursesProvider({ children }: CoursesProviderProps) {
     dispatch({ type: 'SET_LOADING', payload: true });
 
     courseApi
-      .getAvailableCourses()
+      .getCourses()
       .then((items) => items.map(mapCourseDtoToCourse))
       .then((courses) => dispatch({ type: 'SET_COURSES', payload: courses }))
       .catch((error) => {
         const errorMessage = error instanceof Error ? error.message : 'Failed to load courses';
-        dispatch({ type: 'SET_ERROR', payload: errorMessage });
+        // Show user-friendly error message
+        const friendlyMessage = errorMessage.includes('CORS') || errorMessage.includes('Network Error')
+          ? 'Unable to connect to the server. Please ensure the backend server is running at https://localhost:7248'
+          : errorMessage;
+        dispatch({ type: 'SET_ERROR', payload: friendlyMessage });
+        console.error('Failed to load courses:', error);
       });
   }, []);
 

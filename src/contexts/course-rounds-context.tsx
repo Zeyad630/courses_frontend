@@ -13,12 +13,29 @@ type CourseRoundStatus = 'scheduled' | 'active' | 'finished' | 'cancelled';
 export type CourseRound = {
   id: string;
   courseId: string;
+  roundNumber: number;
   name: string;
   startDate: string;
   endDate: string;
   details: string;
   status: CourseRoundStatus;
+  statusId?: number;
+  statusName?: string;
+  minStudents?: number | null;
+  maxStudents?: number | null;
+  price?: number | null;
+  question1?: string | null;
+  question2?: string | null;
+  question3?: string | null;
+  question4?: string | null;
+  question5?: string | null;
+  question6?: string | null;
+  question7?: string | null;
+  question8?: string | null;
+  question9?: string | null;
+  question10?: string | null;
   createdBy: string;
+  createdByName?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -46,7 +63,7 @@ type CreateRoundInput = {
 };
 
 type UpdateRoundInput = Partial<Pick<CourseRound, 'name' | 'startDate' | 'endDate' | 'details' | 'status'>> & {
-  maxStudents?: number | string;
+  maxStudents?: number | null;
 };
 
 type AssignStudentsInput = {
@@ -162,11 +179,27 @@ export function CourseRoundsProvider({ children }: { children: React.ReactNode }
       const mappedRounds: CourseRound[] = rounds.map((r) => ({
         id: String(r.id),
         courseId: String(r.courseId),
+        roundNumber: r.roundNumber,
         name: `Round ${r.roundNumber}`,
         startDate: r.startDate,
         endDate: r.endDate,
         details: '',
-        status: mapStatusNameToStatus(r.status),
+        status: mapStatusNameToStatus(r.statusId ?? r.status),
+        statusId: r.statusId,
+        statusName: typeof r.status === 'string' ? r.status : undefined,
+        minStudents: r.minStudents ?? null,
+        maxStudents: r.maxStudents ?? null,
+        price: r.price ?? null,
+        question1: r.question1 ?? null,
+        question2: r.question2 ?? null,
+        question3: r.question3 ?? null,
+        question4: r.question4 ?? null,
+        question5: r.question5 ?? null,
+        question6: r.question6 ?? null,
+        question7: r.question7 ?? null,
+        question8: r.question8 ?? null,
+        question9: r.question9 ?? null,
+        question10: r.question10 ?? null,
         createdBy:
           r.instructorId != null
             ? String(r.instructorId)
@@ -175,12 +208,15 @@ export function CourseRoundsProvider({ children }: { children: React.ReactNode }
               : r.mainInstructorId != null
                 ? String(r.mainInstructorId)
                 : '',
-        createdAt: '',
+        createdByName: typeof r.instructorName === 'string' ? r.instructorName : undefined,
+        createdAt: r.createdAt ?? '',
         updatedAt: '',
       }));
       dispatch({ type: 'SET_ROUNDS', payload: mappedRounds });
     } catch (error) {
       console.error('Failed to load course rounds:', error);
+      // Don't show error to user here - let components handle it
+      // The error will be caught by error boundaries or individual components
     } finally {
       setLoading(false);
     }
@@ -227,9 +263,25 @@ export function CourseRoundsProvider({ children }: { children: React.ReactNode }
     loadAssignmentsForStudent();
   }, [loadAssignmentsForStudent]);
 
-  // Helper to map backend status names to frontend status
-  const mapStatusNameToStatus = (statusName: string): CourseRoundStatus => {
-    const lower = statusName.toLowerCase();
+  // Helper to map backend statusId or status name to frontend status
+  const mapStatusNameToStatus = (statusName: string | number | undefined): CourseRoundStatus => {
+    if (typeof statusName === 'number') {
+      // Map statusId to status based on backend IDs
+      if (statusName === 18) return 'scheduled'; // Open for Enrollment
+      if (statusName === 38) return 'scheduled'; // Scheduled
+      if (statusName === 20) return 'active'; // Active
+      if (statusName === 21) return 'finished'; // Completed
+      if (statusName === 19) return 'cancelled'; // Cancelled
+
+      // Legacy / fallback mappings
+      if (statusName === 1 || statusName === 7) return 'scheduled';
+      if (statusName === 2 || statusName === 4) return 'active';
+      if (statusName === 3 || statusName === 5) return 'finished';
+      if (statusName === 6) return 'cancelled';
+      return 'scheduled';
+    }
+    const lower = String(statusName || '').toLowerCase();
+    if (lower.includes('open') || lower.includes('enrollment')) return 'scheduled'; // openToEnrollment maps to scheduled
     if (lower.includes('active')) return 'active';
     if (lower.includes('finished') || lower.includes('completed')) return 'finished';
     if (lower.includes('cancelled') || lower.includes('canceled')) return 'cancelled';
@@ -274,11 +326,26 @@ export function CourseRoundsProvider({ children }: { children: React.ReactNode }
       const created: CourseRound = {
         id: String(response.id),
         courseId: input.courseId,
+        roundNumber,
         name: input.name || `Round ${roundNumber}`,
         startDate: toDateOnly(input.startDate),
         endDate: toDateOnly(input.endDate),
         details: input.details,
         status: 'scheduled',
+        statusId: 7,
+        maxStudents: null,
+        minStudents: null,
+        price: null,
+        question1: null,
+        question2: null,
+        question3: null,
+        question4: null,
+        question5: null,
+        question6: null,
+        question7: null,
+        question8: null,
+        question9: null,
+        question10: null,
         createdBy: input.createdBy,
         createdAt: nowIso(),
         updatedAt: nowIso(),
@@ -302,6 +369,13 @@ export function CourseRoundsProvider({ children }: { children: React.ReactNode }
   const updateRound = useCallback(async (id: string, updates: UpdateRoundInput) => {
     try {
       const roundId = Number(id);
+
+      const normalizedMaxStudents =
+        updates.maxStudents === undefined
+          ? undefined
+          : updates.maxStudents === null
+            ? null
+            : Number(updates.maxStudents);
       if (updates.status) {
         // Map frontend status to backend statusId (this is a simplification)
         const statusIdMap: Record<string, number> = {
@@ -317,11 +391,16 @@ export function CourseRoundsProvider({ children }: { children: React.ReactNode }
         await courseRoundApi.update(roundId, {
           startDate: updates.startDate?.split('T')[0],
           endDate: updates.endDate?.split('T')[0],
-          maxStudents: updates.maxStudents !== undefined ? Number(updates.maxStudents) : undefined,
+          maxStudents: normalizedMaxStudents === null ? undefined : normalizedMaxStudents,
         });
       }
-      
-      dispatch({ type: 'UPDATE_ROUND', payload: { id, updates } });
+
+      const nextUpdates: UpdateRoundInput = {
+        ...updates,
+        ...(normalizedMaxStudents !== undefined ? { maxStudents: normalizedMaxStudents } : {}),
+      };
+
+      dispatch({ type: 'UPDATE_ROUND', payload: { id, updates: nextUpdates } });
       await loadCourseRounds(); // Reload from API
     } catch (error) {
       console.error('Failed to update course round:', error);

@@ -1,15 +1,18 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { OTPInput, REGEXP_ONLY_DIGITS, type SlotProps } from 'input-otp';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Link from '@mui/material/Link';
 import Alert from '@mui/material/Alert';
 import Button from '@mui/material/Button';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
+import InputLabel from '@mui/material/InputLabel';
 import Typography from '@mui/material/Typography';
+import FormControl from '@mui/material/FormControl';
 import { alpha, useTheme } from '@mui/material/styles';
 import InputAdornment from '@mui/material/InputAdornment';
 
@@ -18,14 +21,11 @@ import { RouterLink } from 'src/routes/components';
 
 import { validatePassword } from 'src/utils/password-strength';
 
-import { authApi } from 'src/api';
 import { ApiError, ValidationError } from 'src/api/errors';
 import { useAuth } from 'src/contexts/simple-auth-context';
 
 import { Iconly } from 'src/components/iconly';
 import { PasswordStrengthIndicator } from 'src/components/password-strength-indicator';
-
-type Step = 'form' | 'otp';
 
 export function SignUpView() {
   const router = useRouter();
@@ -33,11 +33,13 @@ export function SignUpView() {
   const { register } = useAuth();
   const { t } = useTranslation();
 
-  const getPostAuthPath = useCallback(() => '/courses', []);
+  const getPostAuthPath = useCallback((role: string) => {
+    if (role === 'admin') return '/admin/dashboard';
+    if (role === 'instructor') return '/instructor/courses';
+    return '/dashboard';
+  }, []);
 
   const brandGradient = `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
-
-  const [step, setStep] = useState<Step>('form');
 
   const [email, setEmail] = useState('');
   const [fullNameEn, setFullNameEn] = useState('');
@@ -46,16 +48,24 @@ export function SignUpView() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [educationalLevelId, setEducationalLevelId] = useState<number>(1);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  const [otp, setOtp] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>({});
   const [passwordStrength, setPasswordStrength] = useState(() => validatePassword(''));
+
+  // Educational levels - adjust IDs based on your backend
+  const educationalLevels = [
+    { id: 25, label: 'Primary' },
+    { id: 26, label: 'Preparatory' },
+    { id: 27, label: 'High School' },
+    { id: 28, label: 'University Undergraduate' },
+    { id: 29, label: 'University Post Graduated' },
+  ];
 
   const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -107,11 +117,13 @@ export function SignUpView() {
     if (!confirmPassword) next.confirmPassword = t('validation.required');
     else if (password !== confirmPassword) next.confirmPassword = t('validation.passwordMismatch');
 
+    if (!educationalLevelId) next.educationalLevelId = t('validation.required');
+
     setFieldErrors(next);
     return Object.keys(next).length === 0;
-  }, [confirmPassword, email, fullNameAr, fullNameEn, nationalId, password, phone, t]);
+  }, [confirmPassword, email, fullNameAr, fullNameEn, nationalId, password, phone, educationalLevelId, t]);
 
-  const sendOtp = useCallback(async () => {
+  const handleSignUp = useCallback(async () => {
     setError('');
     const isValid = validateForm();
     if (!isValid) return;
@@ -120,181 +132,52 @@ export function SignUpView() {
     setError('');
 
     try {
-      await authApi.sendOtp({ email });
-      setStep('otp');
-      setFieldErrors({});
-    } catch (err) {
-      if (err instanceof ValidationError) {
-        const next: Partial<Record<string, string>> = {};
-        Object.entries(err.errors).forEach(([key, values]) => {
-          next[key] = values?.[0] || t('messages.savingError');
-        });
-        setFieldErrors(next);
-        setError(t('messages.savingError'));
-        return;
-      }
-
-      if (err instanceof ApiError) {
-        if (err.status === 401) setError(t('auth.invalidCredentials'));
-        else setError(err.message || t('messages.savingError'));
-        return;
-      }
-
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError(t('messages.savingError'));
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [email, t, validateForm]);
-
-  const verifyOtpAndCreateAccount = useCallback(async () => {
-    if (!otp.trim()) {
-      setError(t('validation.required'));
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      await register({
+      const user = await register({
         email,
-        otpCode: otp,
         password,
         nationalId,
         fullNameEn,
         fullNameAr,
         phone,
+        educationalLevelId,
       });
-      router.push(getPostAuthPath());
+      router.push(getPostAuthPath(user.role));
     } catch (err) {
       if (err instanceof ValidationError) {
         const next: Partial<Record<string, string>> = {};
         Object.entries(err.errors).forEach(([key, values]) => {
-          next[key] = values?.[0] || t('messages.savingError');
+          next[key] = values?.[0] || t('messages.savingError') || 'Please check your input and try again.';
         });
         setFieldErrors(next);
-        setError(t('messages.savingError'));
+        setError(t('messages.savingError') || 'Please check your input and try again.');
         return;
       }
 
       if (err instanceof ApiError) {
-        if (err.status === 401) setError(t('auth.invalidCredentials'));
-        else setError(err.message || t('messages.savingError'));
+        if (err.status === 401) {
+          setError(t('auth.invalidCredentials') || 'Invalid credentials. Please try again.');
+        } else if (err.message.includes('CORS') || err.message.includes('Network Error') || err.status === 0) {
+          setError('Unable to connect to the server. Please ensure the backend server is running at https://localhost:7248');
+        } else {
+          setError(err.message || t('messages.savingError') || 'An error occurred. Please try again.');
+        }
         return;
       }
 
       if (err instanceof Error) {
-        setError(err.message);
+        if (err.message.includes('CORS') || err.message.includes('Network Error')) {
+          setError('Unable to connect to the server. Please ensure the backend server is running at https://localhost:7248');
+        } else {
+          setError(err.message || 'An error occurred. Please try again.');
+        }
       } else {
-        setError(t('messages.savingError'));
+        setError(t('messages.savingError') || 'An error occurred. Please try again.');
       }
     } finally {
       setLoading(false);
     }
-  }, [email, fullNameAr, fullNameEn, getPostAuthPath, nationalId, otp, password, phone, register, router, t]);
+  }, [email, fullNameAr, fullNameEn, getPostAuthPath, nationalId, password, phone, educationalLevelId, register, router, t]);
 
-  const OtpSlot = useCallback(
-    ({ slot }: { slot: SlotProps; index: number }) => {
-      const showPlaceholder = Boolean((slot as any).placeholderChar) && !(slot as any).char;
-
-      return (
-        <Box
-          sx={{
-            position: 'relative',
-            width: 44,
-            height: 56,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderTop: '1px solid',
-            borderBottom: '1px solid',
-            borderRight: '1px solid',
-            borderColor: (slot as any).isActive ? 'primary.main' : 'divider',
-            '&:first-of-type': {
-              borderLeft: '1px solid',
-              borderTopLeftRadius: 12,
-              borderBottomLeftRadius: 12,
-            },
-            '&:last-of-type': {
-              borderTopRightRadius: 12,
-              borderBottomRightRadius: 12,
-            },
-            bgcolor: alpha(theme.palette.background.paper, 0.6),
-            backdropFilter: 'blur(10px)',
-            transition: theme.transitions.create(['border-color', 'box-shadow', 'transform'], {
-              duration: theme.transitions.duration.shorter,
-            }),
-            ...(slot as any).isActive
-              ? {
-                  boxShadow: `0 0 0 4px ${alpha(theme.palette.primary.main, 0.18)}`,
-                  transform: 'translateY(-1px)',
-                }
-              : null,
-          }}
-        >
-          <Typography
-            variant="h5"
-            sx={{
-              fontWeight: 800,
-              letterSpacing: 0.5,
-              opacity: showPlaceholder ? 0.25 : 1,
-              color: 'text.primary',
-            }}
-          >
-            {(slot as any).char ?? (slot as any).placeholderChar ?? ''}
-          </Typography>
-
-          {(slot as any).hasFakeCaret && (
-            <Box
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                pointerEvents: 'none',
-                '@keyframes otp-caret': {
-                  '0%,70%,100%': { opacity: 1 },
-                  '20%,50%': { opacity: 0 },
-                },
-                animation: 'otp-caret 1.2s ease-out infinite',
-              }}
-            >
-              <Box sx={{ width: 2, height: 28, bgcolor: 'text.primary', borderRadius: 999 }} />
-            </Box>
-          )}
-        </Box>
-      );
-    },
-    [theme]
-  );
-
-  const renderOtpSlots = useCallback(
-    ({ slots }: { slots: SlotProps[] }) => (
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
-        <Box sx={{ display: 'flex' }}>
-          {slots.slice(0, 3).map((slot, idx) => (
-            <OtpSlot key={idx} slot={slot} index={idx} />
-          ))}
-        </Box>
-
-        <Box sx={{ width: 24, display: 'flex', justifyContent: 'center' }}>
-          <Box sx={{ width: 10, height: 4, borderRadius: 999, bgcolor: 'divider' }} />
-        </Box>
-
-        <Box sx={{ display: 'flex' }}>
-          {slots.slice(3).map((slot, idx) => (
-            <OtpSlot key={idx} slot={slot} index={idx + 3} />
-          ))}
-        </Box>
-      </Box>
-    ),
-    [OtpSlot]
-  );
 
   const renderHeader = (
     <Box
@@ -318,10 +201,10 @@ export function SignUpView() {
             WebkitTextFillColor: 'transparent',
           }}
         >
-          {step === 'form' ? t('auth.createAccountTitle') : t('auth.verifyEmailTitle')}
+          {t('auth.createAccountTitle')}
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 320 }}>
-          {step === 'form' ? t('auth.signUpDescription') : t('auth.verifyEmailDescription')}
+          {t('auth.signUpDescription')}
         </Typography>
       </Box>
     </Box>
@@ -513,12 +396,36 @@ export function SignUpView() {
         }}
       />
 
+      <FormControl fullWidth error={Boolean(fieldErrors.educationalLevelId)}>
+        <InputLabel shrink>Educational Level</InputLabel>
+        <Select
+          value={educationalLevelId}
+          onChange={(e) => {
+            setEducationalLevelId(Number(e.target.value));
+            if (fieldErrors.educationalLevelId) setFieldErrors((prev) => ({ ...prev, educationalLevelId: '' }));
+          }}
+          label="Educational Level"
+          sx={inputSx}
+        >
+          {educationalLevels.map((level) => (
+            <MenuItem key={level.id} value={level.id}>
+              {level.label}
+            </MenuItem>
+          ))}
+        </Select>
+        {fieldErrors.educationalLevelId && (
+          <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
+            {fieldErrors.educationalLevelId}
+          </Typography>
+        )}
+      </FormControl>
+
       <Button
         fullWidth
         size="large"
         type="button"
         variant="contained"
-        onClick={sendOtp}
+        onClick={handleSignUp}
         disabled={loading}
         sx={{
           py: 1.5,
@@ -538,7 +445,7 @@ export function SignUpView() {
           },
         }}
       >
-        {loading ? t('auth.sendingOtp') : t('auth.sendOtp')}
+        {loading ? t('auth.creatingAccount') || 'Creating Account...' : t('auth.signUp') || 'Sign Up'}
       </Button>
 
       <Box sx={{ textAlign: 'center' }}>
@@ -561,98 +468,6 @@ export function SignUpView() {
     </Box>
   );
 
-  const renderOtpStep = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-      {error && (
-        <Alert severity="error" onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
-
-      <Alert severity="info">{t('auth.otpSent')}</Alert>
-
-      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-        <OTPInput
-          maxLength={6}
-          value={otp}
-          onChange={setOtp}
-          inputMode="numeric"
-          pattern={REGEXP_ONLY_DIGITS}
-          render={renderOtpSlots}
-        />
-      </Box>
-
-      <Button
-        fullWidth
-        type="button"
-        variant="outlined"
-        disabled={loading}
-        onClick={() => {
-          setOtp('');
-          sendOtp();
-        }}
-        sx={{
-          py: 1.2,
-          fontWeight: 600,
-          textTransform: 'none',
-          border: '1px solid',
-          borderColor: 'divider',
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            borderColor: 'primary.main',
-            bgcolor: 'primary.lighter',
-            transform: 'translateY(-2px)',
-            boxShadow: '0 4px 12px rgba(220, 38, 38, 0.1)',
-          },
-        }}
-      >
-        {loading ? t('auth.resendingOtp') : t('auth.resendOtp')}
-      </Button>
-
-      <Button
-        fullWidth
-        size="large"
-        type="button"
-        variant="contained"
-        onClick={verifyOtpAndCreateAccount}
-        disabled={loading}
-        sx={{
-          py: 1.5,
-          fontSize: '1rem',
-          fontWeight: 600,
-          textTransform: 'none',
-          background: brandGradient,
-          boxShadow: `0 10px 24px ${alpha(theme.palette.primary.main, 0.28)}`,
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            boxShadow: `0 14px 34px ${alpha(theme.palette.primary.main, 0.35)}`,
-            transform: 'translateY(-2px)',
-          },
-          '&:disabled': {
-            background: brandGradient,
-            opacity: 0.7,
-          },
-        }}
-      >
-        {loading ? t('auth.verifyingOtp') : t('auth.verifyOtp')}
-      </Button>
-
-      <Button
-        fullWidth
-        type="button"
-        variant="text"
-        disabled={loading}
-        onClick={() => {
-          setStep('form');
-          setOtp('');
-          setError('');
-        }}
-        sx={{ textTransform: 'none', fontWeight: 600 }}
-      >
-        {t('common.back')}
-      </Button>
-    </Box>
-  );
 
   return (
     <Box sx={{ width: '100%', maxWidth: 680, mx: 'auto' }}>
@@ -669,7 +484,7 @@ export function SignUpView() {
           mb: 3,
         }}
       >
-        {step === 'form' ? renderFormStep : renderOtpStep}
+        {renderFormStep}
       </Card>
     </Box>
   );

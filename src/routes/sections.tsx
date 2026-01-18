@@ -10,7 +10,7 @@ import LinearProgress, { linearProgressClasses } from '@mui/material/LinearProgr
 import { AuthLayout } from 'src/layouts/auth';
 import { DashboardLayout } from 'src/layouts/dashboard';
 
-import { AuthGuard } from 'src/components/auth-guard';
+import { AuthGuard, GuestGuard, RoleGuard } from 'src/components/auth-guard';
 
 // ----------------------------------------------------------------------
 
@@ -80,12 +80,54 @@ export const routesSection: RouteObject[] = [
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'courses', element: <CoursesPage /> },
       { path: 'my-applications', element: <MyApplicationsPage /> },
-      { path: 'admin/dashboard', element: <AdminDashboardPage /> },
-      { path: 'admin/applications', element: <AdminApplicationsPage /> },
-      { path: 'admin/courses', element: <AdminCoursesPage /> },
-      { path: 'admin/users', element: <AdminUsersPage /> },
-      { path: 'admin/reports', element: <AdminReportsPage /> },
-      { path: 'instructor/courses', element: <InstructorCoursesPage /> },
+      {
+        path: 'admin/dashboard',
+        element: (
+          <RoleGuard roles={['admin']}>
+            <AdminDashboardPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'admin/applications',
+        element: (
+          <RoleGuard roles={['admin']}>
+            <AdminApplicationsPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'admin/courses',
+        element: (
+          <RoleGuard roles={['admin']}>
+            <AdminCoursesPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'admin/users',
+        element: (
+          <RoleGuard roles={['admin']}>
+            <AdminUsersPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'admin/reports',
+        element: (
+          <RoleGuard roles={['admin']}>
+            <AdminReportsPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'instructor/courses',
+        element: (
+          <RoleGuard roles={['instructor']}>
+            <InstructorCoursesPage />
+          </RoleGuard>
+        ),
+      },
       { path: 'course-room/:id', element: <CourseRoomPage /> },
       { path: 'payment/:applicationId', element: <PaymentPage /> },
       { path: 'notifications', element: <NotificationsPage /> },
@@ -98,21 +140,25 @@ export const routesSection: RouteObject[] = [
   {
     path: 'sign-in',
     element: (
-      <AuthLayout>
-        <Suspense fallback={renderFallback()}>
-          <SignInPage />
-        </Suspense>
-      </AuthLayout>
+      <GuestGuard>
+        <AuthLayout>
+          <Suspense fallback={renderFallback()}>
+            <SignInPage />
+          </Suspense>
+        </AuthLayout>
+      </GuestGuard>
     ),
   },
   {
     path: 'sign-up',
     element: (
-      <AuthLayout>
-        <Suspense fallback={renderFallback()}>
-          <SignUpPage />
-        </Suspense>
-      </AuthLayout>
+      <GuestGuard>
+        <AuthLayout>
+          <Suspense fallback={renderFallback()}>
+            <SignUpPage />
+          </Suspense>
+        </AuthLayout>
+      </GuestGuard>
     ),
   },
   {

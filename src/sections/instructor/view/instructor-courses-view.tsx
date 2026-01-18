@@ -1,15 +1,14 @@
 import type { Course } from 'src/types/course';
+import type { InstructorCourseRoundDto } from 'src/api/models/course-round-instructor';
 
 import { useTranslation } from 'react-i18next';
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 
 import { alpha, useTheme } from '@mui/material/styles';
 import {
-  Alert,
   Box,
   Button,
   Card,
-  CardActions,
   CardContent,
   Checkbox,
   Chip,
@@ -20,24 +19,17 @@ import {
   DialogTitle,
   Divider,
   Drawer,
-  FormControl,
   Grid,
-  IconButton,
-  InputLabel,
   List,
   ListItemButton,
   ListItemText,
-  MenuItem,
-  Select,
-  Tab,
-  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
 
-import { courseApi } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
+import { courseApi, courseRoundInstructorApi } from 'src/api';
 import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
 import { useApplicationsContext } from 'src/contexts/applications-context';
 import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
@@ -45,6 +37,21 @@ import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
 import { Iconify } from 'src/components/iconify';
 
 const toDateInputValue = (value: string) => value.slice(0, 10);
+
+const INSTRUCTOR_VISIBLE_STATUS_IDS = new Set([19, 20, 21, 38]);
+
+const normalizeStatusName = (value: string | undefined) => (value ?? '').trim().toLowerCase();
+
+const isInstructorVisibleStatusName = (value: string | undefined) => {
+  const lower = normalizeStatusName(value);
+  return (
+    lower.includes('cancel') ||
+    lower.includes('active') ||
+    lower.includes('scheduled') ||
+    lower.includes('complete') ||
+    lower.includes('finish')
+  );
+};
 
 const toPrettyDate = (value: string) => {
   const d = new Date(value);
@@ -73,6 +80,7 @@ export function InstructorCoursesView() {
 
   const { user, hasRole } = useAuth();
   const { getApplicationsByCourse } = useApplicationsContext();
+
   const {
     createRound,
     updateRound,
@@ -99,6 +107,7 @@ export function InstructorCoursesView() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const [instructorCourses, setInstructorCourses] = useState<Course[]>([]);
+  const [assignedRounds, setAssignedRounds] = useState<InstructorCourseRoundDto[]>([]);
 
   // Load courses assigned to this instructor
   useEffect(() => {
@@ -106,14 +115,31 @@ export function InstructorCoursesView() {
       if (!user?.id) return;
       try {
         const instructorId = Number(user.id);
-        if (isNaN(instructorId)) return;
+        if (!Number.isFinite(instructorId) || instructorId <= 0) {
+          setInstructorCourses([]);
+          setAssignedRounds([]);
+          return;
+        }
 
-        const coursesData = await courseApi.getCoursesByInstructor(instructorId);
-        const mappedCourses: Course[] = coursesData.map(mapCourseDtoToCourse);
+        const [roundsForInstructor, allCourses] = await Promise.all([
+          courseRoundInstructorApi.getByInstructorId(instructorId),
+          courseApi.getCourses(),
+        ]);
+
+        const names = new Set(roundsForInstructor.map((r) => r.courseName));
+        const mappedCourses: Course[] = allCourses
+          .filter((c) => {
+            const title = (c.title ?? '').trim();
+            return title !== '' && names.has(title);
+          })
+          .map(mapCourseDtoToCourse);
+
+        setAssignedRounds(roundsForInstructor);
         setInstructorCourses(mappedCourses);
       } catch (error) {
         console.error('Failed to load instructor courses:', error);
         setInstructorCourses([]);
+        setAssignedRounds([]);
       }
     };
     loadInstructorCourses();
@@ -121,8 +147,22 @@ export function InstructorCoursesView() {
 
   const courseRounds = useMemo(() => {
     if (!selectedCourse) return [];
-    return getRoundsByCourse(selectedCourse.id);
-  }, [getRoundsByCourse, selectedCourse]);
+    const fromContext = getRoundsByCourse(selectedCourse.id);
+    const allowedRoundNumbers = new Set(
+      assignedRounds
+        .filter((r) => r.courseName === selectedCourse.name)
+        .map((r) => r.roundNumber)
+    );
+
+    const filteredByAssignment =
+      allowedRoundNumbers.size === 0
+        ? fromContext
+        : fromContext.filter((r) => allowedRoundNumbers.has(r.roundNumber));
+
+    return filteredByAssignment.filter((r) =>
+      r.statusId != null ? INSTRUCTOR_VISIBLE_STATUS_IDS.has(r.statusId) : isInstructorVisibleStatusName(r.statusName)
+    );
+  }, [assignedRounds, getRoundsByCourse, selectedCourse]);
 
   const acceptedApplications = useMemo(() => {
     if (!selectedCourse) return [];

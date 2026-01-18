@@ -15,6 +15,16 @@ export interface MessageResponse {
   message: string;
 }
 
+export interface SignupRequest {
+  fullNameEn: string;
+  fullNameAr: string;
+  nationalId: string;
+  phone: string;
+  email: string;
+  password: string;
+  educationalLevelId: number;
+}
+
 export interface VerifyOtpAndRegisterRequest {
   email: string;
   otpCode: string;
@@ -42,11 +52,13 @@ export interface ChangePasswordRequest {
 
 export interface AuthResponse {
   accessToken: string;
+  token?: string;
   expiresAtUtc: string;
   accountId: number;
   email: string;
   roleId: number;
   roleName: string;
+  businessEntity?: string;
 }
 
 export interface UserInfo {

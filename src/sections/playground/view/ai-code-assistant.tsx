@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 
+import { alpha, useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Paper from '@mui/material/Paper';
@@ -15,13 +16,23 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 import { Iconify } from 'src/components/iconify';
 
-interface AIAssistantProps {
+const premiumGlass = (theme: any) => ({
+  background: alpha(theme.palette.background.paper, 0.8),
+  backdropFilter: 'blur(20px)',
+  border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+  boxShadow: `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.05)}`,
+  borderRadius: 3,
+});
+
+export interface AIAssistantProps {
   currentCode: string;
   language: string;
   onCodeSuggestion: (code: string) => void;
+  inline?: boolean;
 }
 
-export function AICodeAssistant({ currentCode, language, onCodeSuggestion }: AIAssistantProps) {
+export function AICodeAssistant({ currentCode, language, onCodeSuggestion, inline = false }: AIAssistantProps) {
+  const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
@@ -148,22 +159,9 @@ export function AICodeAssistant({ currentCode, language, onCodeSuggestion }: AIA
     [onCodeSuggestion]
   );
 
-  return (
+  const renderContent = () => (
     <>
-      <Button
-        variant="outlined"
-        size="small"
-        startIcon={<Iconify icon="solar:pen-bold" />}
-        onClick={() => setOpen(true)}
-        sx={{ mb: 2 }}
-      >
-        AI Code Assistant
-      </Button>
-
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>AI Code Assistant</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <TextField
+       <TextField
             fullWidth
             multiline
             rows={3}
@@ -186,42 +184,57 @@ export function AICodeAssistant({ currentCode, language, onCodeSuggestion }: AIA
           </Button>
 
           {response && (
-            <Paper sx={{ p: 2, mb: 2, bgcolor: 'background.neutral', maxHeight: '300px', overflow: 'auto' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                AI Response:
+            <Paper sx={{ 
+                p: 3, 
+                mb: 2, 
+                ...premiumGlass(theme),
+                bgcolor: alpha(theme.palette.background.default, 0.6),
+                maxHeight: '400px', 
+                overflow: 'auto',
+                border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`
+            }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Iconify icon="solar:chat-round-line-duotone" color="primary.main"/> AI Response:
               </Typography>
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', mb: 2 }}>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', mb: 3, color: 'text.secondary', lineHeight: 1.6 }}>
                 {response}
               </Typography>
 
               {suggestions.length > 0 && (
                 <>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                    Code Suggestions:
+                  <Divider sx={{ my: 2, borderStyle: 'dashed' }} />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                     <Iconify icon="solar:code-file-bold-duotone" color="secondary.main"/> Code Suggestions:
                   </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {suggestions.map((suggestion, index) => (
-                      <Card key={index} sx={{ p: 1.5, bgcolor: '#f5f5f5', cursor: 'pointer' }}>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontFamily: 'monospace',
-                            fontSize: '0.75rem',
-                            whiteSpace: 'pre-wrap',
-                            mb: 1,
-                            display: 'block',
-                          }}
-                        >
-                          {suggestion}
-                        </Typography>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => handleApplySuggestion(suggestion)}
-                        >
-                          Use This Code
-                        </Button>
+                      <Card 
+                        key={index} 
+                        sx={{ 
+                            p: 0, 
+                            bgcolor: '#1e1e1e', 
+                            color: '#fff', 
+                            borderRadius: 2,
+                            overflow: 'hidden',
+                            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`
+                        }}
+                      >
+                         <Box sx={{ p: 2, bgcolor: alpha(theme.palette.common.white, 0.05), borderBottom: `1px solid ${alpha(theme.palette.common.white, 0.1)}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>Suggestion {index + 1}</Typography>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="primary"
+                              startIcon={<Iconify icon="solar:copy-bold-duotone" />}
+                              onClick={() => handleApplySuggestion(suggestion)}
+                              sx={{ py: 0.5, px: 1.5, fontSize: '0.75rem', borderRadius: 1 }}
+                            >
+                              Use Code
+                            </Button>
+                         </Box>
+                        <Box sx={{ p: 2, fontFamily: 'monospace', fontSize: '0.85rem', whiteSpace: 'pre-wrap', overflowX: 'auto' }}>
+                           {suggestion}
+                        </Box>
                       </Card>
                     ))}
                   </Box>
@@ -229,6 +242,37 @@ export function AICodeAssistant({ currentCode, language, onCodeSuggestion }: AIA
               )}
             </Paper>
           )}
+    </>
+  );
+
+  if (inline) {
+    return <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>{renderContent()}</Box>;
+  }
+
+  return (
+    <>
+      <Button
+        variant="contained"
+        color="secondary"
+        size="large"
+        startIcon={<Iconify icon="solar:magic-stick-3-bold-duotone" />}
+        onClick={() => setOpen(true)}
+        sx={{ 
+            mb: 2, 
+            borderRadius: 2, 
+            textTransform: 'none', 
+            fontWeight: 700,
+            boxShadow: '0 8px 16px -4px rgba(0,0,0,0.2)',
+            background: `linear-gradient(135deg, ${theme.palette.secondary.main} 0%, ${theme.palette.secondary.dark} 100%)`,
+        }}
+      >
+        AI Assistant
+      </Button>
+
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>AI Code Assistant</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+           {renderContent()}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpen(false)}>Close</Button>

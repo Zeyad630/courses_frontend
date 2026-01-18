@@ -1,7 +1,8 @@
 import type { ApexOptions } from 'apexcharts';
+import type { InstructorCourseRoundDto } from 'src/api/models/course-round-instructor';
 
-import { useMemo } from 'react';
 import Chart from 'react-apexcharts';
+import { useMemo, useState, useEffect } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -16,12 +17,28 @@ import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
 import { alpha, useTheme } from '@mui/material/styles';
 
+import { courseRoundInstructorApi } from 'src/api';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
 import { useCoursesContext } from 'src/contexts/courses-context';
 import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
 
 import { Iconify } from 'src/components/iconify';
+
+const INSTRUCTOR_VISIBLE_STATUS_IDS = new Set([19, 20, 21, 38]);
+
+const normalizeStatusName = (value: string | undefined) => (value ?? '').trim().toLowerCase();
+
+const isInstructorVisibleStatusName = (value: string | undefined) => {
+  const lower = normalizeStatusName(value);
+  return (
+    lower.includes('cancel') ||
+    lower.includes('active') ||
+    lower.includes('scheduled') ||
+    lower.includes('complete') ||
+    lower.includes('finish')
+  );
+};
 
 export function InstructorDashboardView() {
   const { user } = useAuth();
@@ -30,11 +47,41 @@ export function InstructorDashboardView() {
   const { courses } = useCoursesContext();
   const { rounds } = useCourseRoundsContext();
 
+  const [assignedRounds, setAssignedRounds] = useState<InstructorCourseRoundDto[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAssigned = async () => {
+      const myId = Number(user?.id);
+      if (!Number.isFinite(myId) || myId <= 0) {
+        if (!cancelled) setAssignedRounds([]);
+        return;
+      }
+
+      try {
+        const data = await courseRoundInstructorApi.getByInstructorId(myId);
+        if (!cancelled) setAssignedRounds(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setAssignedRounds([]);
+      }
+    };
+
+    loadAssigned();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
   const instructorCourses = useMemo(() => {
     const myId = user?.id;
     if (!myId) return [];
+    if (assignedRounds.length > 0) {
+      const names = new Set(assignedRounds.map((r) => r.courseName));
+      return courses.filter((c) => names.has(c.name));
+    }
     return courses.filter((c) => c.instructorId === myId);
-  }, [courses, user?.id]);
+  }, [assignedRounds, courses, user?.id]);
 
   const totalStudents = useMemo(
     () => instructorCourses.reduce((acc, c) => acc + (Number.isFinite(c.students) ? c.students : 0), 0),
@@ -63,8 +110,37 @@ export function InstructorDashboardView() {
     const myId = user?.id;
     if (!myId) return [];
 
+    if (assignedRounds.length > 0) {
+      const allowedIds = new Set(assignedRounds.map((r) => String(r.courseRoundId)));
+      const rows = rounds
+        .filter((round) => allowedIds.has(String(round.id)))
+        .filter((round) =>
+          typeof round.statusName === 'string' && round.statusName.trim() !== ''
+            ? isInstructorVisibleStatusName(round.statusName)
+            : round.statusId != null
+              ? INSTRUCTOR_VISIBLE_STATUS_IDS.has(round.statusId)
+              : false
+        )
+        .map((round) => {
+          const course = courses.find((c) => c.id === round.courseId);
+          return {
+            ...round,
+            courseTitle: course?.name ?? `Course ${round.courseId}`,
+          };
+        });
+
+      return rows.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+    }
+
     const rows = rounds
       .filter((round) => round.createdBy === myId)
+      .filter((round) =>
+        typeof round.statusName === 'string' && round.statusName.trim() !== ''
+          ? isInstructorVisibleStatusName(round.statusName)
+          : round.statusId != null
+            ? INSTRUCTOR_VISIBLE_STATUS_IDS.has(round.statusId)
+            : false
+      )
       .map((round) => {
         const course = courses.find((c) => c.id === round.courseId);
         return {
@@ -74,7 +150,7 @@ export function InstructorDashboardView() {
       });
 
     return rows.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
-  }, [courses, rounds, user?.id]);
+  }, [assignedRounds, courses, rounds, user?.id]);
 
   const statsCards = [
     {

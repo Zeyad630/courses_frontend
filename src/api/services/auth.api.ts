@@ -11,6 +11,7 @@ import type {
   MessageResponse,
   ResetPasswordRequest,
   SendOtpRequest,
+  SignupRequest,
   UpdateProfileRequest,
   UserInfo,
   UserProfile,
@@ -21,7 +22,7 @@ const unwrap = <T>(res: AxiosResponse<T>): T => res.data;
 
 export const authApi = {
   login: async (payload: LoginRequest): Promise<AuthResponse> => {
-    const res = await http.post<AuthResponse>('/api/auth/login', payload);
+    const res = await http.post<AuthResponse>('/api/Auth/login', payload);
     return unwrap(res);
   },
 
@@ -32,6 +33,11 @@ export const authApi = {
 
   sendOtp: async (payload: SendOtpRequest): Promise<MessageResponse> => {
     const res = await http.post<MessageResponse>('/api/auth/send-otp', payload);
+    return unwrap(res);
+  },
+
+  signup: async (payload: SignupRequest): Promise<AuthResponse> => {
+    const res = await http.post<AuthResponse>('/api/Auth/signup', payload);
     return unwrap(res);
   },
 

@@ -1,6 +1,6 @@
 export type UserRole = 'admin' | 'instructor' | 'student';
 
-export type ApplicationStatus = 'pending' | 'accepted' | 'rejected';
+export type ApplicationStatus = 'pending' | 'accepted' | 'rejected' | 'payed';
 export type PaymentStatus = 'pending' | 'completed' | 'failed';
 
 export interface User {
@@ -37,11 +37,13 @@ export interface CourseApplication {
   id: string;
   studentId: string;
   courseId: string;
+  courseRoundId?: number;
   status: ApplicationStatus;
   appliedAt: Date;
   reviewedAt?: Date;
   reviewedBy?: string;
   notes?: string;
+  paymentProofUrl?: string;
 }
 
 export interface Payment {

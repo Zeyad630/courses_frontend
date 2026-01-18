@@ -1,48 +1,24 @@
 {
-  "openapi": "3.0.4",
+  "openapi": "3.0.1",
   "info": {
-    "title": "genzcoders",
+    "title": "GenZCoders",
     "version": "1.0"
   },
   "paths": {
-    "/api/Account/instructors": {
-      "get": {
-        "tags": [
-          "Account"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/Application/ping": {
-      "get": {
-        "tags": [
-          "Application"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/Application": {
-      "get": {
-        "tags": [
-          "Application"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
+    "/api/applications": {
       "post": {
         "tags": [
           "Application"
+        ],
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
         ],
         "requestBody": {
           "content": {
@@ -68,9 +44,63 @@
             "description": "OK"
           }
         }
+      },
+      "get": {
+        "tags": [
+          "Application"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
-    "/api/Application/{id}": {
+    "/api/applications/{id}": {
+      "get": {
+        "tags": [
+          "Application"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Application"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/applications/{id}/status": {
       "patch": {
         "tags": [
           "Application"
@@ -81,7 +111,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
@@ -100,65 +131,6 @@
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/PatchApplicationStatusDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "Application"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Application"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateApplicationDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateApplicationDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateApplicationDto"
               }
             }
           }
@@ -170,7 +142,7 @@
         }
       }
     },
-    "/api/auth/register": {
+    "/api/Auth/signup": {
       "post": {
         "tags": [
           "Auth"
@@ -179,46 +151,29 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterRequestDto"
+                "$ref": "#/components/schemas/SignupRequestDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterRequestDto"
+                "$ref": "#/components/schemas/SignupRequestDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterRequestDto"
+                "$ref": "#/components/schemas/SignupRequestDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthResponseDto"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthResponseDto"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthResponseDto"
-                }
-              }
-            }
+            "description": "OK"
           }
         }
       }
     },
-    "/api/auth/login": {
+    "/api/Auth/login": {
       "post": {
         "tags": [
           "Auth"
@@ -244,21 +199,88 @@
         },
         "responses": {
           "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/CourseMaterial": {
+      "get": {
+        "tags": [
+          "CourseMaterial"
+        ],
+        "responses": {
+          "200": {
             "description": "OK",
             "content": {
               "text/plain": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthResponseDto"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CourseMaterial"
+                  }
                 }
               },
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthResponseDto"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CourseMaterial"
+                  }
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthResponseDto"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CourseMaterial"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "CourseMaterial"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourseMaterialDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourseMaterialDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourseMaterialDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseMaterial"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseMaterial"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseMaterial"
                 }
               }
             }
@@ -266,34 +288,10 @@
         }
       }
     },
-    "/api/auth/me": {
+    "/api/CourseMaterial/{id}": {
       "get": {
         "tags": [
-          "Auth"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/Course/available": {
-      "get": {
-        "tags": [
-          "Course"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/Course/{id}": {
-      "get": {
-        "tags": [
-          "Course"
+          "CourseMaterial"
         ],
         "parameters": [
           {
@@ -301,19 +299,37 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseMaterial"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseMaterial"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseMaterial"
+                }
+              }
+            }
           }
         }
       },
       "put": {
         "tags": [
-          "Course"
+          "CourseMaterial"
         ],
         "parameters": [
           {
@@ -321,7 +337,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
@@ -329,17 +346,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateCourseDto"
+                "$ref": "#/components/schemas/UpdateCourseMaterialDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateCourseDto"
+                "$ref": "#/components/schemas/UpdateCourseMaterialDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateCourseDto"
+                "$ref": "#/components/schemas/UpdateCourseMaterialDto"
               }
             }
           }
@@ -352,7 +369,7 @@
       },
       "patch": {
         "tags": [
-          "Course"
+          "CourseMaterial"
         ],
         "parameters": [
           {
@@ -360,7 +377,8 @@
             "in": "path",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int64"
             }
           }
         ],
@@ -368,17 +386,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PatchCourseDto"
+                "$ref": "#/components/schemas/PatchCourseMaterialDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/PatchCourseDto"
+                "$ref": "#/components/schemas/PatchCourseMaterialDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/PatchCourseDto"
+                "$ref": "#/components/schemas/PatchCourseMaterialDto"
               }
             }
           }
@@ -391,85 +409,11 @@
       },
       "delete": {
         "tags": [
-          "Course"
+          "CourseMaterial"
         ],
         "parameters": [
           {
             "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/Course": {
-      "post": {
-        "tags": [
-          "Course"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCourseDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCourseDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateCourseDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/Course/search": {
-      "get": {
-        "tags": [
-          "Course"
-        ],
-        "parameters": [
-          {
-            "name": "name",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/Course/instructor/{instructorId}": {
-      "get": {
-        "tags": [
-          "Course"
-        ],
-        "parameters": [
-          {
-            "name": "instructorId",
             "in": "path",
             "required": true,
             "schema": {
@@ -504,17 +448,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateRoundDto"
+                "$ref": "#/components/schemas/CreateCourseRoundDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateRoundDto"
+                "$ref": "#/components/schemas/CreateCourseRoundDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateRoundDto"
+                "$ref": "#/components/schemas/CreateCourseRoundDto"
               }
             }
           }
@@ -567,17 +511,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateRoundDto"
+                "$ref": "#/components/schemas/UpdateCourseRoundDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateRoundDto"
+                "$ref": "#/components/schemas/UpdateCourseRoundDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateRoundDto"
+                "$ref": "#/components/schemas/UpdateCourseRoundDto"
               }
             }
           }
@@ -607,17 +551,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PatchRoundDto"
+                "$ref": "#/components/schemas/PatchCourseRoundDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/PatchRoundDto"
+                "$ref": "#/components/schemas/PatchCourseRoundDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/PatchRoundDto"
+                "$ref": "#/components/schemas/PatchCourseRoundDto"
               }
             }
           }
@@ -650,83 +594,26 @@
         }
       }
     },
-    "/api/CourseRoundStudent/course-round/{courseRoundId}": {
-      "get": {
-        "tags": [
-          "CourseRoundStudent"
-        ],
-        "parameters": [
-          {
-            "name": "courseRoundId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/CourseRoundStudent/student/{studentId}": {
-      "get": {
-        "tags": [
-          "CourseRoundStudent"
-        ],
-        "parameters": [
-          {
-            "name": "studentId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/CourseRoundStudent/course-round/{courseRoundId}/assign": {
+    "/api/course-round-instructors/assign": {
       "post": {
         "tags": [
-          "CourseRoundStudent"
-        ],
-        "parameters": [
-          {
-            "name": "courseRoundId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
+          "CourseRoundInstructor"
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignStudentDto"
+                "$ref": "#/components/schemas/AssignInstructorsDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignStudentDto"
+                "$ref": "#/components/schemas/AssignInstructorsDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignStudentDto"
+                "$ref": "#/components/schemas/AssignInstructorsDto"
               }
             }
           }
@@ -738,14 +625,14 @@
         }
       }
     },
-    "/api/CourseRoundStudent/{id}": {
-      "delete": {
+    "/api/course-round-instructors/instructor/{instructorId}": {
+      "get": {
         "tags": [
-          "CourseRoundStudent"
+          "CourseRoundInstructor"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "instructorId",
             "in": "path",
             "required": true,
             "schema": {
@@ -761,46 +648,40 @@
         }
       }
     },
-    "/api/Health": {
+    "/api/Courses": {
       "get": {
         "tags": [
-          "Health"
+          "Courses"
         ],
         "responses": {
           "200": {
             "description": "OK"
           }
         }
-      }
-    },
-    "/api/Health/db": {
-      "get": {
+      },
+      "post": {
         "tags": [
-          "Health"
+          "Courses"
         ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/Material/course-round/{courseRoundId}": {
-      "get": {
-        "tags": [
-          "Material"
-        ],
-        "parameters": [
-          {
-            "name": "courseRoundId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourseDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourseDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCourseDto"
+              }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
             "description": "OK"
@@ -808,10 +689,10 @@
         }
       }
     },
-    "/api/Material/{id}": {
+    "/api/Courses/{id}": {
       "get": {
         "tags": [
-          "Material"
+          "Courses"
         ],
         "parameters": [
           {
@@ -832,7 +713,7 @@
       },
       "put": {
         "tags": [
-          "Material"
+          "Courses"
         ],
         "parameters": [
           {
@@ -849,17 +730,57 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateMaterialDto"
+                "$ref": "#/components/schemas/UpdateCourseDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateMaterialDto"
+                "$ref": "#/components/schemas/UpdateCourseDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateMaterialDto"
+                "$ref": "#/components/schemas/UpdateCourseDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Courses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCourseDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCourseDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchCourseDto"
               }
             }
           }
@@ -872,7 +793,7 @@
       },
       "delete": {
         "tags": [
-          "Material"
+          "Courses"
         ],
         "parameters": [
           {
@@ -892,64 +813,94 @@
         }
       }
     },
-    "/api/Material": {
+    "/api/Week": {
+      "get": {
+        "tags": [
+          "Week"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WeekDto"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WeekDto"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WeekDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
-          "Material"
+          "Week"
         ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateMaterialDto"
+                "$ref": "#/components/schemas/CreateWeekDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateMaterialDto"
+                "$ref": "#/components/schemas/CreateWeekDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateMaterialDto"
+                "$ref": "#/components/schemas/CreateWeekDto"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/ZoomMeeting/course-round/{courseRoundId}": {
-      "get": {
-        "tags": [
-          "ZoomMeeting"
-        ],
-        "parameters": [
-          {
-            "name": "courseRoundId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekDto"
+                }
+              }
             }
           }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
         }
       }
     },
-    "/api/ZoomMeeting/{id}": {
+    "/api/Week/{id}": {
       "get": {
         "tags": [
-          "ZoomMeeting"
+          "Week"
         ],
         "parameters": [
           {
@@ -958,19 +909,36 @@
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int64"
+              "format": "int32"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekDto"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeekDto"
+                }
+              }
+            }
           }
         }
       },
       "put": {
         "tags": [
-          "ZoomMeeting"
+          "Week"
         ],
         "parameters": [
           {
@@ -979,7 +947,7 @@
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int64"
+              "format": "int32"
             }
           }
         ],
@@ -987,17 +955,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateZoomMeetingDto"
+                "$ref": "#/components/schemas/UpdateWeekDto"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateZoomMeetingDto"
+                "$ref": "#/components/schemas/UpdateWeekDto"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateZoomMeetingDto"
+                "$ref": "#/components/schemas/UpdateWeekDto"
               }
             }
           }
@@ -1010,7 +978,7 @@
       },
       "delete": {
         "tags": [
-          "ZoomMeeting"
+          "Week"
         ],
         "parameters": [
           {
@@ -1019,41 +987,10 @@
             "required": true,
             "schema": {
               "type": "integer",
-              "format": "int64"
+              "format": "int32"
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/ZoomMeeting": {
-      "post": {
-        "tags": [
-          "ZoomMeeting"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateZoomMeetingDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateZoomMeetingDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateZoomMeetingDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "OK"
@@ -1064,56 +1001,406 @@
   },
   "components": {
     "schemas": {
-      "AssignStudentDto": {
+      "Account": {
         "type": "object",
         "properties": {
-          "studentId": {
+          "id": {
             "type": "integer",
             "format": "int64"
-          }
-        },
-        "additionalProperties": false
-      },
-      "AuthResponseDto": {
-        "type": "object",
-        "properties": {
-          "accessToken": {
+          },
+          "nationalId": {
             "type": "string",
             "nullable": true
           },
-          "expiresAtUtc": {
+          "passwordHash": {
             "type": "string",
-            "format": "date-time"
-          },
-          "accountId": {
-            "type": "integer",
-            "format": "int64"
+            "nullable": true
           },
           "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
             "type": "string",
             "nullable": true
           },
           "roleId": {
             "type": "integer",
             "format": "int64"
+          },
+          "fullNameEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "fullNameAr": {
+            "type": "string",
+            "nullable": true
+          },
+          "resetToken": {
+            "type": "string",
+            "nullable": true
+          },
+          "resetTokenExpiry": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "admissionProfile": {
+            "$ref": "#/components/schemas/AdmissionProfile"
+          },
+          "attendanceRecords": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttendanceRecord"
+            },
+            "nullable": true
+          },
+          "capstoneSupervisorExtension": {
+            "$ref": "#/components/schemas/CapstoneSupervisorExtension"
+          },
+          "courseRoundInstructors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseRoundInstructor"
+            },
+            "nullable": true
+          },
+          "grades": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Grade"
+            },
+            "nullable": true
+          },
+          "interviewScoreAccounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InterviewScore"
+            },
+            "nullable": true
+          },
+          "interviewScoreInterviewers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InterviewScore"
+            },
+            "nullable": true
+          },
+          "logins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Login"
+            },
+            "nullable": true
+          },
+          "accountRoles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccountRole"
+            },
+            "nullable": true
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Application"
+            },
+            "nullable": true
+          },
+          "notifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            },
+            "nullable": true
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            },
+            "nullable": true
+          },
+          "reports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Report"
+            },
+            "nullable": true
+          },
+          "reviewerSupervisorExtension": {
+            "$ref": "#/components/schemas/ReviewerSupervisorExtension"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "studentExamAnswers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentExamAnswer"
+            },
+            "nullable": true
+          },
+          "studentExamResult": {
+            "$ref": "#/components/schemas/StudentExamResult"
+          },
+          "studentExtension": {
+            "$ref": "#/components/schemas/StudentExtension"
+          },
+          "studentTasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentTask"
+            },
+            "nullable": true
+          },
+          "subordinateTickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubordinateTicket"
+            },
+            "nullable": true
+          },
+          "superAdminExtension": {
+            "$ref": "#/components/schemas/SuperAdminExtension"
+          },
+          "taskSubmissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskSubmission"
+            },
+            "nullable": true
+          },
+          "tblTasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TblTask"
+            },
+            "nullable": true
+          },
+          "teamMembers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMember"
+            },
+            "nullable": true
+          },
+          "teamSupervisorAccounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Team"
+            },
+            "nullable": true
+          },
+          "teamTeamLeaderAccounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Team"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "CreateApplicationDto": {
+      "AccountRole": {
         "type": "object",
         "properties": {
-          "fullName": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "roleId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "accountId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "businessEntityName": {
             "type": "string",
             "nullable": true
           },
-          "age": {
-            "type": "integer",
-            "format": "int32"
+          "account": {
+            "$ref": "#/components/schemas/Account"
           },
-          "courseId": {
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AdmissionProfile": {
+        "type": "object",
+        "properties": {
+          "accountId": {
             "type": "integer",
-            "format": "int32"
+            "format": "int64"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "location": {
+            "type": "string",
+            "nullable": true
+          },
+          "phoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "softwareInterviewScore": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "mathInterviewScore": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "englishInterviewScore": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "arabicInterviewScore": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "studentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "mathScore": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "englishScore": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "thirdPrepScore": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "isAcceptanceLetterReceived": {
+            "type": "boolean"
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "hasOnlineTrainingCourses": {
+            "type": "boolean"
+          },
+          "hasIcdllicense": {
+            "type": "boolean"
+          },
+          "hasLaptop": {
+            "type": "boolean"
+          },
+          "parentPhoneNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "previousSchoolType": {
+            "type": "string",
+            "nullable": true
+          },
+          "ministryExamPercentage": {
+            "type": "number",
+            "format": "double"
+          },
+          "parentOccupation": {
+            "type": "string",
+            "nullable": true
+          },
+          "city": {
+            "type": "string",
+            "nullable": true
+          },
+          "district": {
+            "type": "string",
+            "nullable": true
+          },
+          "streetName": {
+            "type": "string",
+            "nullable": true
+          },
+          "buildingNo": {
+            "type": "string",
+            "nullable": true
+          },
+          "birthCertificatePath": {
+            "type": "string",
+            "nullable": true
+          },
+          "successReportPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "tuitionFeeReceiptPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "preferencesSheetPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Application": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "courseRoundId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "accountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "applicationDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
           },
           "answer1": {
             "type": "string",
@@ -1134,38 +1421,45 @@
           "answer5": {
             "type": "string",
             "nullable": true
+          },
+          "answer6": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer7": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer8": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer9": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer10": {
+            "type": "string",
+            "nullable": true
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "courseRound": {
+            "$ref": "#/components/schemas/CourseRound"
           }
         },
         "additionalProperties": false
       },
-      "CreateCourseDto": {
+      "AssignInstructorsDto": {
         "type": "object",
         "properties": {
-          "title": {
-            "type": "string",
-            "nullable": true
-          },
-          "description": {
-            "type": "string",
-            "nullable": true
-          },
-          "levelId": {
+          "courseRoundId": {
             "type": "integer",
             "format": "int64"
-          },
-          "durationHours": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "maxStudents": {
-            "type": "integer",
-            "format": "int64",
-            "nullable": true
-          },
-          "price": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
           },
           "instructorIds": {
             "type": "array",
@@ -1178,10 +1472,173 @@
         },
         "additionalProperties": false
       },
-      "CreateMaterialDto": {
+      "AttendanceRecord": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "studentId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sessionNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isPresent": {
+            "type": "boolean"
+          },
+          "noteId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "classId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "behaviorNotes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BehaviorNote"
+            },
+            "nullable": true
+          },
+          "student": {
+            "$ref": "#/components/schemas/Account"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BehaviorNote": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "attendanceRecordId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "noteType": {
+            "type": "string",
+            "nullable": true
+          },
+          "gen": {
+            "type": "string",
+            "nullable": true
+          },
+          "attendanceRecord": {
+            "$ref": "#/components/schemas/AttendanceRecord"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CapstoneSupervisorExtension": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Course": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "levelStatusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "durationHours": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "levelStatus": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "courseRounds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseRound"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseMaterial": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
           "courseRoundId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "createdByAccountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "weekId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parentMaterialId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "materialTypeStatusId": {
             "type": "integer",
             "format": "int64"
           },
@@ -1197,19 +1654,114 @@
             "type": "string",
             "nullable": true
           },
-          "materialType": {
+          "meetingId": {
             "type": "string",
+            "nullable": true
+          },
+          "meetingPassword": {
+            "type": "string",
+            "nullable": true
+          },
+          "week": {
+            "$ref": "#/components/schemas/Weeks"
+          },
+          "parentMaterial": {
+            "$ref": "#/components/schemas/CourseMaterial"
+          },
+          "childMaterials": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseMaterial"
+            },
+            "nullable": true
+          },
+          "createdBy": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "courseRound": {
+            "$ref": "#/components/schemas/CourseRound"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "materialTypeStatus": {
+            "$ref": "#/components/schemas/Status"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CourseMaterialDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "courseRoundId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "createdByAccountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parentMaterialId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "materialTypeStatusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "link": {
+            "type": "string",
+            "nullable": true
+          },
+          "meetingId": {
+            "type": "string",
+            "nullable": true
+          },
+          "meetingPassword": {
+            "type": "string",
+            "nullable": true
+          },
+          "childMaterials": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseMaterialDto"
+            },
             "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "CreateRoundDto": {
+      "CourseRound": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "courseId": {
+            "type": "integer",
+            "format": "int64"
+          },
           "roundNumber": {
             "type": "integer",
-            "format": "int32"
+            "format": "int64"
           },
           "startDate": {
             "type": "string",
@@ -1224,17 +1776,13 @@
             "format": "int64",
             "nullable": true
           },
-          "mainInstructorId": {
-            "type": "integer",
-            "format": "int64"
-          },
           "statusId": {
             "type": "integer",
             "format": "int64"
           },
-          "courseId": {
-            "type": "integer",
-            "format": "int64"
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           },
           "question1": {
             "type": "string",
@@ -1255,18 +1803,149 @@
           "question5": {
             "type": "string",
             "nullable": true
+          },
+          "question6": {
+            "type": "string",
+            "nullable": true
+          },
+          "question7": {
+            "type": "string",
+            "nullable": true
+          },
+          "question8": {
+            "type": "string",
+            "nullable": true
+          },
+          "question9": {
+            "type": "string",
+            "nullable": true
+          },
+          "question10": {
+            "type": "string",
+            "nullable": true
+          },
+          "minStudents": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "course": {
+            "$ref": "#/components/schemas/Course"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "courseMaterials": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseMaterial"
+            },
+            "nullable": true
+          },
+          "courseRoundInstructors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseRoundInstructor"
+            },
+            "nullable": true
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Application"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "CreateZoomMeetingDto": {
+      "CourseRoundInstructor": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "courseRoundId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "instructorId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "assignedDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "courseRound": {
+            "$ref": "#/components/schemas/CourseRound"
+          },
+          "instructor": {
+            "$ref": "#/components/schemas/Account"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateApplicationDto": {
         "type": "object",
         "properties": {
           "courseRoundId": {
             "type": "integer",
             "format": "int64"
           },
-          "topic": {
+          "answer1": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer2": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer3": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer4": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer5": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer6": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer7": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer8": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer9": {
+            "type": "string",
+            "nullable": true
+          },
+          "answer10": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateCourseDto": {
+        "type": "object",
+        "properties": {
+          "title": {
             "type": "string",
             "nullable": true
           },
@@ -1274,7 +1953,50 @@
             "type": "string",
             "nullable": true
           },
-          "meetingLink": {
+          "levelStatusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "durationHours": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateCourseMaterialDto": {
+        "type": "object",
+        "properties": {
+          "courseRoundId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "createdByAccountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "weekId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parentMaterialId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "materialTypeStatusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "link": {
             "type": "string",
             "nullable": true
           },
@@ -1282,17 +2004,332 @@
             "type": "string",
             "nullable": true
           },
-          "passcode": {
+          "meetingPassword": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateCourseRoundDto": {
+        "type": "object",
+        "properties": {
+          "courseId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "roundNumber": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "minStudents": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "maxStudents": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "price": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "question1": {
             "type": "string",
             "nullable": true
           },
-          "meetingDateTime": {
+          "question2": {
+            "type": "string",
+            "nullable": true
+          },
+          "question3": {
+            "type": "string",
+            "nullable": true
+          },
+          "question4": {
+            "type": "string",
+            "nullable": true
+          },
+          "question5": {
+            "type": "string",
+            "nullable": true
+          },
+          "question6": {
+            "type": "string",
+            "nullable": true
+          },
+          "question7": {
+            "type": "string",
+            "nullable": true
+          },
+          "question8": {
+            "type": "string",
+            "nullable": true
+          },
+          "question9": {
+            "type": "string",
+            "nullable": true
+          },
+          "question10": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateWeekDto": {
+        "type": "object",
+        "properties": {
+          "weekTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "accountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "courseRoundId": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EmploymentRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "linkedInUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "companyEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "companyPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "specialization": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "ownerEmail": {
+            "type": "string",
+            "nullable": true
+          },
+          "employmentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "requestDate": {
             "type": "string",
             "format": "date-time"
           },
-          "durationMinutes": {
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ExamQuestion": {
+        "type": "object",
+        "properties": {
+          "id": {
             "type": "integer",
-            "format": "int32"
+            "format": "int64"
+          },
+          "questionTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "choice1": {
+            "type": "string",
+            "nullable": true
+          },
+          "choice2": {
+            "type": "string",
+            "nullable": true
+          },
+          "choice3": {
+            "type": "string",
+            "nullable": true
+          },
+          "choice4": {
+            "type": "string",
+            "nullable": true
+          },
+          "correctAnswer": {
+            "type": "string",
+            "nullable": true
+          },
+          "sectionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "studentExamAnswers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentExamAnswer"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Grade": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "gradeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "parentGradeId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "adminAccountId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "adminAccount": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "taskSubmissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskSubmission"
+            },
+            "nullable": true
+          },
+          "tblTasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TblTask"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "InterviewScore": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "accountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "interviewerId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "score": {
+            "type": "number",
+            "format": "double"
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "interviewer": {
+            "$ref": "#/components/schemas/Account"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Login": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "accountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "passwordHash": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
           }
         },
         "additionalProperties": false
@@ -1307,6 +2344,42 @@
           "password": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "accountId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "message": {
+            "type": "string",
+            "nullable": true
+          },
+          "readStatusId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
           }
         },
         "additionalProperties": false
@@ -1332,7 +2405,7 @@
             "type": "string",
             "nullable": true
           },
-          "levelId": {
+          "levelStatusId": {
             "type": "integer",
             "format": "int64",
             "nullable": true
@@ -1341,26 +2414,52 @@
             "type": "integer",
             "format": "int64",
             "nullable": true
-          },
-          "maxStudents": {
+          }
+        },
+        "additionalProperties": false
+      },
+      "PatchCourseMaterialDto": {
+        "type": "object",
+        "properties": {
+          "statusId": {
             "type": "integer",
             "format": "int64",
             "nullable": true
           },
-          "price": {
-            "type": "number",
-            "format": "double",
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "link": {
+            "type": "string",
+            "nullable": true
+          },
+          "meetingId": {
+            "type": "string",
+            "nullable": true
+          },
+          "meetingPassword": {
+            "type": "string",
             "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "PatchRoundDto": {
+      "PatchCourseRoundDto": {
         "type": "object",
         "properties": {
+          "courseId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
           "roundNumber": {
             "type": "integer",
-            "format": "int32",
+            "format": "int64",
             "nullable": true
           },
           "startDate": {
@@ -1373,14 +2472,19 @@
             "format": "date",
             "nullable": true
           },
+          "minStudents": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
           "maxStudents": {
             "type": "integer",
             "format": "int64",
             "nullable": true
           },
-          "mainInstructorId": {
-            "type": "integer",
-            "format": "int64",
+          "price": {
+            "type": "number",
+            "format": "double",
             "nullable": true
           },
           "statusId": {
@@ -1407,14 +2511,268 @@
           "question5": {
             "type": "string",
             "nullable": true
+          },
+          "question6": {
+            "type": "string",
+            "nullable": true
+          },
+          "question7": {
+            "type": "string",
+            "nullable": true
+          },
+          "question8": {
+            "type": "string",
+            "nullable": true
+          },
+          "question9": {
+            "type": "string",
+            "nullable": true
+          },
+          "question10": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "RegisterRequestDto": {
+      "Project": {
         "type": "object",
         "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "nameAr": {
+            "type": "string",
+            "nullable": true
+          },
+          "nameEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "companyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "additionalInformation": {
+            "type": "string",
+            "nullable": true
+          },
+          "dateOfCreation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "projectDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "supervisorAccountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "supervisorAccount": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Team"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Report": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "submissionDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reportMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "submitterAccountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reviewerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "submitterAccount": {
+            "$ref": "#/components/schemas/Account"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReportSpecialist": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "dateReport": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "studentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "specialistSignature": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReviewerSupervisorExtension": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "assignedClassId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Role": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "roleName": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderNo": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "businessEntity": {
+            "type": "string",
+            "nullable": true
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Account"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Scholarship": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "scholarshipName": {
+            "type": "string",
+            "nullable": true
+          },
+          "amount": {
+            "type": "number",
+            "format": "double"
+          },
+          "providerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SignupRequestDto": {
+        "type": "object",
+        "properties": {
+          "fullNameEn": {
+            "type": "string",
+            "nullable": true
+          },
+          "fullNameAr": {
+            "type": "string",
+            "nullable": true
+          },
           "nationalId": {
+            "type": "string",
+            "nullable": true
+          },
+          "phone": {
             "type": "string",
             "nullable": true
           },
@@ -1426,50 +2784,679 @@
             "type": "string",
             "nullable": true
           },
-          "phone": {
+          "educationalLevelId": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Status": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "statusName": {
             "type": "string",
             "nullable": true
           },
-          "fullNameEn": {
+          "businessEntity": {
             "type": "string",
             "nullable": true
           },
-          "fullNameAr": {
-            "type": "string",
+          "orderNo": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Account"
+            },
+            "nullable": true
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Application"
+            },
+            "nullable": true
+          },
+          "admissionProfiles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AdmissionProfile"
+            },
+            "nullable": true
+          },
+          "capstoneSupervisorExtensions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CapstoneSupervisorExtension"
+            },
+            "nullable": true
+          },
+          "employmentRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EmploymentRequest"
+            },
+            "nullable": true
+          },
+          "grades": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Grade"
+            },
+            "nullable": true
+          },
+          "logins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Login"
+            },
+            "nullable": true
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            },
+            "nullable": true
+          },
+          "reportSpecialists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReportSpecialist"
+            },
+            "nullable": true
+          },
+          "reports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Report"
+            },
+            "nullable": true
+          },
+          "reviewerSupervisorExtensions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewerSupervisorExtension"
+            },
+            "nullable": true
+          },
+          "scholarships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Scholarship"
+            },
+            "nullable": true
+          },
+          "studentExtensions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentExtension"
+            },
+            "nullable": true
+          },
+          "studentTasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentTask"
+            },
+            "nullable": true
+          },
+          "subordinateTickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubordinateTicket"
+            },
+            "nullable": true
+          },
+          "superAdminExtensions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuperAdminExtension"
+            },
+            "nullable": true
+          },
+          "tblTasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TblTask"
+            },
+            "nullable": true
+          },
+          "teamMembers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMember"
+            },
+            "nullable": true
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Team"
+            },
+            "nullable": true
+          },
+          "ticketTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketType"
+            },
             "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "UpdateApplicationDto": {
+      "StudentExamAnswer": {
         "type": "object",
         "properties": {
-          "fullName": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "accountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "examId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "choosedAnswer": {
             "type": "string",
             "nullable": true
           },
-          "age": {
+          "score": {
+            "type": "boolean"
+          },
+          "questionId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "exam": {
+            "$ref": "#/components/schemas/ExamQuestion"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentExamResult": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "examArabicScore": {
             "type": "integer",
             "format": "int32"
           },
-          "answer1": {
+          "examEnglishScore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "examMathScore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "examSoftwareScore": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentExtension": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "isLeader": {
+            "type": "boolean"
+          },
+          "classId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "macaddress": {
             "type": "string",
             "nullable": true
           },
-          "answer2": {
+          "educationalLevelStatusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          }
+        },
+        "additionalProperties": false
+      },
+      "StudentTask": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "studentAccountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "isCompleted": {
+            "type": "boolean"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "studentAccount": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "task": {
+            "$ref": "#/components/schemas/TblTask"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SubordinateTicket": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "supervisorAccountId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "gradeId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "classId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "sessionId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "subordinateAccountId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "supervisorAccount": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "ticketType": {
+            "$ref": "#/components/schemas/TicketType"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SuperAdminExtension": {
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "account": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TaskSubmission": {
+        "type": "object",
+        "properties": {
+          "taskSubmissionId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "teamId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "teamLeaderId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "gradeId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "glink": {
             "type": "string",
             "nullable": true
           },
-          "answer3": {
+          "note": {
             "type": "string",
             "nullable": true
           },
-          "answer4": {
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "feedback": {
             "type": "string",
             "nullable": true
           },
-          "answer5": {
+          "reviewerId": {
             "type": "string",
+            "nullable": true
+          },
+          "grade": {
+            "$ref": "#/components/schemas/Grade"
+          },
+          "task": {
+            "$ref": "#/components/schemas/TblTask"
+          },
+          "team": {
+            "$ref": "#/components/schemas/Team"
+          },
+          "teamLeader": {
+            "$ref": "#/components/schemas/Account"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TblTask": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskName": {
+            "type": "string",
+            "nullable": true
+          },
+          "taskDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "assignedToId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "assignedById": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "taskDeadline": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "gradeId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "adminAccountId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "classId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "teamId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "weekId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "adminAccount": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "grade": {
+            "$ref": "#/components/schemas/Grade"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "studentTasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentTask"
+            },
+            "nullable": true
+          },
+          "taskSubmissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskSubmission"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Team": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "teamName": {
+            "type": "string",
+            "nullable": true
+          },
+          "teamLeaderAccountId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "classId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "supervisorAccountId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "projectId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "project": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "supervisorAccount": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "taskSubmissions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskSubmission"
+            },
+            "nullable": true
+          },
+          "teamLeaderAccount": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "teamMembers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamMember"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TeamMember": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "teamId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "teamMemberAccountId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "teamMemberDescription": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "team": {
+            "$ref": "#/components/schemas/Team"
+          },
+          "teamMemberAccount": {
+            "$ref": "#/components/schemas/Account"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TicketType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ticketTypeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "orderNo": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "businessEntity": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "$ref": "#/components/schemas/Status"
+          },
+          "subordinateTickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubordinateTicket"
+            },
             "nullable": true
           }
         },
@@ -1486,30 +3473,45 @@
             "type": "string",
             "nullable": true
           },
-          "levelId": {
+          "levelStatusId": {
             "type": "integer",
             "format": "int64"
           },
           "durationHours": {
             "type": "integer",
             "format": "int64"
-          },
-          "maxStudents": {
-            "type": "integer",
-            "format": "int64",
-            "nullable": true
-          },
-          "price": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "UpdateMaterialDto": {
+      "UpdateCourseMaterialDto": {
         "type": "object",
         "properties": {
+          "courseRoundId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "createdByAccountId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "weekId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "parentMaterialId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "materialTypeStatusId": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
           "title": {
             "type": "string",
             "nullable": true
@@ -1522,22 +3524,27 @@
             "type": "string",
             "nullable": true
           },
-          "materialType": {
+          "meetingId": {
             "type": "string",
             "nullable": true
           },
-          "isActive": {
-            "type": "boolean"
+          "meetingPassword": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "UpdateRoundDto": {
+      "UpdateCourseRoundDto": {
         "type": "object",
         "properties": {
+          "courseId": {
+            "type": "integer",
+            "format": "int64"
+          },
           "roundNumber": {
             "type": "integer",
-            "format": "int32"
+            "format": "int64"
           },
           "startDate": {
             "type": "string",
@@ -1547,14 +3554,20 @@
             "type": "string",
             "format": "date"
           },
+          "minStudents": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
           "maxStudents": {
             "type": "integer",
             "format": "int64",
             "nullable": true
           },
-          "mainInstructorId": {
-            "type": "integer",
-            "format": "int64"
+          "price": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           },
           "statusId": {
             "type": "integer",
@@ -1579,76 +3592,116 @@
           "question5": {
             "type": "string",
             "nullable": true
+          },
+          "question6": {
+            "type": "string",
+            "nullable": true
+          },
+          "question7": {
+            "type": "string",
+            "nullable": true
+          },
+          "question8": {
+            "type": "string",
+            "nullable": true
+          },
+          "question9": {
+            "type": "string",
+            "nullable": true
+          },
+          "question10": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "UpdateZoomMeetingDto": {
+      "UpdateWeekDto": {
         "type": "object",
         "properties": {
-          "topic": {
+          "weekTitle": {
             "type": "string",
             "nullable": true
           },
-          "description": {
+          "startDate": {
             "type": "string",
+            "format": "date",
             "nullable": true
           },
-          "meetingLink": {
+          "endDate": {
             "type": "string",
+            "format": "date",
             "nullable": true
-          },
-          "meetingId": {
-            "type": "string",
-            "nullable": true
-          },
-          "passcode": {
-            "type": "string",
-            "nullable": true
-          },
-          "meetingDateTime": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "durationMinutes": {
+          }
+        },
+        "additionalProperties": false
+      },
+      "WeekDto": {
+        "type": "object",
+        "properties": {
+          "id": {
             "type": "integer",
-            "format": "int32"
+            "format": "int64"
           },
-          "isActive": {
-            "type": "boolean"
+          "weekTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "courseMaterials": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseMaterialDto"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "Weeks": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "weekTitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "businessEntityName": {
+            "type": "string",
+            "nullable": true
+          },
+          "courseMaterials": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CourseMaterial"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
       }
     }
-  },
-  "tags": [
-    {
-      "name": "Account"
-    },
-    {
-      "name": "Application"
-    },
-    {
-      "name": "Auth"
-    },
-    {
-      "name": "Course"
-    },
-    {
-      "name": "CourseRound"
-    },
-    {
-      "name": "CourseRoundStudent"
-    },
-    {
-      "name": "Health"
-    },
-    {
-      "name": "Material"
-    },
-    {
-      "name": "ZoomMeeting"
-    }
-  ]
+  }
 }

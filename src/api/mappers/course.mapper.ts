@@ -45,7 +45,7 @@ export const mapCourseDtoToCourse = (dto: CourseDto): Course => ({
   code: dto.code ?? '',
   description: dto.description ?? '',
   category: dto.category ?? '',
-  level: levelIdToLevel(dto.levelId),
+  level: levelIdToLevel((dto.levelStatusId as CourseLevelId) ?? 3),
   price: dto.price ?? 0,
   instructor: dto.instructor ?? '',
   instructorId: dto.instructorId != null ? String(dto.instructorId) : '',
@@ -69,7 +69,7 @@ export const mapCreateCourseInputToRequest = (input: {
 }): CreateCourseRequest => ({
   title: input.name,
   description: input.description,
-  levelId: levelToLevelId(input.level),
+  levelStatusId: levelToLevelId(input.level),
   durationHours: input.duration,
   maxStudents: input.maxStudents ?? 35,
   price: input.price,
@@ -87,7 +87,7 @@ export const mapUpdateCourseInputToRequest = (input: {
 
   if (typeof input.name === 'string') payload.title = input.name;
   if (typeof input.description === 'string') payload.description = input.description;
-  if (typeof input.level === 'string') payload.levelId = levelToLevelId(input.level);
+  if (typeof input.level === 'string') payload.levelStatusId = levelToLevelId(input.level);
   if (typeof input.duration === 'number') payload.durationHours = input.duration;
   if (typeof input.price === 'number') payload.price = input.price;
   if (typeof input.maxStudents === 'number') payload.maxStudents = input.maxStudents;

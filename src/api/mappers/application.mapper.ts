@@ -9,6 +9,8 @@ import type {
 
 const statusIdToStatus = (statusId: ApplicationStatusId | undefined): ApplicationStatus => {
   switch (statusId) {
+    case 4:
+      return 'payed';
     case 3:
       return 'accepted';
     case 2:
@@ -19,8 +21,20 @@ const statusIdToStatus = (statusId: ApplicationStatusId | undefined): Applicatio
   }
 };
 
+const statusNameToStatus = (statusName: string | undefined): ApplicationStatus | undefined => {
+  if (!statusName) return undefined;
+  const lower = statusName.trim().toLowerCase();
+  if (lower.includes('pay')) return 'payed';
+  if (lower.includes('accept')) return 'accepted';
+  if (lower.includes('reject')) return 'rejected';
+  if (lower.includes('pend')) return 'pending';
+  return undefined;
+};
+
 const statusToStatusId = (status: ApplicationStatus): ApplicationStatusId => {
   switch (status) {
+    case 'payed':
+      return 4;
     case 'accepted':
       return 3;
     case 'rejected':
@@ -39,32 +53,6 @@ const toDate = (value: unknown): Date => {
   return new Date();
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-type Answer5Payload = {
-  studentId?: string;
-  courseName?: string;
-  coursePrice?: number;
-};
-
-const parseAnswer5 = (value: unknown): Answer5Payload => {
-  if (typeof value !== 'string' || value.trim() === '') return {};
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!isRecord(parsed)) return {};
-
-    const studentId = typeof parsed.studentId === 'string' ? parsed.studentId : undefined;
-    const courseName = typeof parsed.courseName === 'string' ? parsed.courseName : undefined;
-    const coursePrice = typeof parsed.coursePrice === 'number' ? parsed.coursePrice : undefined;
-
-    return { studentId, courseName, coursePrice };
-  } catch {
-    return {};
-  }
-};
-
 export type UiApplication = CourseApplication & {
   metadata?: {
     fullName?: string;
@@ -77,59 +65,57 @@ export type UiApplication = CourseApplication & {
   };
 };
 
-export const mapApplicationDtoToUi = (dto: ApplicationDto): UiApplication => {
-  const answer5 = parseAnswer5(dto.answer5);
+export const mapApplicationDtoToUi = (dto: ApplicationDto, courseId?: string): UiApplication => {
+  const derivedStatus = statusNameToStatus(dto.status) ?? statusIdToStatus(dto.statusId);
+  const derivedStudentId = dto.studentId ?? (dto.accountId != null ? String(dto.accountId) : '');
 
   return {
     id: String(dto.id),
-    studentId: dto.studentId ?? answer5.studentId ?? '',
-    courseId: String(dto.courseId),
-    status: statusIdToStatus(dto.statusId),
-    appliedAt: toDate(dto.appliedAt),
+    studentId: derivedStudentId,
+    courseId: courseId ?? String(dto.courseRoundId), // Will be enriched later from courseRoundId -> courseId
+    courseRoundId: dto.courseRoundId,
+    status: derivedStatus,
+    appliedAt: toDate(dto.appliedAt ?? dto.applicationDate),
     reviewedAt: dto.reviewedAt ? toDate(dto.reviewedAt) : undefined,
     reviewedBy: dto.reviewedBy,
     notes: dto.notes,
     metadata: {
-      fullName: dto.fullName,
-      email: dto.answer1,
-      phone: dto.answer2,
-      experience: dto.answer3,
-      motivation: dto.answer4,
-      courseName: answer5.courseName,
-      coursePrice: answer5.coursePrice,
+      fullName: dto.fullNameEn ?? dto.answer1 ?? '',
+      email: dto.email ?? dto.answer2 ?? '',
+      phone: dto.phone ?? dto.answer3 ?? '',
+      experience: dto.answer4 ?? '',
+      motivation: dto.answer5 ?? '',
+      courseName: undefined,
+      coursePrice: undefined,
     },
   };
 };
 
 export const mapCreateApplicationInputToRequest = (input: {
-  studentId?: User['id'];
-  fullName: string;
-  age?: number;
-  courseId: string;
-  email?: string;
-  phone?: string;
-  experience?: string;
-  motivation?: string;
-  courseName?: string;
-  coursePrice?: number;
-}): CreateApplicationRequest => {
-  const answer5: Answer5Payload = {
-    studentId: input.studentId,
-    courseName: input.courseName,
-    coursePrice: input.coursePrice,
-  };
-
-  return {
-    fullName: input.fullName,
-    age: input.age ?? 18,
-    courseId: input.courseId,
-    answer1: input.email ?? '',
-    answer2: input.phone ?? '',
-    answer3: input.experience ?? '',
-    answer4: input.motivation ?? '',
-    answer5: JSON.stringify(answer5),
-  };
-};
+  courseRoundId: number;
+  answer1?: string | null;
+  answer2?: string | null;
+  answer3?: string | null;
+  answer4?: string | null;
+  answer5?: string | null;
+  answer6?: string | null;
+  answer7?: string | null;
+  answer8?: string | null;
+  answer9?: string | null;
+  answer10?: string | null;
+}): CreateApplicationRequest => ({
+  courseRoundId: input.courseRoundId,
+  answer1: input.answer1 ?? null,
+  answer2: input.answer2 ?? null,
+  answer3: input.answer3 ?? null,
+  answer4: input.answer4 ?? null,
+  answer5: input.answer5 ?? null,
+  answer6: input.answer6 ?? null,
+  answer7: input.answer7 ?? null,
+  answer8: input.answer8 ?? null,
+  answer9: input.answer9 ?? null,
+  answer10: input.answer10 ?? null,
+});
 
 export const mapUpdateStatusToRequest = (status: ApplicationStatus): UpdateApplicationStatusRequest => ({
   statusId: statusToStatusId(status),

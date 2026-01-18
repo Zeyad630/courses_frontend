@@ -82,42 +82,86 @@ export const toApiError = (error: unknown): ApiError => {
   const axiosError = error as AxiosError | undefined;
   const status = axiosError?.response?.status;
   const data = axiosError?.response?.data;
+  const code = axiosError?.code;
+  const message = axiosError?.message;
+
+  // Handle network errors (CORS, connection refused, etc.)
+  if (!status && (code === 'ERR_NETWORK' || code === 'ECONNABORTED' || message?.includes('Network Error'))) {
+    const isCorsError = message?.includes('CORS') || message?.includes('Access-Control-Allow-Origin');
+    if (isCorsError) {
+      return new ApiError(
+        'Unable to connect to the server. This may be due to CORS configuration. Please ensure the backend server is running and configured to allow requests from this origin.',
+        { status: 0, data }
+      );
+    }
+    return new ApiError(
+      'Unable to connect to the server. Please check your internet connection and ensure the backend server is running.',
+      { status: 0, data }
+    );
+  }
 
   if (status === 404) {
-    return new NotFoundError('Not found', { status, data });
+    return new NotFoundError('The requested resource was not found.', { status, data });
   }
 
   if (status === 400) {
     const maybe = data as unknown;
     if (isRecord(maybe) && isRecord(maybe.errors)) {
-      return new ValidationError('Validation error', {
+      return new ValidationError('Please check your input and try again.', {
         status,
         data,
         errors: maybe.errors as ValidationErrors,
       });
     }
 
-    return new ValidationError('Validation error', { status, data, errors: {} });
+    return new ValidationError('Invalid request. Please check your input and try again.', { status, data, errors: {} });
+  }
+
+  if (status === 401) {
+    return new ApiError('Your session has expired. Please sign in again.', { status, data });
+  }
+
+  if (status === 403) {
+    return new ApiError('You do not have permission to perform this action.', { status, data });
+  }
+
+  if (status === 429) {
+    return new ApiError('Too many requests. Please wait a moment and try again.', { status, data });
+  }
+
+  if (status === 423) {
+    return new ApiError('Your account is temporarily locked. Please try again later.', { status, data });
   }
 
   if (typeof status === 'number' && status >= 500) {
-    return new ApiError('Server error. Please try again later.', { status, data });
+    return new ApiError('Server error. Please try again later. If the problem persists, contact support.', { status, data });
   }
 
   if (typeof status === 'number') {
     const problem = extractProblemMessage(data);
-    const message =
+    const finalMessage =
       problem
-        ? `Request failed with status ${status}: ${problem}`
-        : isRecord(data)
-          ? `Request failed with status ${status}: ${JSON.stringify(data)}`
-          : `Request failed with status ${status}`;
-    return new ApiError(message, { status, data });
+        ? problem
+        : `Request failed with status ${status}. Please try again.`;
+    return new ApiError(finalMessage, { status, data });
   }
 
   if (error instanceof Error) {
-    return new ApiError(error.message);
+    // Check for CORS or network errors in the message
+    if (error.message.includes('CORS') || error.message.includes('Access-Control-Allow-Origin')) {
+      return new ApiError(
+        'Unable to connect to the server. Please ensure the backend server is running and configured to allow requests from this origin.',
+        { status: 0, data: error.message }
+      );
+    }
+    if (error.message.includes('Network Error') || error.message.includes('ERR_NETWORK')) {
+      return new ApiError(
+        'Unable to connect to the server. Please check your internet connection and ensure the backend server is running.',
+        { status: 0, data: error.message }
+      );
+    }
+    return new ApiError(error.message || 'An unexpected error occurred. Please try again.');
   }
 
-  return new ApiError('Unexpected error');
+  return new ApiError('An unexpected error occurred. Please try again.');
 };

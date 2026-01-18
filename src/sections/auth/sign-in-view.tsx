@@ -34,7 +34,11 @@ export function SignInView() {
   const { login, loginWithGoogle } = useAuth();
   const { t } = useTranslation();
 
-  const getPostAuthPath = useCallback(() => '/courses', []);
+  const getPostAuthPath = useCallback((role: string) => {
+    if (role === 'admin') return '/admin/dashboard';
+    if (role === 'instructor') return '/instructor/courses';
+    return '/dashboard';
+  }, []);
 
   const brandGradient = `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`;
 
@@ -67,12 +71,12 @@ export function SignInView() {
         // 2. Getting access token and user info
         // 3. Fetching full profile
         // 4. Updating auth context state
-        await loginWithGoogle(credential);
+        const user = await loginWithGoogle(credential);
         
         setGoogleLoading(false);
         
         // Redirect after successful login
-        router.push(getPostAuthPath());
+        router.push(getPostAuthPath(user.role));
       } catch (err) {
         setGoogleLoading(false);
         if (err instanceof Error) {
@@ -115,36 +119,38 @@ export function SignInView() {
     setError('');
 
     try {
-      await login(email, password);
-      router.push(getPostAuthPath());
+      const user = await login(email, password);
+      router.push(getPostAuthPath(user.role));
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          setError(t('auth.invalidCredentials'));
+          setError(t('auth.invalidCredentials') || 'Invalid email or password. Please try again.');
         } else if (err.message.includes('Email is not verified')) {
-          setError(t('auth.emailNotVerified'));
+          setError(t('auth.emailNotVerified') || 'Please verify your email before signing in.');
+        } else if (err.message.includes('CORS') || err.message.includes('Network Error') || err.status === 0) {
+          setError('Unable to connect to the server. Please ensure the backend server is running at https://localhost:7248');
         } else {
-          setError(err.message || t('messages.savingError'));
+          setError(err.message || t('messages.savingError') || 'An error occurred. Please try again.');
         }
         return;
       }
 
       if (err instanceof Error) {
         if (err.message.includes('Email is not verified')) {
-          setError(t('auth.emailNotVerified'));
+          setError(t('auth.emailNotVerified') || 'Please verify your email before signing in.');
           return;
         }
 
-        if (err.message.toLowerCase().includes('network')) {
-          setError(t('messages.loadingError'));
+        if (err.message.toLowerCase().includes('network') || err.message.includes('CORS')) {
+          setError('Unable to connect to the server. Please ensure the backend server is running at https://localhost:7248');
           return;
         }
 
-        setError(err.message);
+        setError(err.message || 'An error occurred. Please try again.');
         return;
       }
 
-      setError(t('auth.invalidCredentials'));
+      setError(t('auth.invalidCredentials') || 'An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -18,16 +18,26 @@ import { useApplicationsContext } from 'src/contexts/applications-context';
 
 import { Iconify } from 'src/components/iconify';
 
+const premiumGlass = (theme: any) => ({
+  background: alpha(theme.palette.background.paper, 0.8),
+  backdropFilter: 'blur(20px)',
+  border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+  boxShadow: `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.05)}`,
+  borderRadius: 3,
+});
+
 // ----------------------------------------------------------------------
 
 // Applications are sourced from ApplicationsContext
 
 const getStatusColor = (status: ApplicationStatus) => {
   switch (status) {
+    case 'payed':
+      return 'success';
     case 'accepted':
-      return 'error';
+      return 'success';
     case 'rejected':
-      return 'default';
+      return 'error';
     case 'pending':
     default:
       return 'info';
@@ -36,6 +46,8 @@ const getStatusColor = (status: ApplicationStatus) => {
 
 const getStatusIcon = (status: ApplicationStatus) => {
   switch (status) {
+    case 'payed':
+      return 'solar:shield-check-bold';
     case 'accepted':
       return 'solar:check-circle-bold';
     case 'rejected':
@@ -64,25 +76,95 @@ export function MyApplicationsView() {
   return (
     <DashboardContent>
       <Container maxWidth="xl">
-        <Box sx={{ mb: 5 }}>
-          <Typography variant="h4">My Course Applications</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Track the status of your course applications and make payments for accepted courses.
-          </Typography>
+        {/* Premium Header */}
+        <Box
+          sx={{
+            mb: 5,
+            p: 3,
+            borderRadius: 4,
+            position: 'relative',
+            overflow: 'hidden',
+            boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)',
+            animation: 'fadeIn 0.8s ease-out',
+          }}
+        >
+           {/* Background Mesh Gradient */}
+           <Box sx={{
+              position: 'absolute',
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0,
+              background: `radial-gradient(at 0% 0%, ${alpha(theme.palette.secondary.dark, 0.8)} 0px, transparent 50%),
+                           radial-gradient(at 100% 0%, ${alpha(theme.palette.primary.main, 0.9)} 0px, transparent 50%),
+                           radial-gradient(at 100% 100%, ${alpha(theme.palette.info.main, 0.8)} 0px, transparent 50%),
+                           radial-gradient(at 0% 100%, ${alpha(theme.palette.success.dark, 0.5)} 0px, transparent 50%),
+                           linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)`, 
+              zIndex: 0
+           }} />
+
+           <Box sx={{ position: 'relative', zIndex: 1 }}>
+             <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5, color: 'common.white', textShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+               My Course Applications
+             </Typography>
+             <Typography variant="body2" sx={{ color: 'common.white', opacity: 0.8, fontWeight: 500 }}>
+               Track the status of your course applications and make payments for accepted courses.
+             </Typography>
+           </Box>
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {myApplications.map((application) => (
-            <Card key={application.id}>
-              <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+            <Card 
+              key={application.id}
+              sx={{
+                ...premiumGlass(theme),
+                position: 'relative',
+                overflow: 'visible',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: theme.shadows[16],
+                },
+              }}
+            >
+               {/* Status Indicator Line */}
+               <Box
+                  sx={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 6,
+                    borderTopLeftRadius: 12,
+                    borderBottomLeftRadius: 12,
+                    bgcolor: `${getStatusColor(application.status)}.main`,
+                    boxShadow: `4px 0 12px ${alpha(theme.palette[getStatusColor(application.status) as 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'].main, 0.5)}`,
+                  }}
+               />
+
+              <CardContent sx={{ p: { xs: 2.5, md: 4 }, pl: { xs: 3.5, md: 5 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, flexWrap: 'wrap', gap: 2 }}>
                   <Box>
-                    <Typography variant="h6" gutterBottom>
+                    <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
                       {application.metadata?.courseName || application.courseId}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Applied on: {application.appliedAt.toLocaleDateString()}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, color: 'text.secondary', flexWrap: 'wrap' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                             <Iconify icon="solar:calendar-date-bold" width={16} />
+                             <Typography variant="body2" fontWeight={600}>
+                                Applied: {application.appliedAt.toLocaleDateString()}
+                             </Typography>
+                        </Box>
+                        {application.reviewedAt && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                 <Iconify icon="solar:user-check-bold" width={16} />
+                                 <Typography variant="body2" fontWeight={600}>
+                                    Reviewed: {application.reviewedAt.toLocaleDateString()}
+                                 </Typography>
+                            </Box>
+                        )}
+                    </Box>
                   </Box>
                   
                   <Chip
@@ -90,81 +172,59 @@ export function MyApplicationsView() {
                     label={application.status.toUpperCase()}
                     color={getStatusColor(application.status)}
                     variant="filled"
-                    sx={
-                      application.status === 'rejected'
-                        ? {
-                            bgcolor: alpha(theme.palette.grey[600], 0.12),
-                            color: theme.palette.text.secondary,
-                            '& .MuiChip-icon': { color: theme.palette.text.secondary },
-                          }
-                        : application.status === 'accepted'
-                          ? {
-                              bgcolor: alpha(theme.palette.error.main, 0.12),
-                              color: theme.palette.error.main,
-                              '& .MuiChip-icon': { color: theme.palette.error.main },
-                            }
-                          : undefined
-                    }
+                    sx={{ 
+                        fontWeight: 800, 
+                        borderRadius: 1, 
+                        height: 32,
+                        px: 1,
+                        boxShadow: `0 4px 12px ${alpha(theme.palette[getStatusColor(application.status) as 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'].main, 0.4)}`
+                    }}
                   />
                 </Box>
 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" color="primary">
-                    Course Fee: {application.metadata?.coursePrice ?? ''} EGP
-                  </Typography>
-                  
-                  {application.reviewedAt && (
-                    <Typography variant="caption" color="text.secondary">
-                      Reviewed on: {application.reviewedAt.toLocaleDateString()}
-                    </Typography>
-                  )}
+                <Box sx={{ p: 2, borderRadius: 2, bgcolor: alpha(theme.palette.background.default, 0.5), border: `1px dashed ${alpha(theme.palette.divider, 0.5)}`, mb: 3 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                        Course Fee: {application.metadata?.coursePrice ?? ''} EGP
+                      </Typography>
+                    </Box>
                 </Box>
 
                 {application.notes && (
-                  <Box sx={{ p: 2, bgcolor: 'background.neutral', borderRadius: 1, mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      <strong>Admin Notes:</strong> {application.notes}
+                  <Box sx={{ p: 2.5, bgcolor: alpha(theme.palette.info.main, 0.08), borderRadius: 2, borderLeft: `4px solid ${theme.palette.info.main}` }}>
+                    <Typography variant="subtitle2" sx={{ color: 'info.main', mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Iconify icon="solar:info-circle-bold" width={18} /> Admin Notes
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'text.primary', fontStyle: 'italic' }}>
+                      &quot;{application.notes}&quot;
                     </Typography>
                   </Box>
                 )}
               </CardContent>
 
-              {/* <CardActions sx={{ p: 2, pt: 0 }}>
+              <CardActions sx={{ p: 3, pt: 0, display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
                 {application.status === 'accepted' && (
                   <Button
                     variant="contained"
                     color="primary"
-                    startIcon={<Iconify icon="solar:cart-3-bold" />}
+                    startIcon={<Iconify icon="solar:upload-bold" />}
                     onClick={() => handlePayment(application.id, application.metadata?.coursePrice || 0)}
                   >
-                    Pay {application.metadata?.coursePrice ?? ''} EGP & Access Course
+                    Complete Payment
                   </Button>
                 )}
-                
-                {application.status === 'pending' && (
+
+                {application.status === 'payed' && application.paymentProofUrl && (
                   <Button
                     variant="outlined"
-                    disabled
-                    startIcon={<Iconify icon="solar:clock-circle-outline" />}
+                    startIcon={<Iconify icon="solar:eye-bold" />}
+                    onClick={() => window.open(application.paymentProofUrl, '_blank')}
                   >
-                    Waiting for Review
+                    View Payment Proof
                   </Button>
                 )}
-                
-                {application.status === 'rejected' && (
-                  <Button
-                    variant="outlined"
-                    sx={{
-                      borderColor: alpha(theme.palette.grey[600], 0.35),
-                      color: theme.palette.text.secondary,
-                    }}
-                    startIcon={<Iconify icon="solar:close-circle-bold" />}
-                    disabled
-                  >
-                    Application Declined
-                  </Button>
-                )}
-              </CardActions> */}
+              </CardActions>
+
             </Card>
           ))}
         </Box>

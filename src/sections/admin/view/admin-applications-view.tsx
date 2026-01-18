@@ -46,7 +46,7 @@ const getStatusColor = (status: ApplicationStatus) => {
       return 'success';
     case 'rejected':
       return 'error';
-    case 'pending':
+    case 'pending': 
     default:
       return 'warning';
   }
@@ -197,7 +197,7 @@ export function AdminApplicationsView() {
       try {
         if (format === 'xlsx') {
           const all = await applicationApi.getApplications();
-          const mapped = all.map(mapApplicationDtoToUi);
+          const mapped = all.map((dto) => mapApplicationDtoToUi(dto));
 
           if (mapped.length === 0) {
             setToast({ open: true, severity: 'error', message: 'No applications to export.' });

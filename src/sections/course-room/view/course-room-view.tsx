@@ -7,12 +7,17 @@ import { useSearchParams } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import Box from '@mui/material/Box';
+import Accordion from '@mui/material/Accordion';
+import AccordionDetails from '@mui/material/AccordionDetails';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
+import AccordionSummary from '@mui/material/AccordionSummary';
 import Card from '@mui/material/Card';
 import Chip from '@mui/material/Chip';
 import Grid from '@mui/material/Grid';
+import Stack from '@mui/material/Stack';
 import Alert from '@mui/material/Alert';
+import Avatar from '@mui/material/Avatar';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import Select from '@mui/material/Select';
@@ -21,7 +26,9 @@ import Container from '@mui/material/Container';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
+import ToggleButton from '@mui/material/ToggleButton';
 import Typography from '@mui/material/Typography';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -31,13 +38,15 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import LinearProgress from '@mui/material/LinearProgress';
 
+import { keyframes } from '@mui/system';
+
 import { DashboardContent } from 'src/layouts/dashboard';
 import { useAuth } from 'src/contexts/simple-auth-context';
 import { useCoursesContext } from 'src/contexts/courses-context';
 import { mapCourseDtoToCourse } from 'src/api/mappers/course.mapper';
-import { courseApi, materialApi, weekApi, zoomMeetingApi } from 'src/api';
 import { useApplicationsContext } from 'src/contexts/applications-context';
 import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
+import { applicationApi, courseApi, courseMaterialApi, materialApi, weekApi, zoomMeetingApi } from 'src/api';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -58,24 +67,53 @@ const safeParseModules = (raw: string | null): CourseModule[] => {
   }
 };
 
-const getMaterialIcon = (type: string) => {
-  const lower = type.toLowerCase();
-  switch (type) {
-    case 'video':
-      return 'solar:videocamera-record-bold-duotone';
-    case 'pdf':
-      return 'solar:document-text-bold-duotone';
-    case 'zoom':
-      return 'solar:videocamera-bold-duotone';
-    case 'link':
-      return 'solar:link-bold-duotone';
-    default:
-      if (lower.includes('video')) return 'solar:videocamera-record-bold-duotone';
-      if (lower.includes('pdf')) return 'solar:document-text-bold-duotone';
-      if (lower.includes('zoom')) return 'solar:videocamera-bold-duotone';
-      if (lower.includes('link')) return 'solar:link-bold-duotone';
-      return 'solar:file-bold-duotone';
+const fadeIn = keyframes`
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const premiumGlass = (theme: any) => ({
+  background: alpha(theme.palette.background.paper, 0.8),
+  backdropFilter: 'blur(20px)',
+  border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+  boxShadow: `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.05)}`,
+  borderRadius: 3,
+});
+
+const getMaterialMeta = (material: MaterialDto) => {
+  const typeStatusId = material.materialTypeStatusId;
+  const type = String(material.materialType ?? '').trim().toLowerCase();
+
+  if (typeStatusId === 32) {
+    return { label: 'PDF', icon: 'solar:document-text-bold-duotone' };
   }
+
+  if (typeStatusId === 33) {
+    return { label: 'VIDEO', icon: 'solar:videocamera-record-bold-duotone' };
+  }
+
+  if (typeStatusId === 34) {
+    return { label: 'ZOOM LINK', icon: 'solar:videocamera-bold-duotone' };
+  }
+
+  if (typeStatusId === 35) {
+    return { label: 'GENERAL', icon: 'solar:folder-with-files-bold-duotone' };
+  }
+
+  if (typeStatusId === 36) {
+    return { label: 'QUIZ', icon: 'solar:checklist-minimalistic-bold-duotone' };
+  }
+
+  if (typeStatusId === 37) {
+    return { label: 'POWERPOINT', icon: 'solar:presentation-graph-bold-duotone' };
+  }
+
+  if (type.includes('pdf')) return { label: 'PDF', icon: 'solar:document-text-bold-duotone' };
+  if (type.includes('video')) return { label: 'VIDEO', icon: 'solar:videocamera-record-bold-duotone' };
+  if (type.includes('zoom')) return { label: 'ZOOM', icon: 'solar:videocamera-bold-duotone' };
+  if (type.includes('link')) return { label: 'LINK', icon: 'solar:link-bold-duotone' };
+
+  return { label: 'MATERIAL', icon: 'solar:file-bold-duotone' };
 };
 
 export function CourseRoomView({ courseId }: CourseRoomViewProps) {
@@ -83,17 +121,63 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const theme = useTheme();
   const [currentTab, setCurrentTab] = useState(0);
   const [successMessage, setSuccessMessage] = useState<string>('');
+  const [materialsView, setMaterialsView] = useState<'grid' | 'list'>('grid');
+  const [expandedWeekIds, setExpandedWeekIds] = useState<Record<string, boolean>>({});
 
   const [searchParams] = useSearchParams();
   const roundIdFromQuery = useMemo(() => searchParams.get('roundId') ?? '', [searchParams]);
 
-  const { getRoundForStudent, getRoundsByCourse } = useCourseRoundsContext();
+  const { getRoundsByCourse } = useCourseRoundsContext();
   const { getApplicationsByStudent, isLoading: applicationsLoading } = useApplicationsContext();
-  const assignedRound = useMemo(() => {
+
+  const [roundCountApplications, setRoundCountApplications] = useState<
+    Array<{ courseRoundId: number; statusId?: number; status?: string }>
+  >([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCounts = async () => {
+      try {
+        const items = await applicationApi.getApplications();
+        if (cancelled) return;
+        setRoundCountApplications(
+          items.map((a) => ({ courseRoundId: a.courseRoundId, statusId: a.statusId, status: a.status }))
+        );
+      } catch {
+        if (cancelled) return;
+        setRoundCountApplications([]);
+      }
+    };
+
+    loadCounts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const acceptedCountByRoundId = useMemo(() => {
+    const map: Record<string, number> = {};
+    roundCountApplications.forEach((a) => {
+      if (typeof a.status === 'string' && a.status.trim() !== '') {
+        if (!a.status.trim().toLowerCase().includes('accept')) return;
+      } else if (a.statusId != null) {
+        if (a.statusId !== 3) return;
+      } else {
+        return;
+      }
+      const key = String(a.courseRoundId);
+      map[key] = (map[key] ?? 0) + 1;
+    });
+    return map;
+  }, [roundCountApplications]);
+  const acceptedApplication = useMemo(() => {
     if (!hasRole('student')) return undefined;
     if (!user?.id) return undefined;
-    return getRoundForStudent(courseId, user.id);
-  }, [courseId, getRoundForStudent, hasRole, user?.id]);
+    if (applicationsLoading) return undefined;
+    return getApplicationsByStudent(user.id).find((a) => a.courseId === courseId && a.status === 'accepted');
+  }, [applicationsLoading, courseId, getApplicationsByStudent, hasRole, user?.id]);
 
   const isAcceptedStudent = useMemo(() => {
     if (!hasRole('student')) return false;
@@ -107,6 +191,13 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const roundsForCourse = useMemo(() => getRoundsByCourse(courseId), [courseId, getRoundsByCourse]);
   const [selectedRoundId, setSelectedRoundId] = useState<string>('');
 
+  const studentRoundId = useMemo(() => {
+    if (!hasRole('student')) return undefined;
+    if (roundIdFromQuery && roundsForCourse.some((r) => r.id === roundIdFromQuery)) return roundIdFromQuery;
+    if (acceptedApplication?.courseRoundId != null) return String(acceptedApplication.courseRoundId);
+    return undefined;
+  }, [acceptedApplication?.courseRoundId, hasRole, roundIdFromQuery, roundsForCourse]);
+
   useEffect(() => {
     if (!hasRole('instructor')) return;
     if (roundsForCourse.length === 0) return;
@@ -119,10 +210,10 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   }, [hasRole, roundIdFromQuery, roundsForCourse, selectedRoundId]);
 
   const activeRoundId = useMemo(() => {
-    if (hasRole('student')) return assignedRound?.id;
+    if (hasRole('student')) return studentRoundId;
     if (hasRole('instructor')) return selectedRoundId || roundsForCourse[0]?.id;
     return undefined;
-  }, [assignedRound?.id, hasRole, roundsForCourse, selectedRoundId]);
+  }, [hasRole, roundsForCourse, selectedRoundId, studentRoundId]);
 
   const dataRoundId = useMemo(() => {
     if (activeRoundId) return activeRoundId;
@@ -135,9 +226,14 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   );
 
   const headerRound = useMemo(
-    () => (hasRole('student') ? assignedRound : activeRound),
-    [activeRound, assignedRound, hasRole]
+    () => (hasRole('student') ? activeRound : activeRound),
+    [activeRound, hasRole]
   );
+
+  const headerRoundStudentsCount = useMemo(() => {
+    if (!headerRound?.id) return 0;
+    return acceptedCountByRoundId[String(headerRound.id)] ?? 0;
+  }, [acceptedCountByRoundId, headerRound?.id]);
 
   const { courses } = useCoursesContext();
   const courseFromContext = useMemo(() => courses.find((c) => c.id === courseId), [courses, courseId]);
@@ -198,7 +294,6 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
       language: '',
       price: resolvedCourse?.price ?? 0,
       students: resolvedCourse?.students ?? 0,
-      rating: resolvedCourse?.rating ?? 0,
       totalLessons: resolvedCourse?.content?.totalLessons ?? 0,
       completedLessons: 0,
       nextClass: null as Date | null,
@@ -211,7 +306,17 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
   const [materials, setMaterials] = useState<MaterialDto[]>([]);
   const [zoomMeetings, setZoomMeetings] = useState<ZoomMeetingDto[]>([]);
   const [weeks, setWeeks] = useState<WeekDto[]>([]);
+  const [weekDetailsById, setWeekDetailsById] = useState<Record<string, WeekDto>>({});
   const [roundDataError, setRoundDataError] = useState<string>('');
+
+  const copyToClipboard = useCallback(async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setSuccessMessage('Copied to clipboard.');
+    } catch {
+      setRoundDataError('Failed to copy.');
+    }
+  }, []);
 
   useEffect(() => {
     if (!successMessage) return undefined;
@@ -236,14 +341,36 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     setSuccessMessage('');
 
     Promise.all([
-      materialApi.getByCourseRoundId(Number(dataRoundId)),
-      zoomMeetingApi.getByCourseRoundId(Number(dataRoundId)),
-      weekApi.getByCourseRoundId(Number(dataRoundId)),
+      courseMaterialApi.getByCourseRoundId(Number(dataRoundId)).catch(() => []),
+      zoomMeetingApi.getByCourseRoundId(Number(dataRoundId)).catch(() => []),
+      weekApi.getByCourseRoundId(Number(dataRoundId)).catch(() => []),
     ])
-      .then(([mats, zooms, ws]) => {
+      .then(async ([mats, zooms, ws]) => {
         if (cancelled) return;
         const showOnlyActive = hasRole('student');
-        setMaterials(showOnlyActive ? mats.filter((m) => m.isActive !== false) : mats);
+        const nextMaterials = showOnlyActive ? mats.filter((m) => m.isActive !== false) : mats;
+        const weekIds = Array.from(
+          new Set(nextMaterials.map((m) => m.weekId).filter((x): x is number => Number.isFinite(Number(x))))
+        );
+
+        const weekDetails = await Promise.all(
+          weekIds.map((id) =>
+            weekApi
+              .getById(id)
+              .then((w) => w)
+              .catch(() => null)
+          )
+        );
+
+        if (cancelled) return;
+
+        const weekMap: Record<string, WeekDto> = {};
+        weekDetails.forEach((w) => {
+          if (w) weekMap[String(w.id)] = w;
+        });
+
+        setWeekDetailsById(weekMap);
+        setMaterials(nextMaterials);
         setZoomMeetings(showOnlyActive ? zooms.filter((z) => z.isActive !== false) : zooms);
         setWeeks(ws);
       })
@@ -252,6 +379,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
         setMaterials([]);
         setZoomMeetings([]);
         setWeeks([]);
+        setWeekDetailsById({});
         setRoundDataError(error?.message || 'Failed to load round materials/zoom meetings');
       });
 
@@ -269,11 +397,11 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     title: '',
     description: '',
     link: '',
-    materialType: 'link',
+    materialTypeStatusId: 35,
     isActive: true,
   });
 
-  const [materialForm, setMaterialForm] = useState({ title: '', description: '', link: '', materialType: 'link' });
+  const [materialForm, setMaterialForm] = useState({ title: '', description: '', link: '', materialTypeStatusId: 35 });
   const [zoomForm, setZoomForm] = useState({
     topic: '',
     description: '',
@@ -289,18 +417,145 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     setRoundDataError('');
     try {
       const [mats, zooms, ws] = await Promise.all([
-        materialApi.getByCourseRoundId(Number(activeRoundId)),
-        zoomMeetingApi.getByCourseRoundId(Number(activeRoundId)),
-        weekApi.getByCourseRoundId(Number(activeRoundId)),
+        courseMaterialApi.getByCourseRoundId(Number(activeRoundId)).catch(() => []),
+        zoomMeetingApi.getByCourseRoundId(Number(activeRoundId)).catch(() => []),
+        weekApi.getByCourseRoundId(Number(activeRoundId)).catch(() => []),
       ]);
       const showOnlyActive = hasRole('student');
-      setMaterials(showOnlyActive ? mats.filter((m) => m.isActive !== false) : mats);
+      const nextMaterials = showOnlyActive ? mats.filter((m) => m.isActive !== false) : mats;
+      const weekIds = Array.from(
+        new Set(nextMaterials.map((m) => m.weekId).filter((x): x is number => Number.isFinite(Number(x))))
+      );
+
+      const weekDetails = await Promise.all(
+        weekIds.map((id) =>
+          weekApi
+            .getById(id)
+            .then((w) => w)
+            .catch(() => null)
+        )
+      );
+
+      const weekMap: Record<string, WeekDto> = {};
+      weekDetails.forEach((w) => {
+        if (w) weekMap[String(w.id)] = w;
+      });
+
+      setWeekDetailsById(weekMap);
+      setMaterials(nextMaterials);
       setZoomMeetings(showOnlyActive ? zooms.filter((z) => z.isActive !== false) : zooms);
       setWeeks(ws);
     } catch (error: any) {
       setRoundDataError(error?.message || 'Failed to load round materials/zoom meetings');
     }
   }, [activeRoundId, hasRole]);
+
+  const zoomLinkMaterials = useMemo(
+    () => materials.filter((m) => m.materialTypeStatusId === 34 || String(m.materialType ?? '').toLowerCase().includes('zoom')),
+    [materials]
+  );
+
+  const materialsForMaterialsTab = useMemo(
+    () =>
+      materials.filter(
+        (m) =>
+          !(m.materialTypeStatusId === 34) && !String(m.materialType ?? '').toLowerCase().includes('zoom')
+      ),
+    [materials]
+  );
+
+  const materialsByWeek = useMemo(() => {
+    const items = materialsForMaterialsTab;
+
+    const allWeekIds = new Set<number>();
+    items.forEach((m) => {
+      if (m.weekId != null) allWeekIds.add(Number(m.weekId));
+    });
+    weeks.forEach((w) => allWeekIds.add(Number(w.id)));
+
+    const resolved = Array.from(allWeekIds)
+      .map((weekId) => {
+        const details = weekDetailsById[String(weekId)];
+        const fallback = weeks.find((w) => Number(w.id) === Number(weekId));
+
+        const weekTitle =
+          (details?.weekTitle ?? details?.title ?? fallback?.weekTitle ?? fallback?.title ?? `Week ${weekId}`).trim();
+
+        const startDate = details?.startDate ?? fallback?.startDate;
+        const endDate = details?.endDate ?? fallback?.endDate;
+
+        const weekMaterials =
+          details?.courseMaterials && details.courseMaterials.length > 0
+            ? details.courseMaterials
+            : items.filter((m) => Number(m.weekId) === Number(weekId));
+
+        const byId: Record<string, MaterialDto> = {};
+        weekMaterials.forEach((m) => {
+          byId[String(m.id)] = m;
+        });
+
+        const childrenByParent: Record<string, MaterialDto[]> = {};
+        weekMaterials.forEach((m) => {
+          const pid = m.parentMaterialId;
+          if (pid == null || Number(pid) === 0) return;
+          const key = String(pid);
+          childrenByParent[key] = [...(childrenByParent[key] ?? []), m];
+        });
+
+        const mainItems = weekMaterials.filter((m) => m.parentMaterialId == null || Number(m.parentMaterialId) === 0);
+        const structured = mainItems.map((m) => {
+          const directChildren = m.childMaterials?.length ? m.childMaterials : childrenByParent[String(m.id)] ?? [];
+          return { main: m, children: directChildren };
+        });
+
+        return {
+          weekId,
+          weekTitle,
+          startDate,
+          endDate,
+          items: structured,
+        };
+      })
+      .sort((a, b) => {
+        const da = a.startDate ? new Date(a.startDate).getTime() : 0;
+        const db = b.startDate ? new Date(b.startDate).getTime() : 0;
+        return da - db;
+      });
+
+    return resolved;
+  }, [materialsForMaterialsTab, weekDetailsById, weeks]);
+
+  const zoomLinksByWeek = useMemo(() => {
+    const items = zoomLinkMaterials;
+
+    const allWeekIds = new Set<number>();
+    items.forEach((m) => {
+      if (m.weekId != null) allWeekIds.add(Number(m.weekId));
+    });
+
+    const resolved = Array.from(allWeekIds)
+      .map((weekId) => {
+        const details = weekDetailsById[String(weekId)];
+        const fallback = weeks.find((w) => Number(w.id) === Number(weekId));
+
+        const weekTitle =
+          (details?.weekTitle ?? details?.title ?? fallback?.weekTitle ?? fallback?.title ?? `Week ${weekId}`).trim();
+
+        const weekMaterials =
+          details?.courseMaterials && details.courseMaterials.length > 0
+            ? details.courseMaterials.filter((m) => m.materialTypeStatusId === 34)
+            : items.filter((m) => Number(m.weekId) === Number(weekId));
+
+        return {
+          weekId,
+          weekTitle,
+          items: weekMaterials,
+        };
+      })
+      .sort((a, b) => a.weekId - b.weekId);
+
+    return resolved;
+  }, [weekDetailsById, weeks, zoomLinkMaterials]);
 
   const isValidHttpUrl = useCallback((value: string) => {
     try {
@@ -311,13 +566,10 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     }
   }, []);
 
-  const progressPercent = useMemo(() => {
-    const total = Number(displayCourse.totalLessons);
-    const done = Number(displayCourse.completedLessons);
-    if (!Number.isFinite(total) || total <= 0) return 0;
-    if (!Number.isFinite(done) || done < 0) return 0;
-    return Math.max(0, Math.min(100, (done / total) * 100));
-  }, [displayCourse.completedLessons, displayCourse.totalLessons]);
+  const openLink = useCallback((url?: string | null) => {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }, []);
 
   const handleCreateMaterial = useCallback(async () => {
     if (!activeRoundId) return;
@@ -332,10 +584,10 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
         title: materialForm.title.trim(),
         description: materialForm.description.trim() || undefined,
         link: materialForm.link.trim(),
-        materialType: materialForm.materialType,
+        materialTypeStatusId: Number(materialForm.materialTypeStatusId) || 35,
       });
       setMaterialDialogOpen(false);
-      setMaterialForm({ title: '', description: '', link: '', materialType: 'link' });
+      setMaterialForm({ title: '', description: '', link: '', materialTypeStatusId: 35 });
       setSuccessMessage('Material uploaded successfully.');
       await reloadRoundData();
     } catch (error: any) {
@@ -363,7 +615,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
       title: material.title ?? '',
       description: material.description ?? '',
       link: material.link ?? '',
-      materialType: material.materialType ?? 'link',
+      materialTypeStatusId: Number(material.materialTypeStatusId) || 35,
       isActive: Boolean(material.isActive),
     });
     setEditMaterialDialogOpen(true);
@@ -377,7 +629,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
         title: editMaterialForm.title.trim(),
         description: editMaterialForm.description.trim() || undefined,
         link: editMaterialForm.link.trim(),
-        materialType: editMaterialForm.materialType,
+        materialTypeStatusId: Number(editMaterialForm.materialTypeStatusId) || 35,
         isActive: Boolean(editMaterialForm.isActive),
       });
       setEditMaterialDialogOpen(false);
@@ -444,6 +696,20 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
       .filter((x) => Number.isFinite(x.t) && x.t >= now)
       .sort((a, b) => a.t - b.t);
     return upcoming[0]?.m;
+  }, [zoomMeetings]);
+
+  const zoomMeetingsByTime = useMemo(() => {
+    const now = Date.now();
+    const sorted = zoomMeetings
+      .slice()
+      .map((m) => ({ m, t: new Date(m.meetingDateTime).getTime() }))
+      .filter((x) => Number.isFinite(x.t))
+      .sort((a, b) => a.t - b.t);
+
+    return {
+      upcoming: sorted.filter((x) => x.t >= now).map((x) => x.m),
+      past: sorted.filter((x) => x.t < now).map((x) => x.m).reverse(),
+    };
   }, [zoomMeetings]);
 
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -535,6 +801,44 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     [weeks]
   );
 
+  const completedWeeksCount = useMemo(() => {
+    const now = Date.now();
+    return weeksSorted.filter((w) => {
+      const end = new Date(w.endDate).getTime();
+      if (!Number.isFinite(end)) return false;
+      return end < now;
+    }).length;
+  }, [weeksSorted]);
+
+  const progressPercent = useMemo(() => {
+    if (weeksSorted.length > 0) {
+      return Math.max(0, Math.min(100, (completedWeeksCount / weeksSorted.length) * 100));
+    }
+
+    const total = Number(displayCourse.totalLessons);
+    const done = Number(displayCourse.completedLessons);
+    if (!Number.isFinite(total) || total <= 0) return 0;
+    if (!Number.isFinite(done) || done < 0) return 0;
+    return Math.max(0, Math.min(100, (done / total) * 100));
+  }, [completedWeeksCount, displayCourse.completedLessons, displayCourse.totalLessons, weeksSorted.length]);
+
+  const whatYouWillLearnItems = useMemo(() => {
+    if (weeksSorted.length > 0) {
+      return weeksSorted.map((w) => {
+        const weekTitle = (w.weekTitle ?? w.title ?? '').trim();
+        const group = materialsByWeek.find((x) => Number(x.weekId) === Number(w.id));
+        const mainLessons = (group?.items ?? []).map((x) => x.main?.title).filter(Boolean) as string[];
+        return {
+          id: w.id,
+          title: weekTitle,
+          mainLessons: mainLessons.slice(0, 3),
+        };
+      });
+    }
+
+    return displayCourse.syllabus.map((t, idx) => ({ id: idx, title: t, mainLessons: [] as string[] }));
+  }, [displayCourse.syllabus, materialsByWeek, weeksSorted]);
+
   const [weekDialogOpen, setWeekDialogOpen] = useState(false);
   const [editWeekId, setEditWeekId] = useState<number | null>(null);
   const [weekForm, setWeekForm] = useState({ title: '', startDate: '', endDate: '' });
@@ -547,7 +851,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
 
   const openEditWeekDialog = useCallback((w: WeekDto) => {
     setEditWeekId(w.id);
-    setWeekForm({ title: w.title, startDate: w.startDate, endDate: w.endDate });
+    setWeekForm({ title: w.weekTitle ?? w.title ?? '', startDate: w.startDate, endDate: w.endDate });
     setWeekDialogOpen(true);
   }, []);
 
@@ -733,7 +1037,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
     setAddLessonDialog({ open: false });
   }, [addLessonDialog.moduleId, newLessonTitle, newLessonDescription]);
 
-  if (hasRole('student') && user?.id && !assignedRound) {
+  if (hasRole('student') && user?.id && !headerRound) {
     if (applicationsLoading) {
       return (
         <DashboardContent>
@@ -774,10 +1078,10 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
         <Container maxWidth="xl">
           <Card sx={{ p: 4, mt: 4 }}>
             <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
-              You are not assigned to a round yet
+              Course round not available
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              The admin has accepted your application. Please wait until the instructor creates a round and assigns you.
+              Your application was accepted, but the selected course round could not be found. Please refresh the page or contact support.
             </Typography>
             <Button variant="contained" href="/my-courses" sx={{ borderRadius: 30 }}>
               Back to My Courses
@@ -837,179 +1141,245 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
             {roundDataError}
           </Alert>
         )}
-        {/* Glassmorphism Header */}
+        {/* Premium Header */}
         <Box
           sx={{
             mb: 4,
-            p: 4,
-            borderRadius: 3,
+            width: '100%',
             position: 'relative',
+            borderRadius: 4,
             overflow: 'hidden',
-             background: `linear-gradient(135deg, ${theme.palette.secondary.dark} 0%, ${theme.palette.primary.main} 100%)`,
-            color: 'white',
-            boxShadow: theme.shadows[8],
+            boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)',
+            animation: `${fadeIn} 0.8s ease-out`,
           }}
         >
-           <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: 'space-between', gap: 3 }}>
-             <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                     <Chip label={displayCourse.level} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600, border: '1px solid rgba(255,255,255,0.1)' }} />
-                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.8 }}>
-                        <Iconify icon="solar:clock-circle-bold" width={16} />
-                        <Typography variant="body2">{displayCourse.duration}</Typography>
-                     </Box>
-                </Box>
-                <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
-                  {displayCourse.title}
-                </Typography>
-                <Typography variant="body1" sx={{ opacity: 0.9, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Iconify icon="solar:user-circle-bold" width={20} />
-                  Instructor: {displayCourse.instructor}
-                </Typography>
-
-                {(assignedRound || (hasRole('instructor') && roundsCount > 0)) && (
-                  <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', opacity: 0.95 }}>
-                    {headerRound && (
-                      <>
-                        <Chip
-                          label={`Round: ${headerRound.name}`}
-                          size="small"
-                          sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700, borderRadius: 999 }}
+           {/* Background Mesh Gradient */}
+           <Box sx={{
+              position: 'absolute',
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0,
+              background: `radial-gradient(at 0% 0%, ${alpha(theme.palette.secondary.dark, 0.8)} 0px, transparent 50%),
+                           radial-gradient(at 100% 0%, ${alpha(theme.palette.primary.main, 0.9)} 0px, transparent 50%),
+                           radial-gradient(at 100% 100%, ${alpha(theme.palette.info.main, 0.8)} 0px, transparent 50%),
+                           radial-gradient(at 0% 100%, ${alpha(theme.palette.success.dark, 0.5)} 0px, transparent 50%),
+                           linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)`, 
+              zIndex: 0
+           }} />
+           
+           <Box sx={{ position: 'relative', zIndex: 1, p: { xs: 3, md: 5 }, color: 'white' }}>
+             <Grid container spacing={4} alignItems="center">
+                <Grid size={{ xs: 12, md: 8 }}>
+                     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+                        <Chip 
+                          label={displayCourse.level} 
+                          sx={{ 
+                            bgcolor: 'rgba(255,255,255,0.15)', 
+                            color: 'white', 
+                            backdropFilter: 'blur(10px)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            fontWeight: 700,
+                            height: 28
+                          }} 
                         />
-                        <Chip
-                          label={String(headerRound.status).toUpperCase()}
-                          size="small"
-                          sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 700, borderRadius: 999 }}
-                        />
-                        <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                          {new Date(headerRound.startDate).toLocaleDateString()} - {new Date(headerRound.endDate).toLocaleDateString()}
-                        </Typography>
-                      </>
-                    )}
+                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.8 }}>
+                            <Iconify icon="solar:clock-circle-bold" width={16} />
+                            <Typography variant="body2" fontWeight={600}>{displayCourse.duration}</Typography>
+                         </Box>
+                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, opacity: 0.8 }}>
+                            <Iconify icon="solar:users-group-rounded-bold" width={16} />
+                            <Typography variant="body2" fontWeight={600}>{headerRoundStudentsCount} Students</Typography>
+                         </Box>
+                     </Stack>
 
-                    {hasRole('instructor') && roundsCount > 0 && !headerRound && (
-                      <Chip
-                        label={`Rounds: ${roundsCount}`}
-                        size="small"
-                        sx={{ bgcolor: 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 700, borderRadius: 999 }}
-                      />
-                    )}
-                  </Box>
-                )}
-             </Box>
-             
-             {/* Overall Progress Circle */}
-             <Box sx={{ p: 2, bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2, backdropFilter: 'blur(8px)', minWidth: 200 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Course Progress</Typography>
-                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{ flexGrow: 1 }}>
-                         <LinearProgress 
-                            variant="determinate" 
-                            value={progressPercent}
-                            sx={{ height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.2)', '& .MuiLinearProgress-bar': { bgcolor: 'white' } }} 
-                         />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                        {Math.round(progressPercent)}%
-                    </Typography>
-                 </Box>
-                 <Typography variant="caption" sx={{ opacity: 0.8, mt: 0.5, display: 'block' }}>
-                     {displayCourse.completedLessons} of {displayCourse.totalLessons} lessons completed
-                 </Typography>
-             </Box>
+                     <Typography variant="h2" sx={{ fontWeight: 800, mb: 1, textShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                        {displayCourse.title}
+                     </Typography>
+                     
+                     <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 3 }}>
+                       <Avatar sx={{ width: 48, height: 48, border: '2px solid white' }}>
+                          {displayCourse.instructor.charAt(0)}
+                       </Avatar>
+                       <Box>
+                          <Typography variant="body2" sx={{ opacity: 0.7 }}>Instructor</Typography>
+                          <Typography variant="subtitle1" fontWeight={700}>{displayCourse.instructor}</Typography>
+                       </Box>
+                     </Stack>
+
+                     {(headerRound || (hasRole('instructor') && roundsCount > 0)) && (
+                       <Box sx={{ mt: 4, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                          <Typography variant="body2" sx={{ opacity: 0.7, mr: 1 }}>Current Round:</Typography>
+                          {headerRound && (
+                            <>
+                              <Chip
+                                icon={<Iconify icon="solar:calendar-mark-bold" width={14} />}
+                                label={headerRound.name}
+                                sx={{ bgcolor: 'white', color: 'black', fontWeight: 700 }}
+                              />
+                               <Chip
+                                label={String(headerRound.status).toUpperCase()}
+                                sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700 }}
+                              />
+                            </>
+                          )}
+                       </Box>
+                     )}
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 4 }}>
+                   <Box sx={{ 
+                      p: 3, 
+                      borderRadius: 3, 
+                      bgcolor: 'rgba(0,0,0,0.3)', 
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255,255,255,0.1)'
+                   }}>
+                      <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 700, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Course Progress</Typography>
+                      <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
+                         {/* Circular Progress Placeholder - CSS based */}
+                         <Box sx={{ 
+                            position: 'relative', 
+                            width: 120, 
+                            height: 120, 
+                            borderRadius: '50%',
+                            background: `conic-gradient(${theme.palette.primary.main} ${progressPercent * 3.6}deg, rgba(255,255,255,0.1) 0deg)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                         }}>
+                            <Box sx={{ 
+                               width: 104, 
+                               height: 104, 
+                               borderRadius: '50%', 
+                               bgcolor: '#2d2d2d', // Match dark bg slightly
+                               display: 'flex',
+                               flexDirection: 'column',
+                               alignItems: 'center',
+                               justifyContent: 'center'
+                            }}>
+                               <Typography variant="h4" fontWeight={800}>{Math.round(progressPercent)}%</Typography>
+                            </Box>
+                         </Box>
+                      </Box>
+                      <Typography variant="body2" align="center" sx={{ opacity: 0.7 }}>
+                          {displayCourse.completedLessons} of {displayCourse.totalLessons} lessons completed
+                      </Typography>
+                   </Box>
+                </Grid>
+             </Grid>
            </Box>
-
-           <Box sx={{ position: 'absolute', top: -50, right: -50, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)' }} />
         </Box>
 
-        {/* Styled Tabs */}
-        <Card sx={{ mb: 4, boxShadow: theme.shadows[3] }}>
-           <Tabs
-             value={currentTab}
-             onChange={handleTabChange}
-             variant="scrollable"
-             scrollButtons="auto"
-             sx={{
-               p: 1,
-               '& .MuiTabs-indicator': { display: 'none' },
-               '& .MuiTab-root': {
-                 minHeight: 48,
-                 minWidth: 100,
-                 borderRadius: 1,
-                 mr: 1,
-                 textTransform: 'none',
-                 fontWeight: 600,
-                 transition: 'all 0.2s',
-                 color: 'text.secondary',
-                 '&.Mui-selected': {
-                   color: 'primary.main',
-                   bgcolor: alpha(theme.palette.primary.main, 0.08),
+        {/* Floating Navigation Tabs */}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 5 }}>
+           <Card sx={{ 
+              p: 1, 
+              borderRadius: 50, 
+              bgcolor: alpha(theme.palette.background.paper, 0.8),
+              backdropFilter: 'blur(20px)',
+              boxShadow: theme.shadows[10],
+              display: 'inline-flex'
+           }}>
+             <Tabs
+               value={currentTab}
+               onChange={handleTabChange}
+               variant="scrollable"
+               scrollButtons="auto"
+               sx={{
+                 '& .MuiTabs-indicator': { 
+                    height: '100%', 
+                    borderRadius: 50, 
+                    zIndex: 0,
+                    bgcolor: alpha(theme.palette.primary.main, 0.1) 
                  },
-                 '&:hover:not(.Mui-selected)': {
-                     bgcolor: 'action.hover',
+                 '& .MuiTabs-flexContainer': { gap: 1 },
+                 '& .MuiTab-root': {
+                   minHeight: 48,
+                   minWidth: 100,
+                   borderRadius: 50,
+                   textTransform: 'none',
+                   fontWeight: 700,
+                   zIndex: 1,
+                   transition: 'all 0.3s',
+                   color: 'text.secondary',
+                   '&.Mui-selected': {
+                     color: 'primary.main',
+                   }
                  }
-               }
-             }}
-           >
-             {tabs.map((tab) => (
-               <Tab 
-                 key={tab.value} 
-                 label={tab.label} 
-                 icon={<Iconify icon={tab.icon} width={20} />} 
-                 iconPosition="start"
-               />
-             ))}
-           </Tabs>
-        </Card>
+               }}
+             >
+               {tabs.map((tab) => (
+                 <Tab 
+                   key={tab.value} 
+                   label={tab.label} 
+                   icon={<Iconify icon={tab.icon} width={20} />} 
+                   iconPosition="start"
+                   disableRipple
+                 />
+               ))}
+             </Tabs>
+           </Card>
+        </Box>
 
         {/* Overview Tab */}
         {currentTab === 0 && (
-          <Box>
+          <Box sx={{ animation: `${fadeIn} 0.5s ease-out` }}>
             <Grid container spacing={3}>
               <Grid size={{ xs: 12, md: 8 }}>
                 {/* Course Details */}
-                <Card sx={{ p: 4, mb: 3 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>
+                <Card sx={{ 
+                    p: { xs: 3, md: 5 }, 
+                    mb: 3, 
+                    borderRadius: 4,
+                    boxShadow: theme.shadows[5],
+                    background: alpha(theme.palette.background.paper, 0.6),
+                    backdropFilter: 'blur(20px)'
+                }}>
+                    <Typography variant="h4" sx={{ fontWeight: 800, mb: 3, background: `linear-gradient(45deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
                       About this Course
                     </Typography>
-                    <Typography variant="body1" sx={{ color: 'text.secondary', lineHeight: 1.8, mb: 4 }}>
+                    <Typography variant="body1" sx={{ color: 'text.secondary', lineHeight: 1.8, mb: 4, fontSize: '1.1rem' }}>
                       {displayCourse.description}
                     </Typography>
 
                     {/* At a glance */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
-                      <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.primary.main, 0.04), border: `1px solid ${alpha(theme.palette.primary.main, 0.12)}` }}>
-                        <Typography variant="caption" color="text.secondary">Level</Typography>
-                        <Typography variant="body2" fontWeight={700}>{displayCourse.level}</Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2, mb: 5 }}>
+                      <Box sx={{ p: 2, borderRadius: 3, bgcolor: alpha(theme.palette.primary.main, 0.08), border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`, textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>Level</Typography>
+                        <Typography variant="h6" fontWeight={800} color="primary.main">{displayCourse.level}</Typography>
                       </Box>
-                      <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.info.main, 0.04), border: `1px solid ${alpha(theme.palette.info.main, 0.12)}` }}>
-                        <Typography variant="caption" color="text.secondary">Language</Typography>
-                        <Typography variant="body2" fontWeight={700}>{displayCourse.language}</Typography>
+                      <Box sx={{ p: 2, borderRadius: 3, bgcolor: alpha(theme.palette.info.main, 0.08), border: `1px solid ${alpha(theme.palette.info.main, 0.1)}`, textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>Weeks</Typography>
+                        <Typography variant="h6" fontWeight={800} color="info.main">{weeksSorted.length}</Typography>
                       </Box>
-                      <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.success.main, 0.04), border: `1px solid ${alpha(theme.palette.success.main, 0.12)}` }}>
-                        <Typography variant="caption" color="text.secondary">Lessons</Typography>
-                        <Typography variant="body2" fontWeight={700}>{displayCourse.totalLessons}</Typography>
-                      </Box>
-                      <Box sx={{ p: 2, borderRadius: 1, bgcolor: alpha(theme.palette.warning.main, 0.04), border: `1px solid ${alpha(theme.palette.warning.main, 0.12)}` }}>
-                        <Typography variant="caption" color="text.secondary">Rating</Typography>
-                        <Typography variant="body2" fontWeight={700}>{displayCourse.rating}</Typography>
+                      <Box sx={{ p: 2, borderRadius: 3, bgcolor: alpha(theme.palette.success.main, 0.08), border: `1px solid ${alpha(theme.palette.success.main, 0.1)}`, textAlign: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>Lessons</Typography>
+                        <Typography variant="h6" fontWeight={800} color="success.main">{displayCourse.totalLessons}</Typography>
                       </Box>
                     </Box>
 
-                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 800, mb: 3 }}>
                       What you&apos;ll learn
                     </Typography>
                     <Grid container spacing={2}>
-                        {(weeksSorted.length > 0 ? weeksSorted : displayCourse.syllabus.map((t, idx) => ({ id: idx, title: t } as any))).map(
-                          (item: any, index: number) => (
-                            <Grid size={{ xs: 12, sm: 6 }} key={item.id ?? index}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Iconify icon="solar:check-circle-bold" width={20} sx={{ color: 'success.main' }} />
-                                <Typography variant="body2">{item.title}</Typography>
+                        {whatYouWillLearnItems.map((item, index) => (
+                          <Grid size={{ xs: 12, sm: 6 }} key={item.id ?? index}>
+                            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                              <Iconify icon="solar:check-circle-bold" width={24} sx={{ color: 'success.main', mt: 0.25 }} />
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="body1" fontWeight={800}>
+                                  {item.title}
+                                </Typography>
+                                {item.mainLessons.length > 0 && (
+                                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, fontWeight: 600 }}>
+                                    {item.mainLessons.join(' • ')}
+                                  </Typography>
+                                )}
                               </Box>
-                            </Grid>
-                          )
-                        )}
+                            </Box>
+                          </Grid>
+                        ))}
                     </Grid>
                 </Card>
               </Grid>
@@ -1020,139 +1390,114 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                     <Card
                       sx={{
                         p: 3,
-                        borderRadius: 2,
-                        background: `linear-gradient(135deg, ${alpha(theme.palette.info.main, 0.14)} 0%, ${alpha(theme.palette.primary.main, 0.10)} 100%)`,
-                        border: `1px solid ${alpha(theme.palette.info.main, 0.22)}`,
+                        borderRadius: 4,
+                        background: `linear-gradient(135deg, ${alpha(theme.palette.info.dark, 0.9)} 0%, ${alpha(theme.palette.primary.dark, 0.9)} 100%)`,
+                        color: 'white',
                         overflow: 'hidden',
                         position: 'relative',
+                        boxShadow: theme.shadows[10]
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 800 }}>
-                            <Iconify icon="solar:videocamera-record-bold-duotone" sx={{ color: 'info.main' }} />
-                            Next Live Session
-                          </Typography>
-
-                          <Box sx={{ mt: 2 }}>
-                            {nextZoomMeeting ? (
-                              <>
-                                <Typography variant="h6" sx={{ color: 'info.darker', mb: 0.75, fontWeight: 900 }} noWrap>
-                                  {nextZoomMeeting.topic}
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                                  <Chip
-                                    size="small"
-                                    icon={<Iconify icon="solar:calendar-mark-bold" width={16} />}
-                                    label={new Date(nextZoomMeeting.meetingDateTime).toLocaleString()}
-                                    sx={{ borderRadius: 999, bgcolor: alpha(theme.palette.common.white, 0.5) }}
-                                  />
-                                  <Chip
-                                    size="small"
-                                    icon={<Iconify icon="solar:hourglass-line-bold" width={16} />}
-                                    label={nextZoomCountdown || 'Upcoming'}
-                                    sx={{ borderRadius: 999, bgcolor: alpha(theme.palette.common.white, 0.5) }}
-                                  />
-                                  <Chip
-                                    size="small"
-                                    icon={<Iconify icon="solar:clock-circle-bold" width={16} />}
-                                    label={`${nextZoomMeeting.durationMinutes} min`}
-                                    sx={{ borderRadius: 999, bgcolor: alpha(theme.palette.common.white, 0.5) }}
-                                  />
-                                </Box>
-                              </>
-                            ) : (
-                              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                                No zoom sessions scheduled yet.
-                              </Typography>
-                            )}
+                      <Box sx={{ position: 'relative', zIndex: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                            <Box sx={{ p: 1, borderRadius: 1.5, bgcolor: 'rgba(255,255,255,0.2)' }}>
+                                <Iconify icon="solar:videocamera-record-bold-duotone" width={24} color="white" />
+                            </Box>
+                            <Typography variant="h6" fontWeight={800}>Next Live Session</Typography>
                           </Box>
-                        </Box>
 
-                        <Box
-                          sx={{
-                            width: 52,
-                            height: 52,
-                            borderRadius: 2,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            bgcolor: alpha(theme.palette.info.main, 0.12),
-                            color: 'info.main',
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Iconify icon="solar:videocamera-bold-duotone" width={26} />
-                        </Box>
+                          {nextZoomMeeting ? (
+                            <>
+                              <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                                {nextZoomMeeting.topic}
+                              </Typography>
+                              
+                              <Stack spacing={1.5} sx={{ mb: 3 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                   <Iconify icon="solar:calendar-mark-bold" width={18} sx={{ opacity: 0.8 }} />
+                                   <Typography variant="body2" fontWeight={600}>{new Date(nextZoomMeeting.meetingDateTime).toLocaleString()}</Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                   <Iconify icon="solar:hourglass-line-bold" width={18} sx={{ opacity: 0.8 }} />
+                                   <Typography variant="body2" fontWeight={600} sx={{ color: '#FFD700' }}>{nextZoomCountdown || 'Upcoming'}</Typography>
+                                </Box>
+                                {(nextZoomMeeting.meetingId || nextZoomMeeting.passcode) && (
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    {nextZoomMeeting.meetingId && (
+                                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+                                        <Typography variant="body2" fontWeight={800} sx={{ fontFamily: 'monospace' }}>
+                                          ID: {nextZoomMeeting.meetingId}
+                                        </Typography>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => copyToClipboard(nextZoomMeeting.meetingId!)}
+                                          sx={{ bgcolor: 'rgba(255,255,255,0.16)', color: 'white' }}
+                                        >
+                                          <Iconify icon="solar:copy-bold" width={18} />
+                                        </IconButton>
+                                      </Box>
+                                    )}
+                                    {nextZoomMeeting.passcode && (
+                                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+                                        <Typography variant="body2" fontWeight={800} sx={{ fontFamily: 'monospace' }}>
+                                          Pass: {nextZoomMeeting.passcode}
+                                        </Typography>
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => copyToClipboard(nextZoomMeeting.passcode!)}
+                                          sx={{ bgcolor: 'rgba(255,255,255,0.16)', color: 'white' }}
+                                        >
+                                          <Iconify icon="solar:copy-bold" width={18} />
+                                        </IconButton>
+                                      </Box>
+                                    )}
+                                  </Box>
+                                )}
+                              </Stack>
+                              
+                              <Button
+                                variant="contained"
+                                fullWidth
+                                startIcon={<Iconify icon="solar:play-bold" />}
+                                href={nextZoomMeeting.meetingLink}
+                                target="_blank"
+                                sx={{ 
+                                    bgcolor: 'white', 
+                                    color: 'primary.dark', 
+                                    fontWeight: 800,
+                                    '&:hover': { bgcolor: 'rgba(255,255,255,0.9)' }
+                                }}
+                              >
+                                Join Session
+                              </Button>
+                            </>
+                          ) : (
+                             <Box sx={{ textAlign: 'center', py: 2 }}>
+                                <Typography variant="body2" sx={{ opacity: 0.7 }}>No upcoming sessions scheduled.</Typography>
+                             </Box>
+                          )}
                       </Box>
 
-                      <Box sx={{ mt: 2.5, display: 'flex', gap: 1.25 }}>
-                        <Button
-                          variant="contained"
-                          color="info"
-                          fullWidth
-                          startIcon={<Iconify icon="solar:play-circle-bold" />}
-                          href={nextZoomMeeting?.meetingLink}
-                          target="_blank"
-                          disabled={!nextZoomMeeting?.meetingLink}
-                          sx={{ borderRadius: 1.5 }}
-                        >
-                          Join Zoom
-                        </Button>
-                        <IconButton
-                          disabled={!nextZoomMeeting?.meetingLink}
-                          onClick={async () => {
-                            if (!nextZoomMeeting?.meetingLink) return;
-                            try {
-                              await navigator.clipboard.writeText(nextZoomMeeting.meetingLink);
-                            } catch {
-                              // ignore
-                            }
-                          }}
-                          sx={{
-                            borderRadius: 1.5,
-                            border: `1px solid ${alpha(theme.palette.info.main, 0.28)}`,
-                            bgcolor: alpha(theme.palette.common.white, 0.35),
-                          }}
-                        >
-                          <Iconify icon="solar:copy-bold" width={20} />
-                        </IconButton>
-                      </Box>
-
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: -70,
-                          right: -70,
-                          width: 180,
-                          height: 180,
-                          borderRadius: '50%',
-                          background: `radial-gradient(circle, ${alpha(theme.palette.info.main, 0.22)} 0%, ${alpha(theme.palette.info.main, 0)} 70%)`,
-                        }}
-                      />
+                      {/* Geometric Shapes */}
+                      <Box sx={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%)' }} />
                     </Card>
 
                     {/* Stats */}
-                    <Card sx={{ p: 3 }}>
-                       <Typography variant="h6" sx={{ mb: 2 }}>Course Stats</Typography>
-                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                               <Typography variant="body2" color="text.secondary">Skill Level</Typography>
-                               <Chip label={displayCourse.level} size="small" color="primary" variant="outlined" />
+                    <Card sx={{ p: 3, ...premiumGlass(theme) }}>
+                       <Typography variant="h6" sx={{ mb: 2, fontWeight: 800 }}>Overview</Typography>
+                       <Stack spacing={2}>
+                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.5, borderRadius: 2, bgcolor: alpha(theme.palette.background.default, 0.5) }}>
+                               <Typography variant="body2" color="text.secondary" fontWeight={600}>Skill Level</Typography>
+                               <Chip label={displayCourse.level} size="small" color="primary" sx={{ fontWeight: 700, borderRadius: 1 }} />
                            </Box>
-                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                               <Typography variant="body2" color="text.secondary">Language</Typography>
-                               <Typography variant="body2" fontWeight={600}>{displayCourse.language}</Typography>
+                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1.5, borderRadius: 2, bgcolor: alpha(theme.palette.background.default, 0.5) }}>
+                               <Typography variant="body2" color="text.secondary" fontWeight={600}>Certificate</Typography>
+                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <Iconify icon="solar:verified-check-bold" color={theme.palette.success.main} width={16} />
+                                  <Typography variant="body2" fontWeight={700} color="success.main">Yes</Typography>
+                               </Box>
                            </Box>
-                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                               <Typography variant="body2" color="text.secondary">Students</Typography>
-                               <Typography variant="body2" fontWeight={600}>{displayCourse.students}</Typography>
-                           </Box>
-                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                               <Typography variant="body2" color="text.secondary">Certificate</Typography>
-                               <Typography variant="body2" fontWeight={600} color="success.main">Yes</Typography>
-                           </Box>
-                       </Box>
+                       </Stack>
                     </Card>
                  </Box>
               </Grid>
@@ -1162,85 +1507,128 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
 
         {/* Curriculum Tab (Student view) */}
         {currentTab === 3 && (
-          <Box>
-            <Typography variant="h5" sx={{ mb: 3, fontWeight: 700 }}>
+          <Box sx={{ animation: `${fadeIn} 0.5s ease-out` }}>
+            <Typography variant="h5" sx={{ mb: 3, fontWeight: 800 }}>
               Curriculum
             </Typography>
 
             {weeksSorted.length > 0 ? (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {weeksSorted.map((w, idx) => (
-                  <Card key={w.id} sx={{ transition: 'all 0.3s', '&:hover': { boxShadow: theme.shadows[4] } }}>
-                    <CardContent>
+                  <Card key={w.id} sx={{ ...premiumGlass(theme), overflow: 'hidden', mb: 1, '&:before': { content: '""', position: 'absolute', top: 0, left: 0, width: 6, bottom: 0, bgcolor: 'primary.main' } }}>
+                    <CardContent sx={{ p: 3 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                         <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="h6" sx={{ fontWeight: 700 }} noWrap>
+                          <Typography variant="h6" sx={{ fontWeight: 800 }} noWrap>
                             Week {idx + 1}: {w.title}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 1 }}>
+                             <Iconify icon="solar:calendar-date-bold" width={16} />
                             {new Date(w.startDate).toLocaleDateString()} - {new Date(w.endDate).toLocaleDateString()}
                           </Typography>
                         </Box>
-                        <Chip label="Week" color="primary" variant="outlined" />
+                        <Chip label="Week" color="primary" variant="filled" sx={{ borderRadius: 1, fontWeight: 700 }} />
                       </Box>
-
-                      <Typography variant="body2" color="text.secondary">
-                        Lessons will appear here.
-                      </Typography>
                     </CardContent>
                   </Card>
                 ))}
               </Box>
             ) : modules.length > 0 ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {modules.map((module, idx) => (
-                  <Card key={module.id} sx={{ transition: 'all 0.3s', '&:hover': { boxShadow: theme.shadows[4] } }}>
-                    <CardContent>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                  <Card key={module.id} sx={{ 
+                      ...premiumGlass(theme), 
+                      overflow: 'visible', 
+                      transition: 'all 0.3s', 
+                      '&:hover': { transform: 'translateY(-4px)', boxShadow: theme.shadows[8] } 
+                  }}>
+                    <CardContent sx={{ p: { xs: 2.5, md: 4 } }}>
+                      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, mb: 3, gap: 2 }}>
                         <Box>
-                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                            Week {idx + 1}: {module.title}
+                          <Typography variant="overline" color="primary.main" fontWeight={800} sx={{ letterSpacing: 1.2 }}>
+                             MODULE {idx + 1}
+                          </Typography>
+                          <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>
+                             {module.title}
                           </Typography>
                           {module.description && (
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            <Typography variant="body1" color="text.secondary" sx={{ mt: 1, maxWidth: 600 }}>
                               {module.description}
                             </Typography>
                           )}
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Chip label={`${module.lessons.length} lessons`} color="primary" variant="outlined" />
-                          <IconButton size="small" onClick={() => handleEditWeek(module)} aria-label="Edit week">
-                            <Iconify icon="solar:pen-bold" width={18} />
-                          </IconButton>
-                          <IconButton size="small" color="error" onClick={() => handleDeleteWeek(module.id)} aria-label="Delete week">
-                            <Iconify icon="solar:trash-bin-trash-bold" width={18} />
-                          </IconButton>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Chip 
+                              icon={<Iconify icon="solar:documents-bold" width={16} />}
+                              label={`${module.lessons.length} Lessons`} 
+                              sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.primary.main, 0.1), color: 'primary.main', borderRadius: 1 }} 
+                          />
+                          {(hasRole('instructor') || hasRole('admin')) && (
+                             <Box>
+                                <IconButton size="small" onClick={() => handleEditWeek(module)}>
+                                    <Iconify icon="solar:pen-bold" width={20} />
+                                </IconButton>
+                                <IconButton size="small" color="error" onClick={() => handleDeleteWeek(module.id)}>
+                                    <Iconify icon="solar:trash-bin-trash-bold" width={20} />
+                                </IconButton>
+                             </Box>
+                          )}
                         </Box>
                       </Box>
 
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         {module.lessons.length === 0 ? (
-                          <Typography variant="body2" color="text.secondary">
-                            No lessons added yet.
-                          </Typography>
+                          <Box sx={{ p: 4, textAlign: 'center', bgcolor: alpha(theme.palette.background.default, 0.5), borderRadius: 2, border: `1px dashed ${theme.palette.divider}` }}>
+                             <Typography variant="body2" color="text.secondary">No lessons added yet.</Typography>
+                          </Box>
                         ) : (
                           module.lessons.map((lesson) => (
-                            <Box
+                            <Card
                               key={lesson.id}
                               sx={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
-                                p: 1.5,
-                                bgcolor: 'background.neutral',
-                                borderRadius: 1,
+                                p: 2,
+                                borderRadius: 2,
+                                boxShadow: 'none',
+                                border: `1px solid ${theme.palette.divider}`,
+                                transition: 'all 0.2s',
+                                '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.04), borderColor: alpha(theme.palette.primary.main, 0.2) }
                               }}
                             >
-                              <Typography variant="body2" fontWeight={600}>
-                                {lesson.order}. {lesson.title}
-                              </Typography>
-                              <Chip label={`${lesson.duration}m`} size="small" variant="outlined" />
-                            </Box>
+                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                   <Box sx={{ 
+                                       width: 40, height: 40, borderRadius: '50%', 
+                                       bgcolor: 'background.paper', 
+                                       border: `2px solid ${theme.palette.primary.main}`,
+                                       color: 'primary.main',
+                                       display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                       fontWeight: 800
+                                   }}>
+                                       {lesson.order}
+                                   </Box>
+                                   <Box>
+                                       <Typography variant="subtitle1" fontWeight={700}>
+                                           {lesson.title}
+                                       </Typography>
+                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.5 }}>
+                                           <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', fontWeight: 600 }}>
+                                               <Iconify icon="solar:clock-circle-bold" width={14} />
+                                               {lesson.duration}m
+                                           </Typography>
+                                           <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary', fontWeight: 600 }}>
+                                               <Iconify icon="solar:play-circle-bold" width={14} />
+                                               Video
+                                           </Typography>
+                                       </Box>
+                                   </Box>
+                               </Box>
+                               
+                               <IconButton color="primary">
+                                   <Iconify icon="solar:play-bold" width={24} />
+                               </IconButton>
+                            </Card>
                           ))
                         )}
                       </Box>
@@ -1249,8 +1637,9 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                 ))}
               </Box>
             ) : (
-              <Card sx={{ p: 3 }}>
-                <Typography variant="body2" color="text.secondary">
+              <Card sx={{ p: 6, textAlign: 'center', ...premiumGlass(theme) }}>
+                <Iconify icon="solar:notebook-minimalistic-bold-duotone" width={64} sx={{ color: 'text.disabled', mb: 2, opacity: 0.5 }} />
+                <Typography variant="h6" color="text.secondary">
                   No curriculum has been published yet.
                 </Typography>
               </Card>
@@ -1574,15 +1963,18 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                   <FormControl fullWidth>
                     <InputLabel>Material Type</InputLabel>
                     <Select
-                      value={editMaterialForm.materialType}
-                      onChange={(e) => setEditMaterialForm({ ...editMaterialForm, materialType: String(e.target.value) })}
+                      value={editMaterialForm.materialTypeStatusId}
+                      onChange={(e) =>
+                        setEditMaterialForm({ ...editMaterialForm, materialTypeStatusId: Number(e.target.value) })
+                      }
                       label="Material Type"
                     >
-                      <MenuItem value="link">Link</MenuItem>
-                      <MenuItem value="pdf">PDF</MenuItem>
-                      <MenuItem value="video">Video</MenuItem>
-                      <MenuItem value="document">Document</MenuItem>
-                      <MenuItem value="zoom">Zoom</MenuItem>
+                      <MenuItem value={32}>PDF</MenuItem>
+                      <MenuItem value={33}>Video</MenuItem>
+                      <MenuItem value={34}>ZoomLink</MenuItem>
+                      <MenuItem value={35}>General</MenuItem>
+                      <MenuItem value={36}>Quiz</MenuItem>
+                      <MenuItem value={37}>PowerPoint</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -1626,6 +2018,23 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h5" sx={{ fontWeight: 700 }}>Course Materials</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <ToggleButtonGroup
+                  value={materialsView}
+                  exclusive
+                  size="small"
+                  onChange={(_, next) => {
+                    if (!next) return;
+                    setMaterialsView(next);
+                  }}
+                  sx={{ bgcolor: alpha(theme.palette.background.paper, 0.5) }}
+                >
+                  <ToggleButton value="grid" aria-label="Grid view">
+                    <Iconify icon="solar:widget-3-bold-duotone" width={18} />
+                  </ToggleButton>
+                  <ToggleButton value="list" aria-label="List view">
+                    <Iconify icon="solar:list-bold-duotone" width={18} />
+                  </ToggleButton>
+                </ToggleButtonGroup>
                 {hasRole('instructor') && roundsForCourse.length > 0 && (
                   <FormControl size="small" sx={{ minWidth: 220 }}>
                     <InputLabel>Round</InputLabel>
@@ -1671,7 +2080,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
               </Card>
             )}
 
-            {activeRoundId && materials.length === 0 && (
+            {activeRoundId && materialsByWeek.every((w) => w.items.length === 0) && (
               <Card sx={{ p: 3 }}>
                 <Typography variant="body2" color="text.secondary">
                   No materials added yet.
@@ -1679,75 +2088,517 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
               </Card>
             )}
 
-            <Grid container spacing={3}>
-              {materials.map((material) => (
-                <Grid size={{ xs: 12, md: 6 }} key={material.id}>
-                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', transition: 'all 0.3s', '&:hover': { transform: 'translateY(-4px)', boxShadow: theme.shadows[8] } }}>
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                        <Box
-                          sx={{
-                            width: 56,
-                            height: 56,
-                            borderRadius: 1.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            bgcolor: alpha(theme.palette.primary.main, 0.08),
-                            color: 'primary.main',
-                          }}
-                        >
-                          <Iconify icon={getMaterialIcon(material.materialType)} width={32} />
-                        </Box>
+            {materialsView === 'grid' ? (
+              <Grid container spacing={2}>
+                {materialsByWeek.map((weekGroup, weekIdx) => {
+                  const weekKey = String(weekGroup.weekId);
+                  const expanded = expandedWeekIds[weekKey] ?? true;
 
-                        <Box sx={{ flexGrow: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>{material.title}</Typography>
-                            <Chip
-                              label={String(material.materialType || 'link').toUpperCase()}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                              sx={{ height: 20, fontSize: '0.7rem' }}
-                            />
-                          </Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, minHeight: 40 }}>
-                            {material.description}
-                          </Typography>
-                          <Typography variant="caption" color="text.disabled" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                             <Iconify icon="solar:calendar-mark-bold" width={12} />
-                            Uploaded: {new Date(material.createdAt).toLocaleDateString()}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </CardContent>
-
-                    <CardActions sx={{ p: 2, pt: 0 }}>
-                      {hasRole('instructor') && (
-                        <IconButton onClick={() => handleOpenEditMaterial(material)} aria-label="Edit material">
-                          <Iconify icon="solar:pen-bold" width={20} />
-                        </IconButton>
-                      )}
-                      {hasRole('instructor') && (
-                        <IconButton color="error" onClick={() => handleDeleteMaterial(material.id)} aria-label="Delete material">
-                          <Iconify icon="solar:trash-bin-trash-bold" width={20} />
-                        </IconButton>
-                      )}
-                      <Button
-                        variant="contained"
-                        fullWidth
-                        startIcon={<Iconify icon="solar:eye-bold" />}
-                        href={material.link}
-                        target="_blank"
-                        sx={{ borderRadius: 1 }}
+                  return (
+                    <Grid key={weekGroup.weekId} size={{ xs: 12, md: 6 }}>
+                      <Accordion
+                        expanded={expanded}
+                        onChange={() => setExpandedWeekIds((prev) => ({ ...prev, [weekKey]: !expanded }))}
+                        disableGutters
+                        sx={{
+                          ...premiumGlass(theme),
+                          overflow: 'hidden',
+                          animation: `${fadeIn} 0.45s ease-out ${weekIdx * 0.08}s backwards`,
+                          '&:before': { display: 'none' },
+                        }}
                       >
-                        {String(material.materialType || '').toLowerCase().includes('zoom') ? 'Join Session' : 'View Material'}
-                      </Button>
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
+                    <AccordionSummary
+                      expandIcon={<Iconify icon="solar:alt-arrow-down-bold" width={18} />}
+                      sx={{
+                        px: 3,
+                        py: 1.5,
+                        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.10)}, ${alpha(theme.palette.info.main, 0.08)})`,
+                        borderBottom: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                        '& .MuiAccordionSummary-content': { my: 0 },
+                      }}
+                    >
+                      <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Box
+                            sx={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: 2,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              bgcolor: alpha(theme.palette.primary.main, 0.12),
+                              color: 'primary.main',
+                            }}
+                          >
+                            <Iconify icon="solar:calendar-mark-bold-duotone" width={22} />
+                          </Box>
+                          <Box>
+                            <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+                              {weekGroup.weekTitle}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                              {weekGroup.startDate ? new Date(weekGroup.startDate).toLocaleDateString() : '—'} -{' '}
+                              {weekGroup.endDate ? new Date(weekGroup.endDate).toLocaleDateString() : '—'}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        <Chip label={`${weekGroup.items.length} items`} size="small" variant="outlined" sx={{ fontWeight: 800 }} />
+                      </Box>
+                    </AccordionSummary>
+
+                    <AccordionDetails sx={{ p: 3 }}>
+                      {weekGroup.items.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                          No materials for this week yet.
+                        </Typography>
+                      ) : materialsView === 'grid' ? (
+                        <Grid container spacing={2.5}>
+                          {weekGroup.items.map(({ main, children }) => {
+                            const meta = getMaterialMeta(main);
+
+                            return (
+                              <Grid key={main.id} size={{ xs: 12, md: 6 }}>
+                                <Card
+                                  sx={{
+                                    p: 2.25,
+                                    borderRadius: 2.5,
+                                    border: `1px solid ${alpha(theme.palette.divider, 0.65)}`,
+                                    bgcolor: alpha(theme.palette.background.default, 0.35),
+                                    transition: 'all 0.25s',
+                                    cursor: main.link ? 'pointer' : 'default',
+                                    '&:hover': {
+                                      bgcolor: alpha(theme.palette.background.default, 0.5),
+                                      borderColor: alpha(theme.palette.primary.main, 0.35),
+                                    },
+                                  }}
+                                  onClick={() => openLink(main.link)}
+                                >
+                                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                                    <Box
+                                      sx={{
+                                        width: 56,
+                                        height: 56,
+                                        borderRadius: 2.25,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.18)}, ${alpha(theme.palette.secondary.main, 0.14)})`,
+                                        color: 'primary.main',
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <Iconify icon={meta.icon} width={28} />
+                                    </Box>
+
+                                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                                          {main.title}
+                                        </Typography>
+                                        <Chip
+                                          size="small"
+                                          variant="filled"
+                                          label={meta.label}
+                                          sx={{ height: 22, fontSize: '0.68rem', fontWeight: 900, borderRadius: 1 }}
+                                        />
+                                      </Box>
+
+                                      {main.description && (
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.7 }}>
+                                          {main.description}
+                                        </Typography>
+                                      )}
+
+                                      <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                                        <Button
+                                          size="small"
+                                          variant="contained"
+                                          startIcon={<Iconify icon="solar:eye-bold" width={18} />}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openLink(main.link);
+                                          }}
+                                          disabled={!main.link}
+                                          sx={{ borderRadius: 2, fontWeight: 900 }}
+                                        >
+                                          Open
+                                        </Button>
+
+                                        <Typography variant="caption" color="text.disabled" sx={{ fontWeight: 800 }}>
+                                          {main.createdAt ? new Date(main.createdAt).toLocaleDateString() : ''}
+                                        </Typography>
+                                      </Box>
+                                    </Box>
+
+                                    {hasRole('instructor') && (
+                                      <Box sx={{ display: 'flex', gap: 1 }} onClick={(e) => e.stopPropagation()}>
+                                        <IconButton onClick={() => handleOpenEditMaterial(main)} aria-label="Edit material" size="small" sx={{ bgcolor: alpha(theme.palette.background.default, 0.5) }}>
+                                          <Iconify icon="solar:pen-bold" width={20} />
+                                        </IconButton>
+                                        <IconButton color="error" onClick={() => handleDeleteMaterial(main.id)} aria-label="Delete material" size="small" sx={{ bgcolor: alpha(theme.palette.error.main, 0.1) }}>
+                                          <Iconify icon="solar:trash-bin-trash-bold" width={20} />
+                                        </IconButton>
+                                      </Box>
+                                    )}
+                                  </Box>
+
+                                  {children.length > 0 && (
+                                    <Box sx={{ mt: 2, pl: { xs: 0, md: 8 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                      {children.map((child) => {
+                                        const childMeta = getMaterialMeta(child);
+
+                                        return (
+                                          <Box
+                                            key={child.id}
+                                            onClick={() => openLink(child.link)}
+                                            role="button"
+                                            tabIndex={0}
+                                            sx={{
+                                              p: 1.75,
+                                              borderRadius: 2,
+                                              bgcolor: alpha(theme.palette.background.paper, 0.65),
+                                              border: `1px solid ${alpha(theme.palette.divider, 0.55)}`,
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'space-between',
+                                              gap: 2,
+                                              cursor: child.link ? 'pointer' : 'default',
+                                              '&:hover': { borderColor: alpha(theme.palette.primary.main, 0.35) },
+                                            }}
+                                          >
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+                                              <Iconify icon={childMeta.icon} width={18} />
+                                              <Box sx={{ minWidth: 0 }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 900 }}>
+                                                  {child.title}
+                                                </Typography>
+                                                {child.description && (
+                                                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                                                    {child.description}
+                                                  </Typography>
+                                                )}
+                                              </Box>
+                                            </Box>
+
+                                            <Button
+                                              size="small"
+                                              variant="text"
+                                              startIcon={<Iconify icon="solar:eye-bold" width={18} />}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                openLink(child.link);
+                                              }}
+                                              disabled={!child.link}
+                                              sx={{ fontWeight: 900 }}
+                                            >
+                                              Open
+                                            </Button>
+                                          </Box>
+                                        );
+                                      })}
+                                    </Box>
+                                  )}
+                                </Card>
+                              </Grid>
+                            );
+                          })}
+                        </Grid>
+                      ) : (
+                        <Stack spacing={2}>
+                          {weekGroup.items.map(({ main, children }) => {
+                            const meta = getMaterialMeta(main);
+
+                            return (
+                              <Card
+                                key={main.id}
+                                sx={{
+                                  p: 2.25,
+                                  borderRadius: 2.5,
+                                  border: `1px solid ${alpha(theme.palette.divider, 0.65)}`,
+                                  bgcolor: alpha(theme.palette.background.default, 0.35),
+                                  cursor: main.link ? 'pointer' : 'default',
+                                }}
+                                onClick={() => openLink(main.link)}
+                              >
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                  <Box
+                                    sx={{
+                                      width: 48,
+                                      height: 48,
+                                      borderRadius: 2,
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      bgcolor: alpha(theme.palette.primary.main, 0.12),
+                                      color: 'primary.main',
+                                      flexShrink: 0,
+                                    }}
+                                  >
+                                    <Iconify icon={meta.icon} width={24} />
+                                  </Box>
+
+                                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                      <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                                        {main.title}
+                                      </Typography>
+                                      <Chip size="small" label={meta.label} sx={{ fontWeight: 900 }} />
+                                    </Box>
+                                    {main.description && (
+                                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                        {main.description}
+                                      </Typography>
+                                    )}
+                                  </Box>
+
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    startIcon={<Iconify icon="solar:eye-bold" width={18} />}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openLink(main.link);
+                                    }}
+                                    disabled={!main.link}
+                                    sx={{ borderRadius: 2, fontWeight: 900 }}
+                                  >
+                                    Open
+                                  </Button>
+
+                                  {hasRole('instructor') && (
+                                    <Box sx={{ display: 'flex', gap: 1 }} onClick={(e) => e.stopPropagation()}>
+                                      <IconButton onClick={() => handleOpenEditMaterial(main)} aria-label="Edit material" size="small" sx={{ bgcolor: alpha(theme.palette.background.default, 0.5) }}>
+                                        <Iconify icon="solar:pen-bold" width={20} />
+                                      </IconButton>
+                                      <IconButton color="error" onClick={() => handleDeleteMaterial(main.id)} aria-label="Delete material" size="small" sx={{ bgcolor: alpha(theme.palette.error.main, 0.1) }}>
+                                        <Iconify icon="solar:trash-bin-trash-bold" width={20} />
+                                      </IconButton>
+                                    </Box>
+                                  )}
+                                </Box>
+
+                                {children.length > 0 && (
+                                  <Box sx={{ mt: 2, pl: { xs: 0, md: 7 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                    {children.map((child) => {
+                                      const childMeta = getMaterialMeta(child);
+
+                                      return (
+                                        <Box
+                                          key={child.id}
+                                          onClick={() => openLink(child.link)}
+                                          role="button"
+                                          tabIndex={0}
+                                          sx={{
+                                            p: 1.5,
+                                            borderRadius: 2,
+                                            border: `1px solid ${alpha(theme.palette.divider, 0.55)}`,
+                                            bgcolor: alpha(theme.palette.background.paper, 0.65),
+                                            cursor: child.link ? 'pointer' : 'default',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: 2,
+                                          }}
+                                        >
+                                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Iconify icon={childMeta.icon} width={18} />
+                                            <Typography variant="body2" sx={{ fontWeight: 900 }}>
+                                              {child.title}
+                                            </Typography>
+                                          </Box>
+                                          <Iconify icon="solar:arrow-right-bold" width={18} />
+                                        </Box>
+                                      );
+                                    })}
+                                  </Box>
+                                )}
+                              </Card>
+                            );
+                          })}
+                        </Stack>
+                      )}
+                    </AccordionDetails>
+                      </Accordion>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {materialsByWeek.map((weekGroup, weekIdx) => {
+                  const weekKey = String(weekGroup.weekId);
+                  const expanded = expandedWeekIds[weekKey] ?? true;
+
+                  return (
+                    <Accordion
+                      key={weekGroup.weekId}
+                      expanded={expanded}
+                      onChange={() => setExpandedWeekIds((prev) => ({ ...prev, [weekKey]: !expanded }))}
+                      disableGutters
+                      sx={{
+                        ...premiumGlass(theme),
+                        overflow: 'hidden',
+                        animation: `${fadeIn} 0.45s ease-out ${weekIdx * 0.08}s backwards`,
+                        '&:before': { display: 'none' },
+                      }}
+                    >
+                      <AccordionSummary
+                        expandIcon={<Iconify icon="solar:alt-arrow-down-bold" width={18} />}
+                        sx={{
+                          px: 3,
+                          py: 1.5,
+                          background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.10)}, ${alpha(theme.palette.info.main, 0.08)})`,
+                          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
+                          '& .MuiAccordionSummary-content': { my: 0 },
+                        }}
+                      >
+                        <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box
+                              sx={{
+                                width: 44,
+                                height: 44,
+                                borderRadius: 2,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                bgcolor: alpha(theme.palette.primary.main, 0.12),
+                                color: 'primary.main',
+                              }}
+                            >
+                              <Iconify icon="solar:calendar-mark-bold-duotone" width={22} />
+                            </Box>
+                            <Box>
+                              <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+                                {weekGroup.weekTitle}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                                {weekGroup.startDate ? new Date(weekGroup.startDate).toLocaleDateString() : '—'} -{' '}
+                                {weekGroup.endDate ? new Date(weekGroup.endDate).toLocaleDateString() : '—'}
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          <Chip label={`${weekGroup.items.length} items`} size="small" variant="outlined" sx={{ fontWeight: 800 }} />
+                        </Box>
+                      </AccordionSummary>
+
+                      <AccordionDetails sx={{ p: 3 }}>
+                        {weekGroup.items.length === 0 ? (
+                          <Typography variant="body2" color="text.secondary">
+                            No materials for this week yet.
+                          </Typography>
+                        ) : (
+                          <Stack spacing={2}>
+                            {weekGroup.items.map(({ main, children }) => {
+                              const meta = getMaterialMeta(main);
+
+                              return (
+                                <Card
+                                  key={main.id}
+                                  sx={{
+                                    p: 2.25,
+                                    borderRadius: 2.5,
+                                    border: `1px solid ${alpha(theme.palette.divider, 0.65)}`,
+                                    bgcolor: alpha(theme.palette.background.default, 0.35),
+                                    cursor: main.link ? 'pointer' : 'default',
+                                  }}
+                                  onClick={() => openLink(main.link)}
+                                >
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Box
+                                      sx={{
+                                        width: 48,
+                                        height: 48,
+                                        borderRadius: 2,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        bgcolor: alpha(theme.palette.primary.main, 0.12),
+                                        color: 'primary.main',
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <Iconify icon={meta.icon} width={24} />
+                                    </Box>
+
+                                    <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                                          {main.title}
+                                        </Typography>
+                                        <Chip size="small" label={meta.label} sx={{ fontWeight: 900 }} />
+                                      </Box>
+                                      {main.description && (
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                          {main.description}
+                                        </Typography>
+                                      )}
+                                    </Box>
+
+                                    <Button
+                                      size="small"
+                                      variant="contained"
+                                      startIcon={<Iconify icon="solar:eye-bold" width={18} />}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openLink(main.link);
+                                      }}
+                                      disabled={!main.link}
+                                      sx={{ borderRadius: 2, fontWeight: 900 }}
+                                    >
+                                      Open
+                                    </Button>
+                                  </Box>
+
+                                  {children.length > 0 && (
+                                    <Box sx={{ mt: 2, pl: { xs: 0, md: 7 }, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                      {children.map((child) => {
+                                        const childMeta = getMaterialMeta(child);
+
+                                        return (
+                                          <Box
+                                            key={child.id}
+                                            onClick={() => openLink(child.link)}
+                                            role="button"
+                                            tabIndex={0}
+                                            sx={{
+                                              p: 1.5,
+                                              borderRadius: 2,
+                                              border: `1px solid ${alpha(theme.palette.divider, 0.55)}`,
+                                              bgcolor: alpha(theme.palette.background.paper, 0.65),
+                                              cursor: child.link ? 'pointer' : 'default',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'space-between',
+                                              gap: 2,
+                                            }}
+                                          >
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                              <Iconify icon={childMeta.icon} width={18} />
+                                              <Typography variant="body2" sx={{ fontWeight: 900 }}>
+                                                {child.title}
+                                              </Typography>
+                                            </Box>
+                                            <Iconify icon="solar:arrow-right-bold" width={18} />
+                                          </Box>
+                                        );
+                                      })}
+                                    </Box>
+                                  )}
+                                </Card>
+                              );
+                            })}
+                          </Stack>
+                        )}
+                      </AccordionDetails>
+                    </Accordion>
+                  );
+                })}
+              </Box>
+            )}
 
             <Dialog open={materialDialogOpen} onClose={() => setMaterialDialogOpen(false)} maxWidth="sm" fullWidth>
               <DialogTitle>Upload Material</DialogTitle>
@@ -1779,14 +2630,16 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                   <FormControl fullWidth>
                     <InputLabel>Material Type</InputLabel>
                     <Select
-                      value={materialForm.materialType}
-                      onChange={(e) => setMaterialForm({ ...materialForm, materialType: String(e.target.value) })}
+                      value={materialForm.materialTypeStatusId}
+                      onChange={(e) => setMaterialForm({ ...materialForm, materialTypeStatusId: Number(e.target.value) })}
                       label="Material Type"
                     >
-                      <MenuItem value="link">Link</MenuItem>
-                      <MenuItem value="pdf">PDF</MenuItem>
-                      <MenuItem value="video">Video</MenuItem>
-                      <MenuItem value="document">Document</MenuItem>
+                      <MenuItem value={32}>PDF</MenuItem>
+                      <MenuItem value={33}>Video</MenuItem>
+                      <MenuItem value={34}>ZoomLink</MenuItem>
+                      <MenuItem value={35}>General</MenuItem>
+                      <MenuItem value={36}>Quiz</MenuItem>
+                      <MenuItem value={37}>PowerPoint</MenuItem>
                     </Select>
                   </FormControl>
                 </Box>
@@ -1803,9 +2656,9 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
 
         {/* Zoom Sessions Tab */}
         {currentTab === 2 && (
-          <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>Zoom Sessions</Typography>
+          <Box sx={{ animation: `${fadeIn} 0.5s ease-out` }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>Zoom Sessions</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 {hasRole('instructor') && roundsForCourse.length > 0 && (
                   <FormControl size="small" sx={{ minWidth: 220 }}>
@@ -1814,6 +2667,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                       value={activeRoundId ?? ''}
                       label="Round"
                       onChange={(e) => setSelectedRoundId(String(e.target.value))}
+                      sx={{ borderRadius: 2 }}
                     >
                       {roundsForCourse.map((r) => (
                         <MenuItem key={r.id} value={r.id}>
@@ -1829,6 +2683,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                     startIcon={<Iconify icon="solar:videocamera-add-bold" />}
                     onClick={() => setZoomDialogOpen(true)}
                     disabled={!activeRoundId}
+                    sx={{ borderRadius: 2, fontWeight: 700 }}
                   >
                     Add Zoom
                   </Button>
@@ -1837,89 +2692,329 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
             </Box>
 
             {roundDataError && (
-              <Card sx={{ p: 2, mb: 2 }}>
-                <Typography variant="body2" color="error">
-                  {roundDataError}
-                </Typography>
-              </Card>
+              <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                {roundDataError}
+              </Alert>
             )}
 
             {!activeRoundId && (
-              <Card sx={{ p: 3 }}>
-                <Typography variant="body2" color="text.secondary">
+              <Card sx={{ p: 4, textAlign: 'center', borderRadius: 3, border: `1px dashed ${theme.palette.divider}` }}>
+                <Typography variant="body1" color="text.secondary">
                   Select a course round to view zoom meetings.
                 </Typography>
               </Card>
             )}
 
-            {activeRoundId && zoomMeetings.length === 0 && (
-              <Card sx={{ p: 3 }}>
-                <Typography variant="body2" color="text.secondary">
+            {activeRoundId && zoomLinksByWeek.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 900, mb: 1.5 }}>
+                  Zoom Links
+                </Typography>
+                <Stack spacing={1.5}>
+                  {zoomLinksByWeek.map((w) => (
+                    <Accordion
+                      key={w.weekId}
+                      defaultExpanded
+                      disableGutters
+                      sx={{
+                        ...premiumGlass(theme),
+                        overflow: 'hidden',
+                        '&:before': { display: 'none' },
+                      }}
+                    >
+                      <AccordionSummary
+                        expandIcon={<Iconify icon="solar:alt-arrow-down-bold" width={18} />}
+                        sx={{
+                          px: 2.5,
+                          py: 1.25,
+                          bgcolor: alpha(theme.palette.info.main, 0.08),
+                          borderBottom: `1px solid ${alpha(theme.palette.info.main, 0.14)}`,
+                          '& .MuiAccordionSummary-content': { my: 0 },
+                        }}
+                      >
+                        <Box sx={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                            <Box
+                              sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 2,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                bgcolor: alpha(theme.palette.info.main, 0.14),
+                                color: 'info.main',
+                              }}
+                            >
+                              <Iconify icon="solar:videocamera-bold-duotone" width={20} />
+                            </Box>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                              {w.weekTitle}
+                            </Typography>
+                          </Box>
+                          <Chip label={`${w.items.length} links`} size="small" variant="outlined" sx={{ fontWeight: 900 }} />
+                        </Box>
+                      </AccordionSummary>
+
+                      <AccordionDetails sx={{ p: 2.5 }}>
+                        <Stack spacing={1.25}>
+                          {w.items.map((m) => (
+                            <Box
+                              key={m.id}
+                              onClick={() => openLink(m.link)}
+                              role="button"
+                              tabIndex={0}
+                              sx={{
+                                p: 1.75,
+                                borderRadius: 2,
+                                border: `1px solid ${alpha(theme.palette.divider, 0.55)}`,
+                                bgcolor: alpha(theme.palette.background.paper, 0.65),
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 2,
+                                cursor: m.link ? 'pointer' : 'default',
+                                '&:hover': { borderColor: alpha(theme.palette.info.main, 0.35) },
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+                                <Iconify icon="solar:videocamera-bold" width={18} />
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 900 }}>
+                                    {m.title}
+                                  </Typography>
+                                  {m.description && (
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                                      {m.description}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </Box>
+
+                              <Button
+                                size="small"
+                                variant="contained"
+                                startIcon={<Iconify icon="solar:play-circle-bold" width={18} />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openLink(m.link);
+                                }}
+                                disabled={!m.link}
+                                sx={{ borderRadius: 2, fontWeight: 900 }}
+                              >
+                                Join
+                              </Button>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </AccordionDetails>
+                    </Accordion>
+                  ))}
+                </Stack>
+              </Box>
+            )}
+
+            {activeRoundId && zoomMeetings.length === 0 && zoomLinksByWeek.length === 0 && (
+              <Card sx={{ p: 6, textAlign: 'center', borderRadius: 3, border: `1px dashed ${theme.palette.divider}`, bgcolor: alpha(theme.palette.background.default, 0.5) }}>
+                 <Iconify icon="solar:videocamera-record-bold-duotone" width={64} sx={{ color: 'text.disabled', mb: 2, opacity: 0.5 }} />
+                <Typography variant="h6" color="text.secondary">
                   No zoom meetings scheduled yet.
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ opacity: 0.7 }}>
+                   Live sessions will appear here once scheduled by the instructor.
                 </Typography>
               </Card>
             )}
 
-            <Grid container spacing={2}>
-              {zoomMeetings
-                .slice()
-                .sort((a, b) => new Date(a.meetingDateTime).getTime() - new Date(b.meetingDateTime).getTime())
-                .map((meeting) => (
-                  <Grid key={meeting.id} size={{ xs: 12, md: 6 }}>
-                    <Card sx={{ height: '100%' }}>
-                      <CardContent>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 800 }} noWrap>
-                              {meeting.topic}
-                            </Typography>
-                            {meeting.description && (
-                              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                {meeting.description}
-                              </Typography>
-                            )}
-                            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                <strong>Date/Time:</strong> {new Date(meeting.meetingDateTime).toLocaleString()}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                <strong>Duration:</strong> {meeting.durationMinutes} minutes
-                              </Typography>
-                              {meeting.meetingId && (
-                                <Typography variant="caption" color="text.secondary">
-                                  <strong>Meeting ID:</strong> {meeting.meetingId}
-                                </Typography>
-                              )}
-                              {meeting.passcode && (
-                                <Typography variant="caption" color="text.secondary">
-                                  <strong>Passcode:</strong> {meeting.passcode}
-                                </Typography>
-                              )}
-                            </Box>
-                          </Box>
-                          {hasRole('instructor') && (
-                            <IconButton color="error" onClick={() => handleDeleteZoomMeeting(meeting.id)} aria-label="Delete zoom meeting">
-                              <Iconify icon="solar:trash-bin-trash-bold" width={20} />
+            {activeRoundId && zoomMeetings.length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                    Upcoming Sessions
+                  </Typography>
+                  <Chip label={`${zoomMeetingsByTime.upcoming.length} upcoming`} size="small" variant="outlined" sx={{ fontWeight: 900 }} />
+                </Box>
+                <Grid container spacing={3}>
+                  {zoomMeetingsByTime.upcoming.map((meeting, idx) => (
+                    <Grid key={meeting.id} size={{ xs: 12, md: 6 }}>
+                    <Card sx={{ 
+                        height: '100%', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        ...premiumGlass(theme),
+                        animation: `${fadeIn} 0.5s ease-out ${idx * 0.1}s backwards`,
+                        transition: 'transform 0.3s',
+                        '&:hover': { transform: 'translateY(-5px)', boxShadow: theme.shadows[16] }
+                    }}>
+                       <Box sx={{ 
+                          p: 1.5, 
+                          bgcolor: alpha(theme.palette.info.main, 0.1), 
+                          color: 'info.main', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'space-between',
+                          borderBottom: `1px solid ${alpha(theme.palette.info.main, 0.1)}`
+                       }}>
+                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Iconify icon="solar:videocamera-bold" width={20} />
+                              <Typography variant="subtitle2" fontWeight={700}>LIVE CLASS</Typography>
+                           </Box>
+                           {hasRole('instructor') && (
+                            <IconButton color="error" size="small" onClick={() => handleDeleteZoomMeeting(meeting.id)}>
+                              <Iconify icon="solar:trash-bin-trash-bold" width={18} />
                             </IconButton>
                           )}
-                        </Box>
+                       </Box>
+
+                      <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                        
+                        <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: '1.25rem' }}>
+                              {meeting.topic}
+                        </Typography>
+                        
+                        {meeting.description && (
+                              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                                {meeting.description}
+                              </Typography>
+                         )}
+
+                         <Stack spacing={1.5}>
+                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Iconify icon="solar:calendar-mark-bold-duotone" width={20} sx={{ color: 'primary.main' }} />
+                                <Typography variant="body2" fontWeight={600}>{new Date(meeting.meetingDateTime).toLocaleString()}</Typography>
+                             </Box>
+                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Iconify icon="solar:clock-circle-bold-duotone" width={20} sx={{ color: 'warning.main' }} />
+                                <Typography variant="body2" fontWeight={600}>{meeting.durationMinutes} Minutes</Typography>
+                             </Box>
+                             {meeting.passcode && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Iconify icon="solar:key-bold-duotone" width={20} sx={{ color: 'success.main' }} />
+                                    <Typography variant="body2" fontWeight={600} sx={{ fontFamily: 'monospace', bgcolor: 'background.neutral', px: 1, borderRadius: 0.5 }}>
+                                        Pass: {meeting.passcode}
+                                    </Typography>
+                                </Box>
+                             )}
+                             {meeting.meetingId && (
+                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                 <Iconify icon="solar:hashtag-bold-duotone" width={20} sx={{ color: 'info.main' }} />
+                                 <Typography variant="body2" fontWeight={600} sx={{ fontFamily: 'monospace', bgcolor: 'background.neutral', px: 1, borderRadius: 0.5 }}>
+                                   ID: {meeting.meetingId}
+                                 </Typography>
+                               </Box>
+                             )}
+                         </Stack>
                       </CardContent>
-                      <CardActions sx={{ px: 2, pb: 2 }}>
+
+                      <CardActions sx={{ p: 3, pt: 0 }}>
                         <Button
                           variant="contained"
                           fullWidth
+                          size="large"
                           startIcon={<Iconify icon="solar:play-circle-bold" />}
                           href={meeting.meetingLink}
                           target="_blank"
+                          sx={{ 
+                              borderRadius: 2, 
+                              background: `linear-gradient(90deg, ${theme.palette.info.main}, ${theme.palette.primary.main})`,
+                              boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.24)}`
+                          }}
                         >
-                          Join Zoom
+                          Join Meeting
                         </Button>
                       </CardActions>
                     </Card>
-                  </Grid>
-                ))}
-            </Grid>
+                    </Grid>
+                  ))}
+                </Grid>
 
+                {zoomMeetingsByTime.past.length > 0 && (
+                  <Box sx={{ mt: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 900 }}>
+                        Past Sessions
+                      </Typography>
+                      <Chip label={`${zoomMeetingsByTime.past.length} past`} size="small" variant="outlined" sx={{ fontWeight: 900 }} />
+                    </Box>
+                    <Grid container spacing={3}>
+                      {zoomMeetingsByTime.past.map((meeting, idx) => (
+                        <Grid key={meeting.id} size={{ xs: 12, md: 6 }}>
+                          <Card
+                            sx={{
+                              height: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              ...premiumGlass(theme),
+                              opacity: 0.85,
+                              animation: `${fadeIn} 0.5s ease-out ${idx * 0.08}s backwards`,
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                p: 1.5,
+                                bgcolor: alpha(theme.palette.grey[500], 0.12),
+                                color: 'text.secondary',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Iconify icon="solar:history-bold-duotone" width={20} />
+                                <Typography variant="subtitle2" fontWeight={700}>
+                                  PAST CLASS
+                                </Typography>
+                              </Box>
+                              {hasRole('instructor') && (
+                                <IconButton color="error" size="small" onClick={() => handleDeleteZoomMeeting(meeting.id)}>
+                                  <Iconify icon="solar:trash-bin-trash-bold" width={18} />
+                                </IconButton>
+                              )}
+                            </Box>
+
+                            <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, fontSize: '1.25rem' }}>
+                                {meeting.topic}
+                              </Typography>
+                              <Stack spacing={1.25}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                  <Iconify icon="solar:calendar-mark-bold-duotone" width={20} sx={{ color: 'text.secondary' }} />
+                                  <Typography variant="body2" fontWeight={600}>
+                                    {new Date(meeting.meetingDateTime).toLocaleString()}
+                                  </Typography>
+                                </Box>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                  <Iconify icon="solar:clock-circle-bold-duotone" width={20} sx={{ color: 'text.secondary' }} />
+                                  <Typography variant="body2" fontWeight={600}>
+                                    {meeting.durationMinutes} Minutes
+                                  </Typography>
+                                </Box>
+                              </Stack>
+                            </CardContent>
+
+                            <CardActions sx={{ p: 3, pt: 0 }}>
+                              <Button
+                                variant="outlined"
+                                fullWidth
+                                size="large"
+                                startIcon={<Iconify icon="solar:link-bold" />}
+                                href={meeting.meetingLink}
+                                target="_blank"
+                                sx={{ borderRadius: 2, fontWeight: 800 }}
+                              >
+                                Open Link
+                              </Button>
+                            </CardActions>
+                          </Card>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </Box>
+                )}
+              </Box>
+            )}
+            {/* Dialogs remain unchanged... */}
             <Dialog open={zoomDialogOpen} onClose={() => setZoomDialogOpen(false)} maxWidth="sm" fullWidth>
               <DialogTitle>Add Zoom Meeting</DialogTitle>
               <DialogContent>
@@ -1985,6 +3080,7 @@ export function CourseRoomView({ courseId }: CourseRoomViewProps) {
                 </Button>
               </DialogActions>
             </Dialog>
+           
           </Box>
         )}
 

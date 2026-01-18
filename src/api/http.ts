@@ -46,7 +46,8 @@ http.interceptors.response.use(
   (error: unknown) => {
     // Handle 401 Unauthorized - clear token and redirect to login
     if (axios.isAxiosError(error)) {
-      if (error.response?.status === 401) {
+      // Don't redirect on network/CORS errors - let the component handle it
+      if (error.response?.status === 401 && !error.code) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         localStorage.removeItem('auth_user');

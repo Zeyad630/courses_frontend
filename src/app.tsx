@@ -22,11 +22,11 @@ export default function App({ children }: AppProps) {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <ApplicationsProvider>
-          <CoursesProvider>
-            <CourseRoundsProvider>{children}</CourseRoundsProvider>
-          </CoursesProvider>
-        </ApplicationsProvider>
+        <CoursesProvider>
+          <CourseRoundsProvider>
+            <ApplicationsProvider>{children}</ApplicationsProvider>
+          </CourseRoundsProvider>
+        </CoursesProvider>
       </AuthProvider>
     </ThemeProvider>
   );

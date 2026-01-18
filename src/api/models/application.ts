@@ -1,20 +1,25 @@
-export type ApplicationStatusId = 1 | 2 | 3;
+export type ApplicationStatusId = 1 | 2 | 3 | 4;
 
 export type ApplicationDto = {
   id: number | string;
-
-  fullName: string;
-  age: number;
-  courseId: number | string;
-
-  answer1?: string;
-  answer2?: string;
-  answer3?: string;
-  answer4?: string;
-  answer5?: string;
-
+  courseRoundId: number;
+  accountId?: number;
+  applicationDate?: string;
+  status?: string;
+  fullNameEn?: string;
+  email?: string;
+  phone?: string;
+  answer1?: string | null;
+  answer2?: string | null;
+  answer3?: string | null;
+  answer4?: string | null;
+  answer5?: string | null;
+  answer6?: string | null;
+  answer7?: string | null;
+  answer8?: string | null;
+  answer9?: string | null;
+  answer10?: string | null;
   statusId?: ApplicationStatusId;
-
   studentId?: string;
   appliedAt?: string;
   reviewedAt?: string;
@@ -23,14 +28,17 @@ export type ApplicationDto = {
 };
 
 export type CreateApplicationRequest = {
-  fullName: string;
-  age: number;
-  courseId: number | string;
-  answer1: string;
-  answer2: string;
-  answer3: string;
-  answer4: string;
-  answer5: string;
+  courseRoundId: number;
+  answer1?: string | null;
+  answer2?: string | null;
+  answer3?: string | null;
+  answer4?: string | null;
+  answer5?: string | null;
+  answer6?: string | null;
+  answer7?: string | null;
+  answer8?: string | null;
+  answer9?: string | null;
+  answer10?: string | null;
 };
 
 export type UpdateApplicationStatusRequest = {

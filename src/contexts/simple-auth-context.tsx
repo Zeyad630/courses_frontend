@@ -15,17 +15,17 @@ type AuthAction =
   | { type: 'UPDATE_USER'; payload: Partial<User> };
 
 type AuthContextValue = AuthState & {
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  loginWithGoogle: (idToken: string) => Promise<User>;
   register: (params: {
     email: string;
-    otpCode: string;
     password: string;
     nationalId: string;
     fullNameEn: string;
     fullNameAr: string;
-    phone?: string;
-  }) => Promise<void>;
+    phone: string;
+    educationalLevelId: number;
+  }) => Promise<User>;
   logout: () => void;
   updateUser: (updates: Partial<User>) => void;
   hasRole: (role: UserRole) => boolean;
@@ -34,11 +34,14 @@ type AuthContextValue = AuthState & {
 
 // ----------------------------------------------------------------------
 
-// Map backend roleId to frontend UserRole
-// Note: You may need to adjust these mappings based on your backend role IDs
-const mapRoleIdToRole = (roleId: number): UserRole => {
-  // Default mapping: 1 = admin, 2 = instructor, 3 = student
-  // Adjust based on your actual role IDs in the database
+const mapBackendRoleToRole = (params: { roleId?: number; roleName?: string | null }): UserRole => {
+  const roleName = (params.roleName ?? '').toLowerCase().trim();
+  if (roleName.includes('engineer')) return 'admin';
+  if (roleName.includes('co-instructor') || roleName.includes('co instructor') || roleName.includes('instructor') || roleName.includes('teacher')) {
+    return 'instructor';
+  }
+
+  const roleId = params.roleId;
   if (roleId === 1) return 'admin';
   if (roleId === 2) return 'instructor';
   return 'student';
@@ -193,7 +196,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
               id: String(userInfo.accountId),
               name: userInfo.email.split('@')[0], // Use email prefix as name fallback
               email: userInfo.email,
-              role: mapRoleIdToRole(Number(userInfo.roleId ?? 3)),
+              role: mapBackendRoleToRole({ roleId: Number(userInfo.roleId ?? 3), roleName: null }),
               isActive: true,
               createdAt: new Date(),
               updatedAt: new Date(),
@@ -221,13 +224,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const response = await authApi.login({ email, password });
 
-      storage.setToken(response.accessToken);
+      const token = response.accessToken ?? response.token;
+      if (token) storage.setToken(token);
 
       const user: User = {
         id: String(response.accountId),
         name: email.split('@')[0],
         email: response.email,
-        role: mapRoleIdToRole(response.roleId),
+        role: mapBackendRoleToRole({ roleId: response.roleId, roleName: response.roleName }),
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -235,6 +239,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       storage.setUser(user);
       dispatch({ type: 'LOGIN', payload: user });
+      return user;
     } catch (error: unknown) {
       dispatch({ type: 'SET_LOADING', payload: false });
       if (error instanceof Error) throw error;
@@ -247,7 +252,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     try {
       const response = await authApi.googleAuth({ idToken });
-      storage.setToken(response.accessToken);
+      const token = response.accessToken ?? response.token;
+      if (token) storage.setToken(token);
 
       // Fetch user profile to get full name
       let userName = response.email.split('@')[0];
@@ -262,7 +268,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         id: String(response.accountId),
         name: userName,
         email: response.email,
-        role: mapRoleIdToRole(response.roleId),
+        role: mapBackendRoleToRole({ roleId: response.roleId, roleName: response.roleName }),
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -270,6 +276,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       storage.setUser(user);
       dispatch({ type: 'LOGIN', payload: user });
+      return user;
     } catch (error: unknown) {
       dispatch({ type: 'SET_LOADING', payload: false });
       if (error instanceof Error) throw error;
@@ -280,24 +287,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const register = useCallback(
     async (params: {
       email: string;
-      otpCode: string;
       password: string;
       nationalId: string;
       fullNameEn: string;
       fullNameAr: string;
-      phone?: string;
+      phone: string;
+      educationalLevelId: number;
     }) => {
       dispatch({ type: 'SET_LOADING', payload: true });
 
       try {
-        const response = await authApi.verifyOtpAndRegister(params);
-        storage.setToken(response.accessToken);
+        const response = await authApi.signup({
+          fullNameEn: params.fullNameEn,
+          fullNameAr: params.fullNameAr,
+          nationalId: params.nationalId,
+          phone: params.phone,
+          email: params.email,
+          password: params.password,
+          educationalLevelId: params.educationalLevelId,
+        });
+
+        const token = response.accessToken ?? response.token;
+        if (token) storage.setToken(token);
 
         const user: User = {
           id: String(response.accountId),
           name: params.fullNameEn || params.email.split('@')[0],
           email: response.email,
-          role: mapRoleIdToRole(response.roleId),
+          role: mapBackendRoleToRole({ roleId: response.roleId, roleName: response.roleName }),
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -306,6 +323,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         storage.setUser(user);
         dispatch({ type: 'LOGIN', payload: user });
+        return user;
       } catch (error: unknown) {
         dispatch({ type: 'SET_LOADING', payload: false });
         if (error instanceof Error) throw error;

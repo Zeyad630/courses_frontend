@@ -98,7 +98,7 @@ export function AdminCourseManagementView() {
 
   const loadAdminCourses = useCallback(async () => {
     try {
-      const items = await courseApi.getAvailableCourses();
+      const items = await courseApi.getCourses();
       setAdminCourses(items.map(mapCourseDtoToCourse));
     } catch (err) {
       console.error('Failed to load courses:', err);
@@ -182,7 +182,7 @@ export function AdminCourseManagementView() {
         await courseApi.updateCourse(editingCourse.id, {
           title: formData.name,
           description: formData.description,
-          levelId: levelIdFromForm(formData.level),
+          levelStatusId: levelIdFromForm(formData.level),
           durationHours: formData.duration,
           price: formData.price,
           instructorIds: formData.instructorIds,
@@ -196,7 +196,7 @@ export function AdminCourseManagementView() {
         await courseApi.createCourse({
           title: formData.name,
           description: formData.description,
-          levelId: levelIdFromForm(formData.level),
+          levelStatusId: levelIdFromForm(formData.level),
           durationHours: formData.duration,
           maxStudents: undefined,
           price: formData.price,

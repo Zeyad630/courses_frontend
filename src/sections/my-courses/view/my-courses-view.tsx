@@ -1,4 +1,6 @@
-import { useMemo } from 'react';
+import type { WeekDto } from 'src/api/models/week';
+
+import { useMemo, useEffect, useState } from 'react';
 
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
@@ -12,12 +14,23 @@ import { alpha, useTheme } from '@mui/material/styles';
 import LinearProgress from '@mui/material/LinearProgress';
 
 import { DashboardContent } from 'src/layouts/dashboard';
+import { weekApi } from 'src/api';
+import { MaterialDto } from 'src/api/models/material';
+import { courseMaterialApi } from 'src/api/services/course-material.api';
 import { useAuth } from 'src/contexts/simple-auth-context';
 import { useCoursesContext } from 'src/contexts/courses-context';
 import { useApplicationsContext } from 'src/contexts/applications-context';
 import { useCourseRoundsContext } from 'src/contexts/course-rounds-context';
 
 import { Iconify } from 'src/components/iconify';
+
+const premiumGlass = (theme: any) => ({
+  background: alpha(theme.palette.background.paper, 0.8),
+  backdropFilter: 'blur(20px)',
+  border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+  boxShadow: `0 8px 32px 0 ${alpha(theme.palette.common.black, 0.05)}`,
+  borderRadius: 3,
+});
 
 // ----------------------------------------------------------------------
 
@@ -110,36 +123,79 @@ export function MyCoursesView() {
 
   const { courses } = useCoursesContext();
   const { applications } = useApplicationsContext();
-  const { assignments, getRoundForStudent } = useCourseRoundsContext();
+  const { rounds } = useCourseRoundsContext();
 
-  const { enrolledCourses, waitingCourses } = useMemo(() => {
+  const acceptedApplications = useMemo(() => {
     const userId = user?.id;
-    if (!userId) return { enrolledCourses: [], waitingCourses: [] };
+    if (!userId) return [];
+    return applications.filter((a) => a.studentId === userId && (a.status === 'accepted' || a.status === 'payed'));
+  }, [applications, user?.id]);
 
-    const accepted = applications.filter((a) => a.studentId === userId && a.status === 'accepted');
+  const [weeksByRoundId, setWeeksByRoundId] = useState<Record<string, WeekDto[]>>({});
+  const [materialsByRoundId, setMaterialsByRoundId] = useState<Record<string, MaterialDto[]>>({});
 
-    const assignedCourseIds = new Set(
-      assignments
-        .filter((a) => a.studentId === userId)
-        .map((a) => a.courseId)
+  useEffect(() => {
+    let cancelled = false;
+
+    const roundIds = Array.from(
+      new Set(
+        acceptedApplications
+          .map((a) => String(a.courseRoundId))
+          .filter((x) => x && x !== 'undefined' && x !== 'null')
+      )
     );
 
-    const courseIds = Array.from(
-      new Set<string>([
-        ...accepted.map((a) => a.courseId),
-        ...Array.from(assignedCourseIds),
-      ])
-    );
+    if (roundIds.length === 0) {
+      setWeeksByRoundId({});
+      setMaterialsByRoundId({});
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    Promise.all(
+      roundIds.map(async (rid) => {
+          try {
+             const ws = await weekApi.getByCourseRoundId(Number(rid));
+             const ms = await courseMaterialApi.getByCourseRoundId(Number(rid));
+             return [rid, ws, ms] as const;
+          } catch(e) {
+             return [rid, [] as WeekDto[], [] as MaterialDto[]] as const;
+          }
+      })
+    ).then((entries) => {
+      if (cancelled) return;
+      const nextWeeks: Record<string, WeekDto[]> = {};
+      const nextMaterials: Record<string, MaterialDto[]> = {};
+      
+      entries.forEach(([rid, ws, ms]) => {
+        nextWeeks[rid] = Array.isArray(ws) ? [...ws] : [];
+        nextMaterials[rid] = Array.isArray(ms) ? [...ms] : [];
+      });
+      
+      setWeeksByRoundId(nextWeeks);
+      setMaterialsByRoundId(nextMaterials);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [acceptedApplications]);
+
+  const { enrolledCourses } = useMemo(() => {
+    if (!user?.id) return { enrolledCourses: [] };
 
     const enrolled: any[] = [];
-    const waiting: any[] = [];
 
-    courseIds.forEach((courseId, index) => {
-      const app = accepted.find((a) => a.courseId === courseId);
-      const course = courses.find((c) => c.id === courseId);
-      const fallback = mockEnrolledCourses[index % mockEnrolledCourses.length];
+    const now = new Date();
+    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-      const round = getRoundForStudent(courseId, userId);
+    acceptedApplications.forEach((app, index) => {
+      const courseId = app.courseId;
+
+      const round = rounds.find((r) => String(r.id) === String(app.courseRoundId));
+      const resolvedCourseId = round?.courseId ?? courseId;
+      const course = courses.find((c) => c.id === resolvedCourseId);
       const mappedStatus =
         round?.status === 'finished'
           ? 'completed'
@@ -147,40 +203,71 @@ export function MyCoursesView() {
             ? 'paused'
             : 'active';
 
-      const base = {
-        id: courseId,
-        title: course?.name ?? app?.metadata?.courseName ?? fallback?.title ?? 'Course',
-        description: course?.description ?? fallback?.description ?? '',
-        instructor: course?.instructor ?? fallback?.instructor ?? '',
-        progress: 0,
-        totalLessons: fallback?.totalLessons ?? 1,
-        completedLessons: 0,
-        nextLesson: 'Start learning',
-        dueAssignment: '—',
-        dueDate: new Date(Date.now() + (index + 3) * 24 * 60 * 60 * 1000),
-        grade: '—',
-        status: mappedStatus,
-        enrolledAt: app?.appliedAt,
-        completedAt: fallback?.completedAt,
-        image: fallback?.image ?? '/assets/school/course.webp',
-        whatYouWillLearn: fallback?.whatYouWillLearn ?? [],
-      };
+      const roundWeeks = weeksByRoundId[String(app.courseRoundId)] ?? [];
+      const roundMaterials = materialsByRoundId[String(app.courseRoundId)] ?? [];
 
-      if (!round) {
-        // If the student is accepted but not assigned yet, keep it in waiting.
-        // If they somehow have an assignment but rounds haven't loaded yet, this will self-heal once rounds load.
-        waiting.push(base);
-        return;
+      const weeksSorted = [...roundWeeks].sort(
+        (a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+      );
+      
+      const totalWeeks = weeksSorted.length;
+      const finishedWeeks = weeksSorted.filter((w) => new Date(w.endDate).getTime() < nowMidnight.getTime());
+      const progress = totalWeeks > 0 ? Math.round((finishedWeeks.length / totalWeeks) * 100) : 0;
+      
+      const upNextWeek = weeksSorted.find((w) => new Date(w.endDate).getTime() >= nowMidnight.getTime());
+      
+      let upNextTitle = 'Start learning';
+      let dueAssignment = '—';
+      
+      if (upNextWeek) {
+          upNextTitle = upNextWeek.weekTitle ?? upNextWeek.title ?? `Week ${upNextWeek.id}`;
+          
+          // Check for specific lesson or assignment in this week
+          const weeklyMaterials = roundMaterials.filter(m => m.weekId === upNextWeek.id);
+          
+          if (weeklyMaterials.length > 0) {
+                // Look for Assignment/Quiz
+                const assignment = weeklyMaterials.find(m => m.title.toLowerCase().includes('assignment') || m.title.toLowerCase().includes('quiz') || m.materialTypeStatusId === 36);
+                if (assignment) dueAssignment = assignment.title;
+                
+                // If title generic, use first lesson
+                if(upNextTitle.startsWith('Week')) {
+                    const firstLesson = weeklyMaterials.find(m => (!m.parentMaterialId) && (m.materialTypeStatusId === 32 || m.materialTypeStatusId === 33 || m.materialTypeStatusId === 37)); // Lesson/Video/PPT
+                    if(firstLesson) upNextTitle = firstLesson.title; 
+                }
+          }
+      } else if (totalWeeks > 0 && finishedWeeks.length === totalWeeks) {
+          upNextTitle = 'Course Completed';
       }
 
-      enrolled.push({
-        ...base,
-        round,
-      });
+      const base = {
+        id: resolvedCourseId,
+        title: course?.name ?? app?.metadata?.courseName ?? 'Course',
+        description: course?.description ?? '',
+        instructor: round?.createdByName ?? course?.instructor ?? '',
+        progress: Math.min(progress, 100),
+        totalLessons: totalWeeks || 1,
+        completedLessons: finishedWeeks.length,
+        nextLesson: upNextTitle,
+        dueAssignment,
+        dueDate: upNextWeek?.endDate ? new Date(upNextWeek.endDate) : new Date(Date.now() + (index + 3) * 24 * 60 * 60 * 1000),
+        grade: '—', // Placeholder
+        status: mappedStatus,
+        enrolledAt: app?.appliedAt,
+        completedAt: undefined,
+        image: '/assets/school/course.webp',
+        whatYouWillLearn: weeksSorted.length
+          ? weeksSorted.map((w) => (w.weekTitle ?? w.title ?? `Week ${w.id}`)).filter(Boolean)
+          : [],
+        weeksCount: totalWeeks,
+        roundStatusName: round?.statusName ?? '',
+      };
+
+      enrolled.push({ ...base, round });
     });
 
-    return { enrolledCourses: enrolled, waitingCourses: waiting };
-  }, [applications, assignments, courses, getRoundForStudent, user?.id]);
+    return { enrolledCourses: enrolled };
+  }, [acceptedApplications, courses, rounds, user?.id, weeksByRoundId, materialsByRoundId]);
 
   const activeCourses = enrolledCourses.filter(course => course.status === 'active');
   const pausedCourses = enrolledCourses.filter(course => course.status === 'paused');
@@ -203,25 +290,39 @@ export function MyCoursesView() {
   return (
     <DashboardContent>
       <Container maxWidth="xl">
-         {/* Glassmorphism Header */}
+         {/* Premium Header */}
         <Box
           sx={{
             mb: 5,
-            p: 4,
-            borderRadius: 3,
+            p: { xs: 3, md: 5 },
+            borderRadius: 4,
             position: 'relative',
             overflow: 'hidden',
-            background: `linear-gradient(135deg, ${theme.palette.secondary.dark} 0%, ${theme.palette.primary.main} 100%)`,
-            color: 'white',
-            boxShadow: theme.shadows[8],
+            boxShadow: '0 20px 40px -10px rgba(0,0,0,0.3)',
+            animation: 'fadeIn 0.8s ease-out',
           }}
         >
+           {/* Background Mesh Gradient */}
+           <Box sx={{
+              position: 'absolute',
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0,
+              background: `radial-gradient(at 0% 0%, ${alpha(theme.palette.secondary.dark, 0.8)} 0px, transparent 50%),
+                           radial-gradient(at 100% 0%, ${alpha(theme.palette.primary.main, 0.9)} 0px, transparent 50%),
+                           radial-gradient(at 100% 100%, ${alpha(theme.palette.info.main, 0.8)} 0px, transparent 50%),
+                           radial-gradient(at 0% 100%, ${alpha(theme.palette.success.dark, 0.5)} 0px, transparent 50%),
+                           linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)`, 
+              zIndex: 0
+           }} />
+
           <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: 'space-between', gap: 3 }}>
-             <Box>
-                <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
+             <Box sx={{ color: 'white' }}>
+                <Typography variant="h3" sx={{ fontWeight: 800, mb: 1, textShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
                   My Learning Journey
                 </Typography>
-                <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                <Typography variant="body1" sx={{ opacity: 0.9, fontSize: '1.1rem', fontWeight: 500 }}>
                   Track your progress, resume lessons, and achieve your goals.
                 </Typography>
              </Box>
@@ -235,13 +336,13 @@ export function MyCoursesView() {
                     borderColor: 'rgba(255,255,255,0.4)', 
                     color: 'white', 
                     fontWeight: 700,
+                    backdropFilter: 'blur(10px)',
                     '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } 
                 }}
               >
                 Browse More Courses
               </Button>
           </Box>
-          <Box sx={{ position: 'absolute', top: -50, right: -50, width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)' }} />
         </Box>
 
         {/* Statistics */}
@@ -287,69 +388,32 @@ export function MyCoursesView() {
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'space-between',
-                    background: stat.grad,
-                    boxShadow: theme.shadows[2],
-                    transition: 'transform 0.3s',
-                    '&:hover': { transform: 'translateY(-4px)', boxShadow: theme.shadows[8] }
+                    ...premiumGlass(theme),
+                    background: alpha(theme.palette.background.paper, 0.6),
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    '&:hover': { transform: 'translateY(-8px)', boxShadow: theme.shadows[14], background: alpha(theme.palette.background.paper, 0.8) }
                 }}
              >
                 <Box>
-                  <Typography variant="h3" sx={{ fontWeight: 800, color: `${stat.color}.darker` }}>
+                  <Typography variant="h3" sx={{ fontWeight: 800, color: (theme.palette as any)[stat.color].main, textShadow: `0 2px 10px ${alpha((theme.palette as any)[stat.color].main, 0.3)}` }}>
                     {stat.value}
                   </Typography>
-                  <Typography variant="subtitle2" sx={{ color: `${stat.color}.dark`, fontWeight: 600 }}>
+                  <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
                     {stat.title}
                   </Typography>
                 </Box>
-                <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'white', display: 'flex' }}>
-                   <Iconify icon={stat.icon} width={32} sx={{ color: `${stat.color}.main` }} />
+                <Box sx={{ 
+                    p: 2, 
+                    borderRadius: '50%', 
+                    bgcolor: alpha((theme.palette as any)[stat.color].main, 0.1), 
+                    display: 'flex',
+                    boxShadow: `0 4px 12px ${alpha((theme.palette as any)[stat.color].main, 0.2)}`
+                }}>
+                   <Iconify icon={stat.icon} width={32} sx={{ color: (theme.palette as any)[stat.color].main }} />
                 </Box>
              </Card>
           ))}
         </Box>
-
-        {waitingCourses.length > 0 && (
-          <Card
-            sx={{
-              mb: 6,
-              p: 3,
-              borderRadius: 3,
-              border: `1px dashed ${alpha(theme.palette.warning.main, 0.32)}`,
-              bgcolor: alpha(theme.palette.warning.main, 0.04),
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-              <Box
-                sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  bgcolor: alpha(theme.palette.warning.main, 0.16),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                }}
-              >
-                <Iconify icon="solar:clock-circle-bold-duotone" width={24} sx={{ color: 'warning.main' }} />
-              </Box>
-              <Box sx={{ flexGrow: 1 }}>
-                <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
-                  Waiting for round assignment
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  You have been accepted by the admin. Please wait until the instructor creates a round and assigns you.
-                </Typography>
-
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {waitingCourses.map((c) => (
-                    <Chip key={c.id} label={c.title} variant="outlined" />
-                  ))}
-                </Box>
-              </Box>
-            </Box>
-          </Card>
-        )}
 
         {/* Active Courses */}
         {activeCourses.length > 0 && (
@@ -366,8 +430,9 @@ export function MyCoursesView() {
                         height: '100%', 
                         display: 'flex', 
                         flexDirection: 'column',
-                        transition: 'all 0.3s',
-                        '&:hover': { transform: 'translateY(-8px)', boxShadow: theme.shadows[16] } 
+                        ...premiumGlass(theme),
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        '&:hover': { transform: 'translateY(-12px)', boxShadow: theme.shadows[20] } 
                     }}
                 >
                   <Box
@@ -436,7 +501,7 @@ export function MyCoursesView() {
                           variant="outlined"
                         />
                         <Chip
-                          label={String(course.round.status).toUpperCase()}
+                          label={(course.roundStatusName || String(course.round.status)).toUpperCase()}
                           size="small"
                           color={
                             course.round.status === 'active'
@@ -448,6 +513,14 @@ export function MyCoursesView() {
                                   : 'warning'
                           }
                         />
+                        {typeof course.weeksCount === 'number' && (
+                          <Chip
+                            label={`${course.weeksCount} WEEKS`}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontWeight: 800 }}
+                          />
+                        )}
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
                           {new Date(course.round.startDate).toLocaleDateString()} - {new Date(course.round.endDate).toLocaleDateString()}
                         </Typography>
@@ -516,9 +589,17 @@ export function MyCoursesView() {
                       variant="contained"
                       fullWidth
                       size="large"
-                      startIcon={<Iconify icon="solar:play-circle-bold" />}
+                      startIcon={<Iconify icon="solar:play-bold" />}
                       href={course.round ? `/course-room/${course.id}?roundId=${course.round.id}` : `/course-room/${course.id}`}
-                      sx={{ borderRadius: 30, boxShadow: theme.shadows[4] }}
+                      sx={{ 
+                          borderRadius: 2, 
+                          py: 1.5,
+                          fontSize: '1rem',
+                          fontWeight: 800,
+                          background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                          boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.3)}`,
+                          '&:hover': { boxShadow: `0 12px 24px ${alpha(theme.palette.primary.main, 0.4)}` }
+                      }}
                     >
                       Continue Learning
                     </Button>
@@ -672,7 +753,7 @@ export function MyCoursesView() {
         )}
 
         {/* Empty State */}
-        {enrolledCourses.length === 0 && waitingCourses.length === 0 && (
+        {enrolledCourses.length === 0 && (
           <Box sx={{ textAlign: 'center', py: 10 }}>
             <Box sx={{ mb: 3, p: 4, borderRadius: '50%', bgcolor: alpha(theme.palette.primary.main, 0.08), display: 'inline-flex' }}>
                  <Iconify icon="solar:notebook-minimalistic-bold-duotone" width={64} sx={{ color: 'primary.main', opacity: 0.6 }} />
